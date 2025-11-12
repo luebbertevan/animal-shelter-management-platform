@@ -30,7 +30,7 @@
 #### Animal Profiles
 
 -   Core attributes: name, species, breed, sex, age, status (`Needs Foster`, `In Foster`, `Adopted`, `Medical Hold`).
--   Health & behavior notes (diet, medications details (doses, fequency) temperament).
+-   Health & behavior notes (diet, medications details (doses, frequency) temperament).
 -   Media uploads: photos, bios.
 -   Timeline of updates (timestamped entries with weight, condition, photos).
 
