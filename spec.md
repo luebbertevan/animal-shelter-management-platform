@@ -3,7 +3,7 @@
 ### Overview
 
 -   **Audience:** Foster coordinators (e.g., Arika) managing animals in rescue settings; foster parents providing day-to-day care.
--   **Problem:** Coordinators juggle spreadsheets, text chains, and ad-hoc notes, leading to missed updates, poor visibility into foster capacity, and delayed medical attention.
+-   **Problem:** Coordinators juggle spreadsheets, text chains, and notes, leading to administrative dificulties: hard to make updates, poor visibility into foster capacity, and delays.
 -   **Mission:** Deliver a centralized, mobile-friendly workspace that streamlines foster assignments, captures animal updates, and surfaces actionable reminders so coordinators can focus on animal welfare instead of administration.
 
 ### Goals & Success Criteria
@@ -87,16 +87,24 @@
 4. Receives reminder notifications; marks tasks done or requests help.
 5. Browses foster opportunities when available; signals interest to coordinator.
 
+### Technical Approach (MVP)
 
--   **Mobile Apps:** React Native (Expo) targeting iOS and Android with role-aware interfaces for coordinators and fosters; supports offline drafts and push notifications.
--   **Coordinator Web Portal:** Lightweight React web client (Next.js or Vite) optimized for desktop oversight and bulk data entry, sharing core logic with mobile via a shared component library.
--   **State Management:** React Query or Redux Toolkit for server state synchronization across mobile and web clients.
--   **Backend:** Spring Boot REST API (leveraging existing Java expertise) with modular services (animals, fosters, tasks).
--   **Database:** PostgreSQL (RDS or Render managed service). Core tables: `animals`, `fosters`, `assignments`, `tasks`, `updates`, `media_assets`, `messages`.
--   **Authentication:** JWT-based auth with refresh tokens; roles encoded in token claims.
--   **Hosting:** Managed mobile build pipelines (Expo EAS) plus Firebase Hosting or Render for the web portal; AWS Elastic Beanstalk / Render for backend; S3-compatible storage for media.
--   **Notifications:** Push notifications via Expo for mobile, plus email delivery via SendGrid; abstraction layer to add SMS (Twilio) later.
--   **AI/Voice (Optional):** Integrate third-party speech-to-text (e.g., AWS Transcribe) + LLM API (OpenAI, Anthropic) for note structuring.
+-   **Mobile Apps:** React Native with Expo, targeting iOS and Android. Expo manages native builds, OTA updates, and push notifications while keeping the developer experience close to familiar React tooling.
+-   **Coordinator Web Portal:** Next.js (React) client for desktop oversight; shares UI primitives and business logic with the mobile apps through a shared TypeScript component library.
+-   **State Management:** React Query for API data fetching/caching plus lightweight Zustand or Context for local UI state; keeps client code predictable without heavy boilerplate.
+-   **Backend-as-a-Service:** Supabase providing PostgreSQL, authentication, storage, and real-time subscriptions. Row-level security policies enforce coordinator vs. foster permissions without custom auth plumbing.
+-   **Custom Logic:** Supabase Edge Functions (TypeScript) for server-side workflows (bulk intake parsing, scheduled reminders); can later be complemented by Next.js API routes if specialized processing is needed.
+-   **Media & Files:** Supabase storage buckets for photos and documents with signed URL access; optional function to generate thumbnails when images are uploaded.
+-   **Notifications:** Expo push notifications for mobile; transactional email via Resend or SendGrid (wrapped in a notification service so SMS providers like Twilio can be added later).
+-   **AI/Voice (Optional):** AWS Transcribe for speech-to-text ingestion and OpenAI/Anthropic APIs for LLM summarization and data extraction pipelines.
+
+### Tech Stack Rationale
+
+-   **All-in TypeScript:** React Native, Next.js, and Supabase Edge Functions keep the entire stack in TypeScript, lowering the learning curve while still teaching modern mobile/web patterns.
+-   **Managed Infrastructure:** Supabase bundles Postgres, auth, storage, and serverless functions so you can ship features quickly without standing up and operating custom infrastructure on day one.
+-   **Progressive Enhancement:** Start with Supabase capabilities; introduce dedicated microservices or message queues later only if scale or compliance demands it.
+-   **Shared Design System:** Reuse UI primitives between mobile and web for consistency and faster delivery; Expo + Next.js support shared component libraries.
+-   **Extensible Notifications:** Abstract notification delivery now to enable email and push immediately, with an easy path to add SMS/MMS when fosters request it.
 
 ### Integration & Data Considerations
 
@@ -105,13 +113,6 @@
 -   **Exports:** PDF or CSV report for animal summaries and task compliance.
 -   **Audit Trail:** Store immutable event history for compliance and debugging.
 -   **Media Handling:** Limit upload sizes; auto-generate thumbnails; ensure secure signed URLs.
-
-### Non-Functional Requirements
-
--   **Accessibility:** Responsive layout, large touch targets, WCAG AA contrast, offline-friendly drafts for updates.
--   **Security & Privacy:** Enforce role-based access; encrypt PII at rest; audit log for data changes; comply with relevant local data-protection policies.
--   **Reliability:** Cloud-hosted with automated backups; target 99.5% uptime; graceful degradation for media uploads.
--   **Scalability:** Architecture should support expansion to adoption modules without rework.
 
 ### Stretch Roadmap (Post-MVP)
 
