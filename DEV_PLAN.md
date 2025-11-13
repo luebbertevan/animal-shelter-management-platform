@@ -2,11 +2,19 @@
 
 ## Overview
 
-This plan follows a **PWA-first approach**: build a mobile-friendly web app with push notifications, then wrap it with React Native/Expo later for native app stores. This strategy lets you validate the core flow quickly while ensuring notifications work out-of-the-box for non-technical users.
+This plan follows a **PWA-first approach**: build a mobile-friendly web app with push notifications using **React Router + Vite**, then wrap it with React Native/Expo later for native app stores. This strategy lets you validate the core flow quickly while ensuring notifications work out-of-the-box for non-technical users.
+
+**Why React Router + Vite:**
+
+-   Pure SPA setup — ideal for internal dashboard/admin tools
+-   Simpler than Next.js for this use case
+-   Easy to share UI components/logic with Expo later (pure React)
+-   Simple build and hosting — any static host works (Netlify, Vercel, Supabase)
+-   More control over routing and architecture
 
 **Strategy:**
 
-1. Build core web app as PWA (mobile-first design)
+1. Build core web app as PWA (mobile-first design) with React Router + Vite
 2. Add push notifications early (FCM/Web Push API) — **critical for communication**
 3. Test on real phones via browser
 4. Wrap with Expo later for App Store/Play Store distribution
@@ -65,46 +73,76 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 0.3: Initialize PWA Web App (Next.js)
+### Milestone 0.3: Initialize PWA Web App (Vite + React Router)
 
-**Goal:** Create Next.js app with PWA capabilities and mobile-first design.
+**Goal:** Create Vite + React Router app with PWA capabilities and mobile-first design.
 
 **Tasks:**
 
-1. Create Next.js app with Bun:
+1. Create Vite app with React and TypeScript:
     ```bash
-    bunx create-next-app@latest foster-app --typescript --tailwind --app --no-src-dir
+    bunx create-vite@latest foster-app --template react-ts
     cd foster-app
     ```
 2. Install core dependencies:
     ```bash
-    bun add @supabase/supabase-js @tanstack/react-query
-    bun add -d @types/node
+    bun add react-router-dom @supabase/supabase-js @tanstack/react-query
+    bun add -d @types/react @types/react-dom
     ```
-3. Create basic folder structure:
+3. Install Tailwind CSS:
+    ```bash
+    bun add -d tailwindcss postcss autoprefixer
+    bunx tailwindcss init -p
+    ```
+4. Create basic folder structure:
     ```
     foster-app/
-    ├── app/
-    │   ├── login/
-    │   │   └── page.tsx
-    │   ├── dashboard/
-    │   │   └── page.tsx
-    │   └── layout.tsx
-    ├── components/
-    ├── lib/
-    │   └── supabase.ts
-    ├── hooks/
-    ├── types/
-    └── public/
+    ├── src/
+    │   ├── pages/
+    │   │   ├── Login.tsx
+    │   │   ├── Dashboard.tsx
+    │   │   └── Animals.tsx
+    │   ├── components/
+    │   ├── lib/
+    │   │   └── supabase.ts
+    │   ├── hooks/
+    │   ├── types/
+    │   ├── App.tsx
+    │   └── main.tsx
+    ├── public/
     │   └── manifest.json (we'll create this in Phase 3)
+    └── vite.config.ts
     ```
-4. Test run: `bun run dev`
-    - Open http://localhost:3000
+5. Set up React Router in `src/App.tsx`:
+
+    ```typescript
+    import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+    import Login from "./pages/Login";
+    import Dashboard from "./pages/Dashboard";
+
+    function App() {
+    	return (
+    		<BrowserRouter>
+    			<Routes>
+    				<Route path="/login" element={<Login />} />
+    				<Route path="/dashboard" element={<Dashboard />} />
+    				<Route
+    					path="/"
+    					element={<Navigate to="/dashboard" replace />}
+    				/>
+    			</Routes>
+    		</BrowserRouter>
+    	);
+    }
+    ```
+
+6. Test run: `bun run dev`
+    - Open http://localhost:5173 (Vite default port)
     - Open DevTools → Device Toolbar (Cmd+Shift+M) to test mobile view
 
-**Testing:** Web app launches and shows Next.js welcome page. Mobile view works in DevTools.
+**Testing:** Web app launches and shows React app. Mobile view works in DevTools. Routing works.
 
-**Deliverable:** PWA-ready web app structure initialized and running.
+**Deliverable:** PWA-ready web app structure initialized and running with React Router.
 
 ---
 
@@ -114,7 +152,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `foster-app/types/index.ts`:
+1. Create `src/types/index.ts`:
 
     ```typescript
     export type UserRole = "coordinator" | "foster";
@@ -240,23 +278,34 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `foster-app/lib/supabase.ts`:
+1. Create `src/lib/supabase.ts`:
 
     ```typescript
     import { createClient } from "@supabase/supabase-js";
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
     export const supabase = createClient(supabaseUrl, supabaseAnonKey);
     ```
 
 2. Create `foster-app/.env.local`:
     ```
-    NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_URL
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+    VITE_SUPABASE_URL=YOUR_SUPABASE_URL
+    VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
     ```
-3. Test connection: Add a test page that logs supabase object
+3. Update `vite.config.ts` to ensure env variables are available:
+
+    ```typescript
+    import { defineConfig } from "vite";
+    import react from "@vitejs/plugin-react";
+
+    export default defineConfig({
+    	plugins: [react()],
+    });
+    ```
+
+4. Test connection: Add a test page that logs supabase object
 
 **Testing:** No errors when importing supabase client.
 
@@ -270,21 +319,20 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `foster-app/app/login/page.tsx`:
+1. Create `src/pages/Login.tsx`:
 
     ```typescript
-    "use client";
-    import { useState } from "react";
-    import { useRouter } from "next/navigation";
-    import { supabase } from "@/lib/supabase";
+    import { useState, FormEvent } from "react";
+    import { useNavigate } from "react-router-dom";
+    import { supabase } from "../lib/supabase";
 
-    export default function LoginPage() {
+    export default function Login() {
     	const [email, setEmail] = useState("");
     	const [password, setPassword] = useState("");
     	const [loading, setLoading] = useState(false);
-    	const router = useRouter();
+    	const navigate = useNavigate();
 
-    	const handleLogin = async (e: React.FormEvent) => {
+    	const handleLogin = async (e: FormEvent) => {
     		e.preventDefault();
     		setLoading(true);
     		const { data, error } = await supabase.auth.signInWithPassword({
@@ -292,7 +340,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     			password,
     		});
     		if (error) alert(error.message);
-    		else router.push("/dashboard");
+    		else navigate("/dashboard");
     		setLoading(false);
     	};
 
@@ -332,8 +380,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     }
     ```
 
-2. Test: Create a test user in Supabase Auth dashboard, try logging in
-3. Test on a real phone: Deploy to Vercel (or use ngrok) and open on phone browser
+2. Update `src/App.tsx` to include Login route
+3. Test: Create a test user in Supabase Auth dashboard, try logging in
+4. Test on a real phone: Deploy to Netlify/Vercel (or use ngrok) and open on phone browser
 
 **Testing:** Can log in via web, redirects to dashboard. Works on phone browser.
 
@@ -347,12 +396,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `foster-app/hooks/useAuth.ts`:
+1. Create `src/hooks/useAuth.ts`:
 
     ```typescript
-    "use client";
     import { useEffect, useState } from "react";
-    import { supabase } from "@/lib/supabase";
+    import { supabase } from "../lib/supabase";
     import { User } from "@supabase/supabase-js";
 
     export function useAuth() {
@@ -378,13 +426,35 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     }
     ```
 
-2. Create middleware or layout component to protect routes:
-    - Create `foster-app/middleware.ts` to check auth on protected routes
-    - Or use client-side redirect in layout
+2. Create protected route component `src/components/ProtectedRoute.tsx`:
+
+    ```typescript
+    import { Navigate } from "react-router-dom";
+    import { useAuth } from "../hooks/useAuth";
+
+    export default function ProtectedRoute({
+    	children,
+    }: {
+    	children: React.ReactNode;
+    }) {
+    	const { user, loading } = useAuth();
+
+    	if (loading) return <div>Loading...</div>;
+    	if (!user) return <Navigate to="/login" replace />;
+
+    	return <>{children}</>;
+    }
+    ```
+
+3. Update `src/App.tsx` to use ProtectedRoute for dashboard:
+    ```typescript
+    import ProtectedRoute from "./components/ProtectedRoute";
+    // ... wrap dashboard route with <ProtectedRoute>
+    ```
 
 **Testing:** App redirects to login when not authenticated, stays on dashboard when logged in.
 
-**Deliverable:** Auth state management working.
+**Deliverable:** Auth state management working with route protection.
 
 ---
 
@@ -396,7 +466,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `foster-app/app/dashboard/animals/new/page.tsx` with form:
+1. Create `src/pages/animals/NewAnimal.tsx` with form:
     - Name (required)
     - Species (required)
     - Breed (optional)
@@ -407,8 +477,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     	.from("animals")
     	.insert([{ name, species, breed, status, created_by: user.id }]);
     ```
-3. Show success message and redirect to animals list
+3. Show success message and redirect to animals list using `useNavigate`:
+    ```typescript
+    const navigate = useNavigate();
+    // After successful insert:
+    navigate("/animals");
+    ```
 4. Style with Tailwind for mobile-first responsive design
+5. Add route to `src/App.tsx`: `<Route path="/animals/new" element={<NewAnimal />} />`
 
 **Testing:** Can create animal, see it in Supabase table editor. Form works on phone.
 
@@ -422,7 +498,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `foster-app/app/dashboard/animals/page.tsx`
+1. Create `src/pages/animals/AnimalsList.tsx`
 2. Fetch animals with React Query:
     ```typescript
     const { data, error } = useQuery({
@@ -439,6 +515,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     ```
 3. Display in a card-based grid (mobile: 1 column, desktop: 2-3 columns)
 4. Add loading and error states
+5. Use `Link` from react-router-dom to navigate to detail pages:
+    ```typescript
+    import { Link } from "react-router-dom";
+    <Link to={`/animals/${animal.id}`}>View Details</Link>;
+    ```
+6. Add route to `src/App.tsx`: `<Route path="/animals" element={<AnimalsList />} />`
 
 **Testing:** Can see all created animals in the list. Responsive on phone and desktop.
 
@@ -452,10 +534,21 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `foster-app/app/dashboard/animals/[id]/page.tsx`
-2. Fetch single animal by ID using React Query
-3. Display all fields in a readable, mobile-friendly format
-4. Add back button and edit link (for coordinators)
+1. Create `src/pages/animals/AnimalDetail.tsx`
+2. Get animal ID from URL using `useParams`:
+    ```typescript
+    import { useParams } from "react-router-dom";
+    const { id } = useParams<{ id: string }>();
+    ```
+3. Fetch single animal by ID using React Query
+4. Display all fields in a readable, mobile-friendly format
+5. Add back button using `useNavigate`:
+    ```typescript
+    const navigate = useNavigate();
+    <button onClick={() => navigate(-1)}>Back</button>;
+    ```
+6. Add edit link (for coordinators)
+7. Add route to `src/App.tsx`: `<Route path="/animals/:id" element={<AnimalDetail />} />`
 
 **Testing:** Can navigate to animal detail page and see all data. Works on phone.
 
@@ -471,7 +564,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `foster-app/public/manifest.json`:
+1. Install Vite PWA plugin:
+    ```bash
+    bun add -d vite-plugin-pwa
+    ```
+2. Create `public/manifest.json`:
     ```json
     {
     	"name": "Foster Platform",
@@ -497,10 +594,43 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     	]
     }
     ```
-2. Generate app icons (192x192 and 512x512) and place in `public/`
-3. Add manifest link to `app/layout.tsx`:
-    ```tsx
-    <link rel="manifest" href="/manifest.json" />
+3. Generate app icons (192x192 and 512x512) and place in `public/`
+4. Configure PWA plugin in `vite.config.ts`:
+
+    ```typescript
+    import { VitePWA } from "vite-plugin-pwa";
+
+    export default defineConfig({
+    	plugins: [
+    		react(),
+    		VitePWA({
+    			registerType: "autoUpdate",
+    			includeAssets: ["favicon.ico", "icon-192.png", "icon-512.png"],
+    			manifest: {
+    				name: "Foster Platform",
+    				short_name: "Foster",
+    				description: "Animal foster coordination platform",
+    				theme_color: "#3b82f6",
+    				icons: [
+    					{
+    						src: "icon-192.png",
+    						sizes: "192x192",
+    						type: "image/png",
+    					},
+    					{
+    						src: "icon-512.png",
+    						sizes: "512x512",
+    						type: "image/png",
+    					},
+    				],
+    			},
+    		}),
+    	],
+    });
+    ```
+
+5. Add meta tags to `index.html`:
+    ```html
     <meta name="theme-color" content="#3b82f6" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -518,19 +648,27 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Install `next-pwa`:
-    ```bash
-    bun add next-pwa
-    ```
-2. Configure in `next.config.js`:
-    ```js
-    const withPWA = require("next-pwa")({
-    	dest: "public",
-    	register: true,
-    	skipWaiting: true,
-    });
-    module.exports = withPWA({
-    	/* your config */
+1. The Vite PWA plugin automatically generates a service worker
+2. Configure caching strategies in `vite.config.ts`:
+    ```typescript
+    VitePWA({
+    	// ... previous config
+    	workbox: {
+    		globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+    		runtimeCaching: [
+    			{
+    				urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+    				handler: "NetworkFirst",
+    				options: {
+    					cacheName: "supabase-cache",
+    					expiration: {
+    						maxEntries: 50,
+    						maxAgeSeconds: 60 * 60 * 24, // 24 hours
+    					},
+    				},
+    			},
+    		],
+    	},
     });
     ```
 3. Test offline mode: Turn off WiFi, app should still load cached pages
@@ -805,13 +943,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Tasks:**
 
 1. Create bottom navigation bar for mobile (hamburger menu for desktop)
-2. Add links to:
-    - Dashboard
-    - Animals
-    - Profile
-    - (Coordinator only: Create Animal)
-3. Use Next.js Link component for client-side navigation
-4. Make navigation responsive (bottom nav on mobile, sidebar on desktop)
+2. Add links using React Router's `Link` component:
+    ```typescript
+    import { Link, useLocation } from "react-router-dom";
+    ```
+3. Add links to:
+    - Dashboard (`/dashboard`)
+    - Animals (`/animals`)
+    - Profile (`/profile`)
+    - (Coordinator only: Create Animal `/animals/new`)
+4. Use `useLocation` to highlight active route
+5. Make navigation responsive (bottom nav on mobile, sidebar on desktop)
+6. Create `src/components/Navigation.tsx` and include in layout
 
 **Testing:** Can navigate between pages smoothly. Navigation works on phone.
 
@@ -1116,4 +1259,5 @@ Each of these can be added one milestone at a time, following the same pattern: 
 -   **Use Supabase Docs:** The Supabase documentation is excellent—refer to it often.
 -   **Ask for Help:** If stuck on a milestone for more than a few hours, step back and break it down further.
 -   **Version Control:** Commit after each milestone so you can roll back if needed.
--   **Deploy Early:** Deploy to Vercel early so you can test on real phones via URL (no app store needed!).
+-   **Deploy Early:** Deploy to Netlify/Vercel/Supabase Hosting early so you can test on real phones via URL (no app store needed!). Vite builds to static files, so any static host works.
+-   **React Router Benefits:** Pure SPA setup is simpler than Next.js for internal tools. Easy to share components with Expo later since it's pure React.
