@@ -30,6 +30,7 @@
 #### Animal Profiles
 
 -   Core attributes: name, species, breed, sex, age, status (`Needs Foster`, `In Foster`, `Adopted`, `Medical Hold`).
+-   **Group support:** Animals can be organized as groups (e.g., litter of kittens) or singles. Groups share common care needs, medical schedules, and foster assignments while maintaining individual profiles for tracking.
 -   Health & behavior notes (diet, medications details (doses, frequency) temperament).
 -   Media uploads: photos, bios.
 -   Timeline of updates (timestamped entries with weight, condition, photos).
@@ -50,6 +51,7 @@
 #### Foster Opportunities Board
 
 -   Coordinator posts animals needing placement with urgency, duration, special care notes.
+-   **Display as groups or singles:** Opportunities show as groups (e.g., "Litter of 4 kittens") or individual animals, allowing fosters to see what they're committing to at a glance.
 -   Built to handle bulk intakes (e.g., large rescue shipments) where information arrives in batches or remains incomplete.
 -   Fosters browse opportunities, mark interest, or request assignment.
 -   Coordinator dashboard: pending interest requests and recommended matches (manual selection in MVP).
@@ -74,18 +76,18 @@
 #### Coordinator Flow
 
 1. Logs in (mobile app or web portal) to a dashboard showing animal statuses, pending tasks, and foster capacity.
-2. Adds a new intake via form (basic info, medical notes, photo upload). Status defaults to `Needs Foster`.
-3. Publishes foster opportunity or assigns directly to a known foster.
-4. Communicates instructions through household chat; schedules medication reminders.
+2. Adds a new intake via form (basic info, medical notes, photo upload). Can create as single animal or group (e.g., "Litter of 4 kittens"). Status defaults to `Needs Foster`.
+3. Publishes foster opportunity or assigns directly to a known foster. Groups appear as single opportunities with count (e.g., "4 kittens").
+4. Communicates instructions through household chat; schedules medication reminders (can apply to entire group or individuals).
 5. Reviews incoming updates, marks tasks complete, and adjusts care plans as needed.
 
 #### Foster Flow
 
-1. Logs in (mobile-friendly) and sees cards for current animals.
-2. Taps an animal to view care instructions, upcoming tasks, and message history.
-3. Posts update (text, weight, meds given, photo) which appends to animal log.
+1. Logs in (mobile-friendly) and sees cards for current animals (groups shown as single cards with count, e.g., "4 kittens").
+2. Taps a card to view group or individual animal details, care instructions, upcoming tasks, and message history.
+3. Posts update (text, weight, meds given, photo) which appends to animal log (can update entire group or individual animals).
 4. Receives reminder notifications; marks tasks done or requests help.
-5. Browses foster opportunities when available; signals interest to coordinator.
+5. Browses foster opportunities when available; sees groups and singles clearly labeled; signals interest to coordinator.
 
 ### Technical Approach (MVP)
 
