@@ -61,7 +61,7 @@ export interface Animal {
 	date_available_for_adoption?: string;
 
 	// Source & Placement
-	from?: string; // Rescue name/source
+	source?: string; // Rescue name/source (renamed from 'from' - SQL reserved word)
 	intake_type?: IntakeType;
 	status: AnimalStatus;
 	current_foster_id?: string; // ID of current foster (references User/Foster)
