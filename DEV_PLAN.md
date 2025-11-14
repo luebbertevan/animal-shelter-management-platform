@@ -113,28 +113,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     │   └── manifest.json (we'll create this in Phase 3)
     └── vite.config.ts
     ```
-5. Set up React Router in `src/App.tsx`:
-
-    ```typescript
-    import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-    import Login from "./pages/Login";
-    import Dashboard from "./pages/Dashboard";
-
-    function App() {
-    	return (
-    		<BrowserRouter>
-    			<Routes>
-    				<Route path="/login" element={<Login />} />
-    				<Route path="/dashboard" element={<Dashboard />} />
-    				<Route
-    					path="/"
-    					element={<Navigate to="/dashboard" replace />}
-    				/>
-    			</Routes>
-    		</BrowserRouter>
-    	);
-    }
-    ```
+5. Set up React Router in `src/App.tsx` (see existing file for reference)
 
 6. Test run: `bun run dev`
     - Open http://localhost:5173 (Vite default port)
@@ -152,38 +131,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `src/types/index.ts`:
+1. Create `src/types/index.ts` with all type definitions (see existing file for reference)
 
-    ```typescript
-    export type UserRole = "coordinator" | "foster";
-
-    export type AnimalStatus =
-    	| "needs_foster"
-    	| "in_foster"
-    	| "adopted"
-    	| "medical_hold";
-
-    export interface Animal {
-    	id: string;
-    	name: string;
-    	species: string;
-    	breed?: string;
-    	sex?: string;
-    	age?: number;
-    	status: AnimalStatus;
-    	created_at: string;
-    	updated_at: string;
-    }
-
-    export interface User {
-    	id: string;
-    	email: string;
-    	role: UserRole;
-    	full_name?: string;
-    }
-    ```
-
-**Testing:** TypeScript compiles without errors.
+**Testing:** TypeScript compiles without errors: `bunx tsc --noEmit`
 
 **Deliverable:** Type definitions ready.
 
@@ -278,32 +228,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `src/lib/supabase.ts`:
-
-    ```typescript
-    import { createClient } from "@supabase/supabase-js";
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-
-    export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    ```
+1. Create `src/lib/supabase.ts` (see existing file for reference)
 
 2. Create `foster-app/.env.local`:
     ```
     VITE_SUPABASE_URL=YOUR_SUPABASE_URL
     VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
     ```
-3. Update `vite.config.ts` to ensure env variables are available:
-
-    ```typescript
-    import { defineConfig } from "vite";
-    import react from "@vitejs/plugin-react";
-
-    export default defineConfig({
-    	plugins: [react()],
-    });
-    ```
+3. Update `vite.config.ts` to ensure env variables are available (standard Vite config)
 
 4. Test connection: Add a test page that logs supabase object
 
@@ -319,66 +251,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Create `src/pages/Login.tsx`:
-
-    ```typescript
-    import { useState, FormEvent } from "react";
-    import { useNavigate } from "react-router-dom";
-    import { supabase } from "../lib/supabase";
-
-    export default function Login() {
-    	const [email, setEmail] = useState("");
-    	const [password, setPassword] = useState("");
-    	const [loading, setLoading] = useState(false);
-    	const navigate = useNavigate();
-
-    	const handleLogin = async (e: FormEvent) => {
-    		e.preventDefault();
-    		setLoading(true);
-    		const { data, error } = await supabase.auth.signInWithPassword({
-    			email,
-    			password,
-    		});
-    		if (error) alert(error.message);
-    		else navigate("/dashboard");
-    		setLoading(false);
-    	};
-
-    	return (
-    		<div className="min-h-screen flex items-center justify-center p-4">
-    			<form
-    				onSubmit={handleLogin}
-    				className="w-full max-w-sm space-y-4"
-    			>
-    				<h1 className="text-2xl font-bold">Login</h1>
-    				<input
-    					type="email"
-    					placeholder="Email"
-    					value={email}
-    					onChange={(e) => setEmail(e.target.value)}
-    					className="w-full p-3 border rounded-lg"
-    					required
-    				/>
-    				<input
-    					type="password"
-    					placeholder="Password"
-    					value={password}
-    					onChange={(e) => setPassword(e.target.value)}
-    					className="w-full p-3 border rounded-lg"
-    					required
-    				/>
-    				<button
-    					type="submit"
-    					disabled={loading}
-    					className="w-full p-3 bg-blue-600 text-white rounded-lg disabled:opacity-50"
-    				>
-    					{loading ? "Logging in..." : "Login"}
-    				</button>
-    			</form>
-    		</div>
-    	);
-    }
-    ```
+1. Create `src/pages/Login.tsx` with mobile-first login form (see existing file for reference)
 
 2. Update `src/App.tsx` to include Login route
 3. Test: Create a test user in Supabase Auth dashboard, try logging in
