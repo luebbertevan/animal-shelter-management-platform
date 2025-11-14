@@ -1,5 +1,6 @@
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable UUID extension (Supabase uses pgcrypto for gen_random_uuid())
+-- uuid-ossp is also available but gen_random_uuid() is preferred
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Users table (extends Supabase auth.users)
 -- Stores both Foster and Coordinator profiles (role determines which fields are used)
@@ -19,10 +20,24 @@ CREATE TABLE public.profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Animal Groups table (created before animals since animals references it)
+-- Matches AnimalGroup interface from types/index.ts
+-- Note: group_photos field exists in TypeScript types but not in schema yet (intentional for MVP)
+-- Will add group_photos JSONB column later when we implement photo uploads
+CREATE TABLE public.animal_groups (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT, -- e.g., "Litter of 4 kittens"
+  description TEXT,
+  animal_ids UUID[] NOT NULL, -- Animals in this group (stored as array for MVP, could migrate to junction table later)
+  current_foster_id UUID REFERENCES public.profiles(id), -- ID of current foster (if entire group is with one foster)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Animals table
 -- Matches Animal interface from types/index.ts
 CREATE TABLE public.animals (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   
   -- Basic Info (name is optional - can be unnamed)
   name TEXT, -- Optional - can be unnamed
@@ -79,20 +94,6 @@ CREATE TABLE public.animals (
   -- Notes & Metadata
   additional_notes TEXT,
   created_by UUID REFERENCES public.profiles(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Animal Groups table
--- Matches AnimalGroup interface from types/index.ts
--- Note: group_photos field exists in TypeScript types but not in schema yet (intentional for MVP)
--- Will add group_photos JSONB column later when we implement photo uploads
-CREATE TABLE public.animal_groups (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name TEXT, -- e.g., "Litter of 4 kittens"
-  description TEXT,
-  animal_ids UUID[] NOT NULL, -- Animals in this group (stored as array for MVP, could migrate to junction table later)
-  current_foster_id UUID REFERENCES public.profiles(id), -- ID of current foster (if entire group is with one foster)
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
