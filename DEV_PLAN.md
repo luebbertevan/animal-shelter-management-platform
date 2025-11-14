@@ -147,211 +147,41 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. In Supabase dashboard, go to SQL Editor
-2. Run this migration:
+1. **Link your Supabase project** (if not already linked):
 
-    ```sql
-    -- Enable UUID extension
-    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-    -- Users table (extends Supabase auth.users)
-    -- Stores both Foster and Coordinator profiles (role determines which fields are used)
-    CREATE TABLE public.profiles (
-      id UUID REFERENCES auth.users(id) PRIMARY KEY,
-      email TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('coordinator', 'foster')),
-      full_name TEXT,
-
-      -- Foster-specific fields (nullable, only populated for fosters)
-      experience_level TEXT, -- e.g., "experienced", "new", "bottle feeder"
-      household_details TEXT, -- Other pets, kids, allergies, etc.
-      preferred_animal_profiles TEXT, -- What types of animals they prefer
-      availability TEXT, -- When they're available
-
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    );
-
-    -- Animals table
-    -- Matches Animal interface from types/index.ts
-    CREATE TABLE public.animals (
-      id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-
-      -- Basic Info (name is optional - can be unnamed)
-      name TEXT, -- Optional - can be unnamed
-      species TEXT NOT NULL, -- Usually "cat" but keeping flexible
-      primary_breed TEXT, -- Dropdown with custom input
-      physical_characteristics TEXT,
-      sex TEXT CHECK (sex IN ('male', 'female')),
-      spay_neuter_status TEXT CHECK (spay_neuter_status IN ('fixed', 'not_fixed')),
-      life_stage TEXT CHECK (life_stage IN ('kitten', 'adult', 'senior')),
-
-      -- Dates & Age (all stored as TIMESTAMPTZ, can be null)
-      intake_date TIMESTAMPTZ, -- When animal came in/coming in (combines incoming/intake)
-      date_of_birth TIMESTAMPTZ, -- Rarely available
-      age_estimate INTEGER, -- Estimated age when DOB unknown
-      date_available_for_adoption TIMESTAMPTZ,
-
-      -- Source & Placement
-      source TEXT, -- Rescue name/source (renamed from 'from' - SQL reserved word)
-      intake_type TEXT, -- Primarily "surrender" or "transfer", but allow custom
-      status TEXT NOT NULL CHECK (status IN (
-        'needs_foster',
-        'in_foster',
-        'adopted',
-        'medical_hold',
-        'in_shelter',
-        'transferring'
-      )),
-      current_foster_id UUID REFERENCES public.profiles(id), -- ID of current foster
-
-      -- Medical (structured as text for now, can be split later)
-      medical_needs TEXT, -- Medical history, conditions, medications, special care
-      vaccines TEXT, -- Could be array later, string for now
-      felv_fiv_test TEXT CHECK (felv_fiv_test IN ('negative', 'positive', 'pending', 'not_tested')),
-      felv_fiv_test_date TIMESTAMPTZ, -- When test was done or needed
-
-      -- Behavioral (structured as text for now, can be split later)
-      behavioral_needs TEXT, -- Behavioral notes, training needs, etc.
-      socialization_level INTEGER CHECK (socialization_level IN (0, 1, 2, 3, 4, 5)), -- 0-5 scale, null if unknown
-
-      -- Tags for filtering (stored as TEXT[] array for MVP, could migrate to junction table later)
-      tags TEXT[], -- e.g., "fine_with_dogs", "bottle_fed", "kid_friendly"
-
-      -- Relationships
-      group_id UUID REFERENCES public.animal_groups(id), -- If part of a group
-      parent_id UUID REFERENCES public.animals(id), -- If has a parent (mom)
-      sibling_ids UUID[], -- Related animals (stored as array for MVP, could migrate to junction table later)
-      -- Note: sibling_ids is a self-reference array - can't enforce referential integrity, but fine for MVP
-
-      -- Petstablished Sync
-      added_to_petstablished BOOLEAN DEFAULT FALSE,
-      petstablished_sync_needed BOOLEAN DEFAULT FALSE, -- Info needs updating
-      petstablished_last_synced TIMESTAMPTZ,
-
-      -- Notes & Metadata
-      additional_notes TEXT,
-      created_by UUID REFERENCES public.profiles(id),
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    );
-
-    -- Animal Groups table
-    -- Matches AnimalGroup interface from types/index.ts
-    CREATE TABLE public.animal_groups (
-      id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-      name TEXT, -- e.g., "Litter of 4 kittens"
-      description TEXT,
-      -- Photos stored as JSONB array (for MVP, could migrate to separate photos table later)
-      -- Structure: [{"url": "...", "uploaded_at": "...", "uploaded_by": "..."}, ...]
-      -- Note: We'll add group_photos column later when we implement photo uploads
-      -- For now: ALTER TABLE later to add group_photos JSONB DEFAULT '[]'::jsonb
-      animal_ids UUID[] NOT NULL, -- Animals in this group (stored as array for MVP, could migrate to junction table later)
-      current_foster_id UUID REFERENCES public.profiles(id), -- ID of current foster (if entire group is with one foster)
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    );
-
-    -- Photos stored as JSONB array in animals table (for MVP)
-    -- Structure: [{"url": "...", "uploaded_at": "...", "uploaded_by": "..."}, ...]
-    -- Note: We'll add photos column later when we implement photo uploads
-    -- For now, animals table is ready for it: we can ALTER TABLE later to add photos JSONB DEFAULT '[]'::jsonb
-
-    -- Enable Row Level Security
-    ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE public.animals ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE public.animal_groups ENABLE ROW LEVEL SECURITY;
-
-    -- RLS Policies (basic - we'll refine in later milestones)
-
-    -- Profiles Policies
-    -- Anyone can read their own profile
-    CREATE POLICY "Users can view own profile"
-      ON public.profiles FOR SELECT
-      USING (auth.uid() = id);
-
-    -- Coordinators can view all profiles
-    CREATE POLICY "Coordinators can view all profiles"
-      ON public.profiles FOR SELECT
-      USING (
-        EXISTS (
-          SELECT 1 FROM public.profiles
-          WHERE id = auth.uid() AND role = 'coordinator'
-        )
-      );
-
-    -- Users can update their own profile
-    CREATE POLICY "Users can update own profile"
-      ON public.profiles FOR UPDATE
-      USING (auth.uid() = id);
-
-    -- Animals Policies
-    -- Everyone can view animals
-    CREATE POLICY "Anyone can view animals"
-      ON public.animals FOR SELECT
-      USING (true);
-
-    -- Coordinators can create animals
-    CREATE POLICY "Coordinators can create animals"
-      ON public.animals FOR INSERT
-      WITH CHECK (
-        EXISTS (
-          SELECT 1 FROM public.profiles
-          WHERE id = auth.uid() AND role = 'coordinator'
-        )
-      );
-
-    -- Coordinators can update animals
-    CREATE POLICY "Coordinators can update animals"
-      ON public.animals FOR UPDATE
-      USING (
-        EXISTS (
-          SELECT 1 FROM public.profiles
-          WHERE id = auth.uid() AND role = 'coordinator'
-        )
-      );
-
-    -- Fosters can update animals they're fostering
-    CREATE POLICY "Fosters can update assigned animals"
-      ON public.animals FOR UPDATE
-      USING (
-        current_foster_id = auth.uid()
-        AND EXISTS (
-          SELECT 1 FROM public.profiles
-          WHERE id = auth.uid() AND role = 'foster'
-        )
-      );
-
-    -- Animal Groups Policies
-    -- Everyone can view animal groups
-    CREATE POLICY "Anyone can view animal groups"
-      ON public.animal_groups FOR SELECT
-      USING (true);
-
-    -- Coordinators can create animal groups
-    CREATE POLICY "Coordinators can create animal groups"
-      ON public.animal_groups FOR INSERT
-      WITH CHECK (
-        EXISTS (
-          SELECT 1 FROM public.profiles
-          WHERE id = auth.uid() AND role = 'coordinator'
-        )
-      );
-
-    -- Coordinators can update animal groups
-    CREATE POLICY "Coordinators can update animal groups"
-      ON public.animal_groups FOR UPDATE
-      USING (
-        EXISTS (
-          SELECT 1 FROM public.profiles
-          WHERE id = auth.uid() AND role = 'coordinator'
-        )
-      );
+    ```bash
+    supabase link --project-ref YOUR_PROJECT_REF
     ```
 
-3. Verify tables exist in Table Editor
+    - Get your project ref from Supabase dashboard → Settings → General → Reference ID
+    - Or use: `supabase link` and follow the interactive prompts
 
-**Testing:** Can see `profiles`, `animals`, and `animal_groups` tables in Supabase dashboard.
+2. **Run the migration**:
+
+    ```bash
+    supabase db push
+    ```
+
+    - This will apply the migration file: `supabase/migrations/20251114190534_initial_schema.sql`
+    - The migration creates: `profiles`, `animals`, and `animal_groups` tables with RLS policies
+
+3. **Verify tables exist**:
+    - Go to Supabase dashboard → Table Editor
+    - You should see: `profiles`, `animals`, and `animal_groups` tables
+    - Each table should show "RLS enabled" indicator
+
+**Note:** The migration SQL is in `supabase/migrations/20251114190534_initial_schema.sql`. It creates:
+
+-   `profiles` table (with foster-specific fields)
+-   `animals` table (all fields matching TypeScript types)
+-   `animal_groups` table (for group fostering)
+-   RLS policies for all tables
+
+**Testing:**
+
+-   Migration runs successfully with `supabase db push`
+-   Can see `profiles`, `animals`, and `animal_groups` tables in Supabase dashboard Table Editor
+-   Each table shows "RLS enabled"
 
 **Deliverable:** Database schema created with basic RLS policies.
 
