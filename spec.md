@@ -8,45 +8,58 @@
 
 ### Goals & Success Criteria
 
+-   **Improve communication & coordination:** All messaging has full admin visibility. All messages and updates are timestamped for clear timelines.
 -   **Reduce administrative load:** Replace manual spreadsheets and message threads with structured, searchable records.
--   **Improve communication:** Keep every update, note, and task tied to the relevant animal or foster.
--   **Maintain animal health visibility:** Track meds, check-ins, and red flags so no animal falls through the cracks.
--   **Increase foster engagement:** Make it easy for fosters to share updates, log care tasks, and volunteer for new placements.
+-   **Maintain animal health visibility:** Track meds, check-ins, and red flags so no animal falls through the cracks. Timestamped timelines show what happened when.
+-   **Increase foster engagement:** Make it easy for fosters to share updates and volunteer for new placements.
 
 ### User Roles & Permissions
 
 -   **Foster Coordinators (Admin)**
     -   Manage full animal roster and assignments.
     -   Review and publish foster opportunities.
+    -   **See all chat threads** across all foster households for full coordination visibility.
     -   Send announcements or direct messages to fosters.
-    -   Configure reminders and monitor compliance.
+    -   View timelines and activity logs across all animals and fosters.
 -   **Foster Parent (User)**
     -   View animals currently assigned to them.
-    -   Submit updates (text, photos, logs) and acknowledge tasks/reminders.
+    -   Submit updates (text, photos, logs) with timestamps.
     -   Express interest in animals needing placement.
+    -   Communicate with coordinators via household chat.
 
 ### MVP Feature Scope
 
 #### Animal Profiles
 
--   Core attributes: name, species, breed, sex, age, status (`Needs Foster`, `In Foster`, `Adopted`, `Medical Hold`).
+-   Core attributes: name (optional), species, breed, sex, age, status (`Needs Foster`, `In Foster`, `Adopted`, `Medical Hold`).
+-   **Handle unnamed intakes:** Animals can be identified by characteristics (e.g., "Orange tabby"), location/source (e.g., "Rescue from Main St"), or group membership when name is unknown. System generates display identifiers when name is missing.
+-   **Graceful handling of missing info:** All fields are optional. System tracks what information is missing and provides:
+    -   "Info Missing" section/filter to identify animals needing data completion
+    -   Quick preview cards with shortened/truncated info for easy scanning
+    -   Date added and intake source always recorded for identification
 -   **Group support:** Animals can be organized as groups (e.g., litter of kittens) or singles. Groups share common care needs, medical schedules, and foster assignments while maintaining individual profiles for tracking.
+-   **Filters & search:** Filter by status, species, date added, missing info, location/source, or group. Search by any identifier (name, characteristics, location).
 -   Health & behavior notes (diet, medications details (doses, frequency) temperament).
 -   Media uploads: photos, bios.
--   Timeline of updates (timestamped entries with weight, condition, photos).
+-   **Timeline of updates:** Chronological, timestamped entries with weight, condition, photos, status changes, and medical events. All updates are timestamped to track when information changed.
 
 #### Foster Management
 
 -   Foster directory: contact info, experience level, household details (other pets, kids, allergies), preferred animal profiles, availability.
 -   Assignment tracking: current and historical placements; surfacing open capacity.
--   Quick filters/search (e.g., “experienced bottle feeders”, “available next week”).
+-   Quick filters/search (e.g., "experienced bottle feeders", "available next week").
+-   **Foster account confirmation:** Coordinators can generate confirmation codes/passwords for approved fosters. Codes are easily shareable via text/email. Fosters use code to create account (replaces open registration). Keeps application process in Petstablished while controlling platform access.
 
 #### Communication Hub
 
+-   **Admin visibility:** All coordinators/admins can see all chat threads across all foster households for full coordination visibility.
 -   Household-level chat threads connecting coordinators with each foster household for real-time coordination.
+-   **Timestamps:** All messages are timestamped. All information updates (animal status changes, medical notes, assignments) are timestamped when relevant.
 -   Message tagging for specific animals or tasks so updates stay searchable and context-rich within the broader household conversation.
 -   Coordinator broadcast messages (e.g., reminders, policy updates).
 -   Notifications (in-app + email push) for new messages, assignment changes, reminder triggers.
+-   **Timelines:** Chronological views of activity per animal, per foster, or organization-wide to track what happened when.
+-   **Event reminders (MVP+):** Coordinators can configure SMS or email reminders for important events (e.g., spay/neuter appointments, medication schedules). Recipients can confirm receipt or completion. Reminders are timestamped and tracked.
 
 #### Foster Opportunities Board
 
@@ -56,13 +69,6 @@
 -   Fosters browse opportunities, mark interest, or request assignment.
 -   Coordinator dashboard: pending interest requests and recommended matches (manual selection in MVP).
 -   Post-MVP: leverage AI to ingest spreadsheets or PDFs from rescues, auto-creating draft profiles for rapid triage.
-
-#### Task & Reminder Engine
-
--   Create recurring or one-off tasks (medications, vet appointments, weigh-ins).
--   Assign tasks to fosters or coordinators; track completion status.
--   Automated reminder delivery via email; optional SMS integration in later iteration.
--   Calendar-style view for coordinators; simplified checklist for fosters.
 
 #### MVP+ Optional AI Assist (if resources permit)
 
@@ -75,19 +81,22 @@
 
 #### Coordinator Flow
 
-1. Logs in (mobile app or web portal) to a dashboard showing animal statuses, pending tasks, and foster capacity.
-2. Adds a new intake via form (basic info, medical notes, photo upload). Can create as single animal or group (e.g., "Litter of 4 kittens"). Status defaults to `Needs Foster`.
-3. Publishes foster opportunity or assigns directly to a known foster. Groups appear as single opportunities with count (e.g., "4 kittens").
-4. Communicates instructions through household chat; schedules medication reminders (can apply to entire group or individuals).
-5. Reviews incoming updates, marks tasks complete, and adjusts care plans as needed.
+1. Logs in (mobile app or web portal) to a dashboard showing animal statuses, foster capacity, and recent activity.
+2. Adds a new intake via form (basic info, medical notes, photo upload). Can create as single animal or group (e.g., "Litter of 4 kittens"). All fields optional—can use characteristics, location, or group for identification when name/info missing. Status defaults to `Needs Foster`.
+3. Generates confirmation codes for approved fosters (shareable via text/email) to enable account creation.
+4. Publishes foster opportunity or assigns directly to a known foster. Groups appear as single opportunities with count (e.g., "4 kittens").
+5. Communicates instructions through household chat (all admins can see all chats for coordination).
+6. Reviews incoming updates, views timelines of activity, filters by missing info, and adjusts care plans as needed.
+7. Configures event reminders (spay/neuter, meds) with SMS/email notifications and confirmation tracking.
 
 #### Foster Flow
 
-1. Logs in (mobile-friendly) and sees cards for current animals (groups shown as single cards with count, e.g., "4 kittens").
-2. Taps a card to view group or individual animal details, care instructions, upcoming tasks, and message history.
-3. Posts update (text, weight, meds given, photo) which appends to animal log (can update entire group or individual animals).
-4. Receives reminder notifications; marks tasks done or requests help.
-5. Browses foster opportunities when available; sees groups and singles clearly labeled; signals interest to coordinator.
+1. Receives confirmation code from coordinator (via text/email) and uses it to create account.
+2. Logs in (mobile-friendly) and sees cards for current animals (groups shown as single cards with count, e.g., "4 kittens").
+3. Taps a card to view group or individual animal details, care instructions, and message history.
+4. Posts update (text, weight, meds given, photo) which appends to timestamped animal log (can update entire group or individual animals).
+5. Receives notifications for new messages, assignment changes, and event reminders (spay/neuter, meds). Can confirm receipt/completion.
+6. Browses foster opportunities when available; sees groups and singles clearly labeled; signals interest to coordinator.
 
 ### Technical Approach (MVP)
 
@@ -115,9 +124,20 @@
 -   **Exports:** PDF or CSV report for animal summaries and task compliance.
 -   **Audit Trail:** Store immutable event history for compliance and debugging.
 -   **Media Handling:** Limit upload sizes; auto-generate thumbnails; ensure secure signed URLs.
+-   **Petstablished Compatibility:** App designed to work alongside Petstablished. Application process remains in Petstablished; app handles day-to-day coordination. Future integration will enable data sync (see Stretch Roadmap).
 
 ### Stretch Roadmap (Post-MVP)
 
+-   **Task & Assignment System:**
+    -   Create and assign tasks to coordinators or fosters (e.g., check up on a cat, handle a problem, hand off supplies or meds).
+    -   Track task completion status.
+    -   Calendar view for coordinators to see upcoming tasks and events.
+    -   Google Calendar integration for scheduling and reminders.
+    -   Automated reminder delivery via email/push notifications.
+-   **Petstablished Integration:**
+    -   Data transfer and synchronization between app and Petstablished.
+    -   Bidirectional updates (animal records, foster assignments, medical records).
+    -   Keeps detailed records in Petstablished while using app for day-to-day coordination.
 -   Adoption workflow (applications, approvals, contracts).
 -   Public-facing adoptable animal listings with shareable profiles and social media integrations.
 -   Advanced analytics (foster success metrics, medical trends).
