@@ -31,16 +31,23 @@
 
 #### Animal Profiles
 
--   Core attributes: name (optional), species, breed, sex, age, status (`Needs Foster`, `In Foster`, `Adopted`, `Medical Hold`).
+-   Core attributes: name (optional), species, breed, sex, age, status (`Needs Foster`, `In Foster`, `Adopted`, `Medical Hold`, `In Shelter`).
 -   **Handle unnamed intakes:** Animals can be identified by characteristics (e.g., "Orange tabby"), location/source (e.g., "Rescue from Main St"), or group membership when name is unknown. System generates display identifiers when name is missing.
--   **Graceful handling of missing info:** All fields are optional. System tracks what information is missing and provides:
+-   **Graceful handling of missing info:** All fields are optional. Missing information is expected and the system is designed to function with incomplete data. System tracks what information is missing and provides:
     -   "Info Missing" section/filter to identify animals needing data completion
+    -   Tags to show what important information is still needed (e.g., "needs: vaccines, photos, behavioral assessment")
     -   Quick preview cards with shortened/truncated info for easy scanning
     -   Date added and intake source always recorded for identification
+    -   **UI design:** Unknown/missing information is de-emphasized or shown at the bottom of detail views to avoid cluttering the screen. Only known information is prominently displayed.
+    -   **No dependencies:** System functionality never depends on optional fields. All features work even when most information is missing.
+-   **Smart data entry:** Dropdown fields (breed, intake type, rescue name, etc.) show recently added suggestions for faster data entry. Custom input allowed when needed.
 -   **Group support:** Animals can be organized as groups (e.g., litter of kittens) or singles. Groups share common care needs, medical schedules, and foster assignments while maintaining individual profiles for tracking.
--   **Filters & search:** Filter by status, species, date added, missing info, location/source, or group. Search by any identifier (name, characteristics, location).
+-   **Filters & search:** Filter by status, species, date added, missing info, location/source, group, or tags. Search by any identifier (name, characteristics, location).
+-   **Tags for filtering:** Animals can have tags like "fine with dogs", "bottle fed", "kid friendly", "needs socialization", etc. Tags enable quick filtering and matching.
+-   **Socialization level:** Track socialization on a scale (0-5) for animals needing socialization work. Can be null/unknown if not yet assessed.
+-   **Medical & behavioral needs:** Stored as flexible text fields initially. Can be split into structured tags/arrays later for more granular filtering (e.g., separate medical conditions, behavioral traits).
 -   Health & behavior notes (diet, medications details (doses, frequency) temperament).
--   Media uploads: photos, bios.
+-   **Timestamped media:** All photos are timestamped with upload date and uploader to track when information was added or changed.
 -   **Timeline of updates:** Chronological, timestamped entries with weight, condition, photos, status changes, and medical events. All updates are timestamped to track when information changed.
 
 #### Foster Management
@@ -63,7 +70,16 @@
 
 #### Foster Opportunities Board
 
--   Coordinator posts animals needing placement with urgency, duration, special care notes.
+-   **Placement requests:** Coordinator creates placement requests for animals or groups needing foster homes. Each request includes:
+    -   Name/names (for single animals or groups)
+    -   Description of what's needed
+    -   Timestamped photos (track when photos were added)
+    -   Medical needs (placement-specific, may differ from animal's general medical record)
+    -   Behavioral needs (placement-specific)
+    -   Status (pending, approved, rejected, fulfilled, cancelled)
+    -   Priority (high or normal)
+    -   Urgency, duration, special care notes
+    -   Location (e.g., "in shelter" or specific location)
 -   **Display as groups or singles:** Opportunities show as groups (e.g., "Litter of 4 kittens") or individual animals, allowing fosters to see what they're committing to at a glance.
 -   Built to handle bulk intakes (e.g., large rescue shipments) where information arrives in batches or remains incomplete.
 -   Fosters browse opportunities, mark interest, or request assignment.
