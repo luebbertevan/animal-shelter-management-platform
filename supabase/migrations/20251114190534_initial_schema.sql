@@ -11,9 +11,9 @@ CREATE TABLE public.profiles (
   
   -- Foster-specific fields (nullable, only populated for fosters)
   experience_level TEXT, -- e.g., "experienced", "new", "bottle feeder"
-  household_details TEXT, -- Other pets, kids, allergies, etc.
-  preferred_animal_profiles TEXT, -- What types of animals they prefer
-  availability TEXT, -- When they're available
+  household_details TEXT, -- Other pets, kids, allergies, etc. (might become tags later)
+  preferred_animal_profiles TEXT, -- What types of animals they prefer (might become tags later)
+  availability BOOLEAN, -- Simple toggle: available or not (might become calendar with dates later)
   
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -27,7 +27,7 @@ CREATE TABLE public.animals (
   -- Basic Info (name is optional - can be unnamed)
   name TEXT, -- Optional - can be unnamed
   species TEXT NOT NULL, -- Usually "cat" but keeping flexible
-  primary_breed TEXT, -- Dropdown with custom input
+  primary_breed TEXT, -- Dropdown with custom input (might become tags later)
   physical_characteristics TEXT,
   sex TEXT CHECK (sex IN ('male', 'female')),
   spay_neuter_status TEXT CHECK (spay_neuter_status IN ('fixed', 'not_fixed')),
@@ -85,14 +85,12 @@ CREATE TABLE public.animals (
 
 -- Animal Groups table
 -- Matches AnimalGroup interface from types/index.ts
+-- Note: group_photos field exists in TypeScript types but not in schema yet (intentional for MVP)
+-- Will add group_photos JSONB column later when we implement photo uploads
 CREATE TABLE public.animal_groups (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   name TEXT, -- e.g., "Litter of 4 kittens"
   description TEXT,
-  -- Photos stored as JSONB array (for MVP, could migrate to separate photos table later)
-  -- Structure: [{"url": "...", "uploaded_at": "...", "uploaded_by": "..."}, ...]
-  -- Note: We'll add group_photos column later when we implement photo uploads
-  -- For now: ALTER TABLE later to add group_photos JSONB DEFAULT '[]'::jsonb
   animal_ids UUID[] NOT NULL, -- Animals in this group (stored as array for MVP, could migrate to junction table later)
   current_foster_id UUID REFERENCES public.profiles(id), -- ID of current foster (if entire group is with one foster)
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -120,8 +118,8 @@ CREATE POLICY "Users can view own profile"
 -- Coordinators can view all profiles
 CREATE POLICY "Coordinators can view all profiles"
   ON public.profiles FOR SELECT
-  USING (
-    EXISTS (
+  USING ( -- This condition must be TRUE for the user to see any row in this table.
+    EXISTS ( -- checks whether the inner query returns at least 1 row.
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND role = 'coordinator'
     )
@@ -158,16 +156,8 @@ CREATE POLICY "Coordinators can update animals"
     )
   );
 
--- Fosters can update animals they're fostering
-CREATE POLICY "Fosters can update assigned animals"
-  ON public.animals FOR UPDATE
-  USING (
-    current_foster_id = auth.uid()
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role = 'foster'
-    )
-  );
+-- Note: Fosters cannot update animals for now. This will be changed later to allow updates
+-- only for specific fields (e.g., weight, condition updates, photos) but not core animal data.
 
 -- Animal Groups Policies
 -- Everyone can view animal groups

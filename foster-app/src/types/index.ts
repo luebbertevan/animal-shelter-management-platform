@@ -48,6 +48,7 @@ export interface Animal {
 	// Basic Info
 	name?: string; // Optional - can be unnamed
 	species: string; // Usually "cat" but keeping flexible
+	// NOTE: primary_breed might change to tags later for better filtering
 	primary_breed?: string; // Dropdown with custom input
 	physical_characteristics?: string;
 	sex?: Sex;
@@ -156,9 +157,12 @@ export interface Foster extends BaseUser {
 	role: "foster";
 	// Foster-specific fields
 	experience_level?: string; // e.g., "experienced", "new", "bottle feeder"
+	// NOTE: household_details might be extracted into tags later for better filtering
 	household_details?: string; // Other pets, kids, allergies, etc.
+	// NOTE: preferred_animal_profiles might be extracted into tags later for better filtering
 	preferred_animal_profiles?: string; // What types of animals they prefer
-	availability?: string; // When they're available
+	// NOTE: Simple boolean toggle for MVP. Might change to calendar with specific dates later
+	availability?: boolean; // Simple toggle: available or not available
 }
 
 export interface Coordinator extends BaseUser {

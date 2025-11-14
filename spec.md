@@ -32,6 +32,7 @@
 #### Animal Profiles
 
 -   Core attributes: name (optional), species, breed, sex, age, status (`Needs Foster`, `In Foster`, `Adopted`, `Medical Hold`, `In Shelter`).
+-   **Primary breed:** Currently a single text field with dropdown. Might change to tags later for better filtering (e.g., "domestic shorthair", "siamese mix").
 -   **Handle unnamed intakes:** Animals can be identified by characteristics (e.g., "Orange tabby"), location/source (e.g., "Rescue from Main St"), or group membership when name is unknown. System generates display identifiers when name is missing.
 -   **Graceful handling of missing info:** All fields are optional. Missing information is expected and the system is designed to function with incomplete data. System tracks what information is missing and provides:
     -   "Info Missing" section/filter to identify animals needing data completion
@@ -49,10 +50,13 @@
 -   Health & behavior notes (diet, medications details (doses, frequency) temperament).
 -   **Timestamped media:** All photos are timestamped with upload date and uploader to track when information was added or changed.
 -   **Timeline of updates:** Chronological, timestamped entries with weight, condition, photos, status changes, and medical events. All updates are timestamped to track when information changed.
+-   **Field visibility & access control:** Some fields on animals or groups might need to be inaccessible to regular users (e.g., internal notes, sensitive medical information). Decision needed on how to implement this (separate fields, role-based field visibility, or separate tables).
 
 #### Foster Management
 
 -   Foster directory: contact info, experience level, household details (other pets, kids, allergies), preferred animal profiles, availability.
+-   **Household details & preferred animal profiles:** Currently stored as text fields. Might be extracted into tags later for better filtering and matching.
+-   **Availability:** Simple boolean toggle (available/not available) for MVP. Might change to calendar with specific date ranges later for more granular scheduling.
 -   Assignment tracking: current and historical placements; surfacing open capacity.
 -   Quick filters/search (e.g., "experienced bottle feeders", "available next week").
 -   **Foster account confirmation:** Coordinators can generate confirmation codes/passwords for approved fosters. Codes are easily shareable via text/email. Fosters use code to create account (replaces open registration). Keeps application process in Petstablished while controlling platform access.
@@ -110,7 +114,7 @@
 1. Receives confirmation code from coordinator (via text/email) and uses it to create account.
 2. Logs in (mobile-friendly) and sees cards for current animals (groups shown as single cards with count, e.g., "4 kittens").
 3. Taps a card to view group or individual animal details, care instructions, and message history.
-4. Posts update (text, weight, meds given, photo) which appends to timestamped animal log (can update entire group or individual animals).
+4. **Note:** Fosters cannot update animal records directly for now. This will be changed later to allow updates only for specific fields (e.g., weight, condition updates, photos) but not core animal data. Updates will be submitted through the communication hub or a dedicated update form.
 5. Receives notifications for new messages, assignment changes, and event reminders (spay/neuter, meds). Can confirm receipt/completion.
 6. Browses foster opportunities when available; sees groups and singles clearly labeled; signals interest to coordinator.
 
