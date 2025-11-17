@@ -2,6 +2,10 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import FormContainer from "../components/ui/FormContainer";
+import Input from "../components/ui/Input";
+import Button from "../components/ui/Button";
+import ErrorMessage from "../components/ui/ErrorMessage";
 
 export default function Login() {
 	const [email, setEmail] = useState("");
@@ -40,83 +44,50 @@ export default function Login() {
 	};
 
 	return (
-		<div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-			<div className="w-full max-w-sm">
-				<div className="bg-white rounded-lg shadow-md p-6">
-					<h1 className="text-2xl font-bold mb-2 text-gray-900">
-						Login
-					</h1>
-					<p className="text-gray-600 text-sm mb-6">
-						Sign in to your account
-					</p>
-
-					<form onSubmit={handleLogin} className="space-y-4">
-						<div>
-							<label
-								htmlFor="email"
-								className="block text-sm font-medium text-gray-700 mb-1"
-							>
-								Email
-							</label>
-							<input
-								id="email"
-								type="email"
-								value={email}
-								onChange={(e) => setEmail(e.target.value)}
-								required
-								disabled={loading}
-								className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-								placeholder="Enter your email"
-							/>
-						</div>
-
-						<div>
-							<label
-								htmlFor="password"
-								className="block text-sm font-medium text-gray-700 mb-1"
-							>
-								Password
-							</label>
-							<input
-								id="password"
-								type="password"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								required
-								disabled={loading}
-								className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-								placeholder="Enter your password"
-							/>
-						</div>
-
-						{error && (
-							<div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-								{error}
-							</div>
-						)}
-
-						<button
-							type="submit"
-							disabled={loading}
-							className="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors"
+		<FormContainer
+			title="Login"
+			subtitle="Sign in to your account"
+			footer={
+				<div className="text-center">
+					<p className="text-sm text-gray-600">
+						Don't have an account?{" "}
+						<Link
+							to="/signup"
+							className="text-pink-600 hover:text-pink-700 font-medium"
 						>
-							{loading ? "Logging in..." : "Log in"}
-						</button>
-					</form>
-
-					<div className="mt-6 text-center">
-						<p className="text-sm text-gray-600">
-							Don't have an account?{" "}
-							<Link
-								to="/signup"
-								className="text-blue-600 hover:text-blue-700 font-medium"
-							>
-								Sign up
-							</Link>
-						</p>
-					</div>
+							Sign up
+						</Link>
+					</p>
 				</div>
-			</div>
-		</div>
+			}
+		>
+			<form onSubmit={handleLogin} className="space-y-4">
+				<Input
+					label="Email"
+					type="email"
+					value={email}
+					onChange={(e) => setEmail(e.target.value)}
+					required
+					disabled={loading}
+					placeholder="Enter your email"
+				/>
+
+				<Input
+					label="Password"
+					type="password"
+					value={password}
+					onChange={(e) => setPassword(e.target.value)}
+					required
+					disabled={loading}
+					placeholder="Enter your password"
+				/>
+
+				{error && <ErrorMessage>{error}</ErrorMessage>}
+
+				<Button type="submit" disabled={loading}>
+					{loading ? "Logging in..." : "Log in"}
+				</Button>
+			</form>
+		</FormContainer>
 	);
 }
