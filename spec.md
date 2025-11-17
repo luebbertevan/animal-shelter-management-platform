@@ -59,7 +59,7 @@
 -   **Availability:** Simple boolean toggle (available/not available) for MVP. Might change to calendar with specific date ranges later for more granular scheduling.
 -   Assignment tracking: current and historical placements; surfacing open capacity.
 -   Quick filters/search (e.g., "experienced bottle feeders", "available next week").
--   **Foster account confirmation:** Coordinators can generate confirmation codes/passwords for approved fosters. Codes are easily shareable via text/email. Fosters use code to create account (replaces open registration). Keeps application process in Petstablished while controlling platform access.
+-   **Foster account confirmation (Post-MVP):** Coordinators can generate confirmation codes/passwords for approved fosters. Codes are easily shareable via text/email. Fosters use code to create account (replaces open registration). Keeps application process in Petstablished while controlling platform access. For MVP, simple email/password signup is used. Confirmation code flow will be implemented after MVP to add access control.
 
 #### Communication Hub
 
@@ -103,15 +103,92 @@
 
 1. Logs in (mobile app or web portal) to a dashboard showing animal statuses, foster capacity, and recent activity.
 2. Adds a new intake via form (basic info, medical notes, photo upload). Can create as single animal or group (e.g., "Litter of 4 kittens"). All fields optional—can use characteristics, location, or group for identification when name/info missing. Status defaults to `Needs Foster`.
-3. Generates confirmation codes for approved fosters (shareable via text/email) to enable account creation.
+3. (Post-MVP) Generates confirmation codes for approved fosters (shareable via text/email) to enable account creation. For MVP, fosters sign up directly without codes.
 4. Publishes foster opportunity or assigns directly to a known foster. Groups appear as single opportunities with count (e.g., "4 kittens").
 5. Communicates instructions through household chat (all admins can see all chats for coordination).
 6. Reviews incoming updates, views timelines of activity, filters by missing info, and adjusts care plans as needed.
 7. Configures event reminders (spay/neuter, meds) with SMS/email notifications and confirmation tracking.
 
+#### Authentication & Account Management
+
+-   **Sign Up (MVP):** Simple email/password registration. Users can create accounts directly through the signup form. No confirmation codes required for MVP.
+-   **Sign Up with Confirmation Code (Post-MVP):** Coordinators generate confirmation codes for approved fosters. Fosters use the code during signup to verify they're approved. This adds access control while keeping the application process in Petstablished.
+-   **Password Recovery:** Users can reset forgotten passwords via email. "Forgot password?" link on login page triggers Supabase's password reset flow. User receives email with reset link, clicks link, and sets new password.
+-   **Sign Out:** Logout functionality available on Dashboard and other authenticated pages. Clears session and redirects to login.
+
+#### Authentication Security & Feature Specifications
+
+**To Be Determined:**
+
+-   **Password Requirements:**
+
+    -   Minimum length (e.g., 8 characters, 12 characters)
+    -   Complexity requirements (uppercase, lowercase, numbers, special characters)
+    -   Password strength indicator during signup
+    -   Password expiration policy (if any)
+    -   Password history (prevent reusing recent passwords)
+
+-   **Multi-Factor Authentication (MFA):**
+
+    -   Should MFA be required for all users or optional?
+    -   Should MFA be required only for coordinators/admins?
+    -   Preferred MFA methods (SMS, authenticator app, email)
+    -   Backup codes for account recovery
+
+-   **Social Login / OAuth:**
+
+    -   Should we support "Sign in with Google" or other providers?
+    -   Benefits: Faster signup, reduced password management burden
+    -   Considerations: Dependency on third-party, user privacy preferences
+    -   If implemented, which providers? (Google, Apple, Facebook, etc.)
+
+-   **Session Management:**
+
+    -   Session timeout duration (e.g., 30 days, 7 days, or "remember me" option)
+    -   Should users be logged out after inactivity?
+    -   Maximum concurrent sessions per user
+    -   Device/browser tracking for security
+
+-   **Account Security:**
+
+    -   Email verification requirement (should users verify email before full access?)
+    -   Account lockout after failed login attempts (how many attempts, lockout duration)
+    -   Suspicious activity detection (e.g., login from new device/location)
+    -   Security notifications (email alerts for new logins, password changes)
+
+-   **Confirmation Code Security (Post-MVP):**
+
+    -   Code format (alphanumeric, numeric only, length)
+    -   Code expiration time (e.g., 7 days, 30 days)
+    -   Single-use vs. multi-use codes
+    -   Code generation method (random, sequential, user-friendly)
+    -   Rate limiting on code validation attempts
+
+-   **Compliance & Privacy:**
+    -   Data retention policies for authentication logs
+    -   GDPR/privacy considerations for user data
+    -   Audit logging requirements (who logged in, when, from where)
+
+**Recommendation for MVP:**
+
+-   Start with Supabase's default password requirements (minimum 6 characters)
+-   No MFA required initially (can add later if needed)
+-   No social login for MVP (keeps it simple, reduces dependencies)
+-   Email verification optional for MVP (can require later)
+-   Basic session management (Supabase default: long-lived sessions)
+-   Simple account lockout (Supabase handles this automatically)
+
+**Post-MVP Enhancements:**
+
+-   Evaluate need for MFA based on usage and security incidents
+-   Consider social login if users request it
+-   Implement stricter password requirements if needed
+-   Add email verification requirement
+-   Enhanced session management and security monitoring
+
 #### Foster Flow
 
-1. Receives confirmation code from coordinator (via text/email) and uses it to create account.
+1. Creates account via signup form (MVP) or uses confirmation code from coordinator (Post-MVP).
 2. Logs in (mobile-friendly) and sees cards for current animals (groups shown as single cards with count, e.g., "4 kittens").
 3. Taps a card to view group or individual animal details, care instructions, and message history.
 4. **Note:** Fosters cannot update animal records directly for now. This will be changed later to allow updates only for specific fields (e.g., weight, condition updates, photos) but not core animal data. Updates will be submitted through the communication hub or a dedicated update form.

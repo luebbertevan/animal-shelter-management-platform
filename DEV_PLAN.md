@@ -308,6 +308,109 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
+### Milestone 1.5: Sign Up
+
+**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. For MVP, we'll use simple signup without confirmation codes (confirmation code flow will be added later as specified in the spec).
+
+**Tasks:**
+
+1. **Create Sign Up page** (`src/pages/SignUp.tsx`):
+
+    - Build a form component similar to the Login page
+    - Include email input (required, type="email")
+    - Include password input (required, type="password")
+    - Include password confirmation input (required, must match password)
+    - Add form validation:
+        - Email must be valid format
+        - Password must meet minimum requirements (e.g., 6+ characters)
+        - Password confirmation must match password
+    - Use React state to manage form field values
+    - Style with Tailwind CSS for mobile-first responsive design (matching Login page style)
+
+2. **Handle form submission**:
+
+    - Prevent default form submission behavior
+    - Validate all fields before submitting
+    - Use Supabase client to create new user account: `supabase.auth.signUp({ email, password })`
+    - Handle errors from Supabase (display error messages)
+    - Show loading state while submitting (disable form, show loading indicator)
+    - On success, show success message and redirect to login page
+
+3. **Add routing**:
+    - Add route in `src/App.tsx`: `/signup` that renders the `SignUp` component
+    - Add a "Sign up" link on the Login page (e.g., "Don't have an account? Sign up")
+    - The signup route should be public (not protected)
+
+**How It Works:**
+
+-   User navigates to `/signup` or clicks "Sign up" link from login page
+-   Fills out email and password fields
+-   Submits form, which sends data to Supabase
+-   Supabase creates the user account in the auth system
+-   On success, user is redirected to login page to sign in
+-   Note: Profile creation will be handled automatically via database trigger (Phase 5.1)
+
+**Testing:**
+
+-   Fill out form with valid email and matching passwords → should successfully create account
+-   Submit form with invalid email → should show validation error
+-   Submit form with passwords that don't match → should show error
+-   Submit form with weak password → should show error (if Supabase enforces password policy)
+-   Check Supabase dashboard → new user should appear in Authentication → Users
+-   After signup, redirect to login → should be able to log in with new credentials
+-   Test form on mobile device → should be usable and responsive
+
+**Deliverable:** Working signup form that creates user accounts in Supabase. Form is mobile-friendly and includes proper validation and error handling.
+
+---
+
+### Milestone 1.6: Sign Out
+
+**Goal:** Allow logged-in users to sign out of their account. This provides a way to end the current session and clear authentication state.
+
+**Tasks:**
+
+1. **Add logout functionality to Dashboard** (`src/pages/Dashboard.tsx`):
+
+    - Import `useNavigate` from react-router-dom
+    - Import `supabase` from lib/supabase
+    - Create a `handleLogout` function that:
+        - Calls `supabase.auth.signOut()` to clear the session
+        - Redirects to `/login` page after successful logout
+        - Handles any errors (though signOut rarely fails)
+
+2. **Add logout button to Dashboard UI**:
+
+    - Add a logout button (can be in header, top-right corner, or bottom of page)
+    - Style the button with Tailwind CSS to match app design
+    - Make it easily tappable on mobile devices
+    - Button should be clearly labeled (e.g., "Log out" or "Sign out")
+
+3. **Optional: Add logout to other pages**:
+    - Consider adding logout to a navigation component (if you create one later)
+    - For now, Dashboard is sufficient since it's the main protected page
+
+**How It Works:**
+
+-   User clicks "Log out" button on Dashboard
+-   `supabase.auth.signOut()` is called, which:
+    -   Clears the session token from localStorage
+    -   Invalidates the current session on Supabase
+-   User is redirected to `/login` page
+-   `useAuth` hook detects the auth state change and updates accordingly
+-   User can no longer access protected routes
+
+**Testing:**
+
+-   Click logout button while logged in → should sign out and redirect to login
+-   Try accessing `/dashboard` after logout → should redirect to login
+-   Verify localStorage is cleared → check DevTools, Supabase auth tokens should be gone
+-   Test on mobile device → logout button should be easy to tap
+
+**Deliverable:** Logout functionality working. Users can sign out from the Dashboard, and the session is properly cleared. After logout, users are redirected to login and cannot access protected routes.
+
+---
+
 ## Phase 2: First End-to-End Feature (Animals CRUD)
 
 ### Milestone 2.1: Create Animal
