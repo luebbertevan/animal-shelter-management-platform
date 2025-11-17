@@ -6,6 +6,10 @@
 
     - Do you need a status for animals that aren't in your shelter yet? (e.g., "transferring" from another shelter, waiting to be picked up)
     - Are there other statuses we should include beyond: Needs Foster, In Foster, Adopted, Medical Hold, In Shelter?
+    - **"Needs Foster" as status:** We're noticing that "Needs Foster" describes a need rather than a location/status. An animal could be "In Shelter" AND also need a foster, or "Transferring" AND also need a foster. Should "Needs Foster" be:
+        - A separate status option (current approach)?
+        - A separate field/tag that can be combined with location status (e.g., "In Shelter + Needs Foster")?
+        - Something else?
 
 2. **Transfer Process:**
     - When an animal is being transferred from another shelter, at what point do you add them to the system?

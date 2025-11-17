@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import Button from "../components/ui/Button";
@@ -35,6 +35,15 @@ export default function Dashboard() {
 						</div>
 					</div>
 					<p className="text-gray-600">Dashboard coming soon...</p>
+				</div>
+
+				<div className="bg-white rounded-lg shadow-md p-6 mb-4">
+					<h2 className="text-lg font-semibold text-gray-900 mb-4">
+						Quick Actions
+					</h2>
+					<Link to="/animals/new">
+						<Button>Create New Animal</Button>
+					</Link>
 				</div>
 
 				<div className="bg-white rounded-lg shadow-md p-6">

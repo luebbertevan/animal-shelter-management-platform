@@ -101,7 +101,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     │   ├── pages/
     │   │   ├── Login.tsx
     │   │   ├── Dashboard.tsx
-    │   │   └── Animals.tsx
+    │   │   └── animals/
+    │   │       └── NewAnimal.tsx
     │   ├── components/
     │   ├── lib/
     │   │   └── supabase.ts
@@ -452,7 +453,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. **Create the New Animal form page** (`src/pages/animals/NewAnimal.tsx`):
+1. **Add navigation and routing**:
+
+    - Add a route in `src/App.tsx` for the new animal page: `/animals/new`
+    - Create a basic `src/pages/animals/NewAnimal.tsx` page (can be empty or just a heading for now)
+    - Ensure the route is protected (wrapped in ProtectedRoute if needed)
+    - Consider adding a "Create Animal" button/link on the Dashboard (can be done in M2.2 for animals list page)
+
+2. **Create the New Animal form page** (`src/pages/animals/NewAnimal.tsx`):
 
     - Build a form component with the following fields:
         - Name field (text input, required)
@@ -463,7 +471,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Add form validation to ensure required fields are filled
     - Style the form with Tailwind CSS for mobile-first responsive design (single column on mobile, comfortable spacing)
 
-2. **Handle form submission**:
+3. **Handle form submission**:
 
     - Prevent default form submission behavior
     - Get the current logged-in user's ID (from the auth context or useAuth hook)
@@ -472,16 +480,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Handle errors from Supabase (display error message if insert fails)
     - Show loading state while submitting (disable form, show loading indicator)
 
-3. **Handle successful submission**:
+4. **Handle successful submission**:
 
     - Display a success message to the user
     - Use React Router's `useNavigate` hook to redirect to the animals list page (`/animals`)
     - This provides immediate feedback that the animal was created
-
-4. **Add navigation and routing**:
-    - Add a route in `src/App.tsx` for the new animal page: `/animals/new`
-    - Consider adding a "Create Animal" button/link on the animals list page (can be done in M2.2)
-    - Ensure the route is protected (wrapped in ProtectedRoute if needed)
 
 **How It Works:**
 
