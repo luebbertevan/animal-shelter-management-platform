@@ -28,17 +28,16 @@ export default function Login() {
 
 			if (signInError) {
 				setError(signInError.message);
-				setLoading(false);
 			} else if (data.session) {
 				// Session is available in the response - login successful
 				navigate("/dashboard", { replace: true });
 			} else {
 				// No session (unexpected - should not happen with signInWithPassword)
 				setError("Login failed. Please try again.");
-				setLoading(false);
 			}
 		} catch {
 			setError("An unexpected error occurred. Please try again.");
+		} finally {
 			setLoading(false);
 		}
 	};
