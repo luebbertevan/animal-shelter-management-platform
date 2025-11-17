@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../hooks/useAuth";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import Toggle from "../../components/ui/Toggle";
@@ -8,12 +10,14 @@ import ErrorMessage from "../../components/ui/ErrorMessage";
 import type { AnimalStatus, Sex } from "../../types";
 
 export default function NewAnimal() {
+	const { user } = useAuth();
 	const [name, setName] = useState("");
 	const [status, setStatus] = useState<AnimalStatus>("needs_foster");
 	const [sex, setSex] = useState<Sex | "">("");
 	const [priority, setPriority] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [loading, setLoading] = useState(false);
+	const [submitError, setSubmitError] = useState<string | null>(null);
 
 	const statusOptions: { value: AnimalStatus; label: string }[] = [
 		{ value: "needs_foster", label: "Needs Foster" },
@@ -43,14 +47,59 @@ export default function NewAnimal() {
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		setErrors({});
+		setSubmitError(null);
 
 		if (!validateForm()) {
 			return;
 		}
 
+		if (!user) {
+			setSubmitError("You must be logged in to create an animal.");
+			return;
+		}
+
 		setLoading(true);
-		// Form submission will be handled in Task 3
-		setLoading(false);
+
+		try {
+			// Prepare data for insertion
+			const animalData: Record<string, unknown> = {
+				name: name.trim() || null, // Empty string becomes null
+				species: "cat", // Default to "cat" for MVP (can be made configurable later)
+				status: status,
+				created_by: user.id,
+			};
+
+			// Add optional fields only if they have values
+			if (sex) {
+				animalData.sex = sex;
+			}
+
+			// Add priority as a tag if high priority
+			if (priority) {
+				animalData.tags = ["high_priority"];
+			}
+
+			const { error: insertError } = await supabase
+				.from("animals")
+				.insert(animalData);
+
+			if (insertError) {
+				console.error("Error creating animal:", insertError);
+				setSubmitError(
+					insertError.message ||
+						"Failed to create animal. Please try again."
+				);
+				setLoading(false);
+			} else {
+				// Success - redirect will be handled in Task 4
+				// For now, just reset loading
+				setLoading(false);
+			}
+		} catch (err) {
+			console.error("Unexpected error:", err);
+			setSubmitError("An unexpected error occurred. Please try again.");
+			setLoading(false);
+		}
 	};
 
 	return (
@@ -102,6 +151,10 @@ export default function NewAnimal() {
 							<ErrorMessage>
 								Please fix the errors above before submitting.
 							</ErrorMessage>
+						)}
+
+						{submitError && (
+							<ErrorMessage>{submitError}</ErrorMessage>
 						)}
 
 						<div className="flex gap-4">
