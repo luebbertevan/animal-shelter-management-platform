@@ -116,6 +116,28 @@
 -   **Password Recovery:** Users can reset forgotten passwords via email. "Forgot password?" link on login page triggers Supabase's password reset flow. User receives email with reset link, clicks link, and sets new password.
 -   **Sign Out:** Logout functionality available on Dashboard and other authenticated pages. Clears session and redirects to login.
 
+#### Form Management Considerations
+
+**Current Approach (MVP):**
+
+-   Using individual `useState` hooks for each form field
+-   Manual validation and error handling
+-   Works well for simple forms with few fields
+
+**Future Considerations:**
+
+-   **Form Libraries:** As forms grow (expecting many fields for animal profiles), consider using a form library like React Hook Form to:
+    -   Reduce boilerplate (no individual useState for each field)
+    -   Improve performance (fewer re-renders)
+    -   Simplify validation and error handling
+    -   Better TypeScript integration
+-   **Form State Management:** For complex forms, consider:
+    -   Single state object instead of multiple useState hooks
+    -   `useReducer` for complex form logic
+    -   Form libraries handle this automatically
+
+**Decision Point:** Revisit when adding more fields or if form management becomes cumbersome.
+
 #### Authentication Security & Feature Specifications
 
 **To Be Determined:**

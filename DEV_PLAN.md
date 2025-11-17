@@ -101,7 +101,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     │   ├── pages/
     │   │   ├── Login.tsx
     │   │   ├── Dashboard.tsx
-    │   │   └── Animals.tsx
+    │   │   └── animals/
+    │   │       └── NewAnimal.tsx
     │   ├── components/
     │   ├── lib/
     │   │   └── supabase.ts
