@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Dashboard from "./pages/Dashboard";
+import NewAnimal from "./pages/animals/NewAnimal";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -15,6 +16,14 @@ function App() {
 					element={
 						<ProtectedRoute>
 							<Dashboard />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/animals/new"
+					element={
+						<ProtectedRoute>
+							<NewAnimal />
 						</ProtectedRoute>
 					}
 				/>
