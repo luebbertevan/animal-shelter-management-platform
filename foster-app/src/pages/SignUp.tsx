@@ -41,7 +41,6 @@ export default function SignUp() {
 
 			if (signUpError) {
 				setError(signUpError.message);
-				setLoading(false);
 			} else if (data.session) {
 				// Session is available immediately in the response - user is automatically logged in
 				navigate("/dashboard", { replace: true });
@@ -51,6 +50,7 @@ export default function SignUp() {
 			}
 		} catch {
 			setError("An unexpected error occurred. Please try again.");
+		} finally {
 			setLoading(false);
 		}
 	};
