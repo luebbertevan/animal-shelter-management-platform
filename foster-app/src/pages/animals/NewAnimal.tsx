@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import Input from "../../components/ui/Input";
@@ -10,6 +11,7 @@ import ErrorMessage from "../../components/ui/ErrorMessage";
 import type { AnimalStatus, Sex } from "../../types";
 
 export default function NewAnimal() {
+	const navigate = useNavigate();
 	const { user } = useAuth();
 	const [name, setName] = useState("");
 	const [status, setStatus] = useState<AnimalStatus>("needs_foster");
@@ -18,6 +20,7 @@ export default function NewAnimal() {
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
+	const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
 	const statusOptions: { value: AnimalStatus; label: string }[] = [
 		{ value: "needs_foster", label: "Needs Foster" },
@@ -91,9 +94,15 @@ export default function NewAnimal() {
 				);
 				setLoading(false);
 			} else {
-				// Success - redirect will be handled in Task 4
-				// For now, just reset loading
+				// Success - show message and redirect
+				setSuccessMessage("Animal created successfully!");
 				setLoading(false);
+
+				// Redirect to dashboard after a brief delay to show success message
+				// (Will redirect to /animals list page once M2.2 is complete)
+				setTimeout(() => {
+					navigate("/dashboard", { replace: true });
+				}, 1500);
 			}
 		} catch (err) {
 			console.error("Unexpected error:", err);
@@ -155,6 +164,12 @@ export default function NewAnimal() {
 
 						{submitError && (
 							<ErrorMessage>{submitError}</ErrorMessage>
+						)}
+
+						{successMessage && (
+							<div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
+								{successMessage}
+							</div>
 						)}
 
 						<div className="flex gap-4">
