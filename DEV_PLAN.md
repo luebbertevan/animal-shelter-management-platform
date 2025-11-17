@@ -364,7 +364,40 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 1.6: Sign Out
+### Milestone 1.6: Auto-Login After Signup
+
+**Goal:** Automatically log users in immediately after successful signup, providing a seamless registration experience without requiring them to manually log in.
+
+**Tasks:**
+
+1. **Update SignUp component** (`src/pages/SignUp.tsx`):
+    - After successful `supabase.auth.signUp()` call, check if a session was created
+    - Use `supabase.auth.getSession()` to check for an active session immediately after signup
+    - If session exists (user is automatically logged in), redirect to `/dashboard` instead of `/login`
+    - Ensure error handling still works for signup failures
+
+**How It Works:**
+
+-   User completes signup form and submits
+-   Supabase creates the account and automatically creates a session (email confirmation is disabled)
+-   The app checks for the session immediately after signup
+-   If session exists → user is logged in → redirect to dashboard
+-   This provides a seamless experience: signup → immediately in the app
+
+**Note:** This implementation assumes email confirmation is disabled in Supabase. If email confirmation is enabled later, the code will need to be updated to handle the case where no session exists after signup.
+
+**Testing:**
+
+-   Sign up with new account → should automatically redirect to dashboard
+-   Verify user is logged in → should see dashboard, not login page
+-   Verify session persists → refresh page, should stay logged in
+-   Test error cases → invalid signup should still show errors correctly
+
+**Deliverable:** Users are automatically logged in after successful signup and redirected to dashboard. Seamless registration experience without manual login step.
+
+---
+
+### Milestone 1.7: Sign Out
 
 **Goal:** Allow logged-in users to sign out of their account. This provides a way to end the current session and clear authentication state.
 
