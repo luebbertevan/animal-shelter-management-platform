@@ -258,69 +258,53 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 1.4: Auth State Management
 
-**Goal:** Track auth state and protect routes.
+**Goal:** Track authentication state across the app and protect routes so only logged-in users can access certain pages. This milestone creates a system to track whether a user is logged in and automatically redirects unauthorized users to the login page. It solves the problem where users could access protected pages (like the dashboard) even when not logged in.
 
 **Tasks:**
 
-1. Create `src/hooks/useAuth.ts`:
+1. **Create `useAuth` custom hook** (`src/hooks/useAuth.ts`):
 
-    ```typescript
-    import { useEffect, useState } from "react";
-    import { supabase } from "../lib/supabase";
-    import { User } from "@supabase/supabase-js";
+    - This hook will manage authentication state throughout the application
+    - Use React's `useState` to track the current user (null if not logged in, user object if logged in)
+    - Use React's `useState` to track loading state (true while checking auth, false when done)
+    - Use React's `useEffect` to check for existing session when component mounts
+    - Call `supabase.auth.getSession()` to check if user is already logged in (handles page refresh)
+    - Set up a listener using `supabase.auth.onAuthStateChange()` to automatically update state when login/logout happens
+    - Return an object with `{ user, loading }` so components can check auth status
+    - Clean up the auth state listener when component unmounts to prevent memory leaks
 
-    export function useAuth() {
-    	const [user, setUser] = useState<User | null>(null);
-    	const [loading, setLoading] = useState(true);
+2. **Create `ProtectedRoute` component** (`src/components/ProtectedRoute.tsx`):
 
-    	useEffect(() => {
-    		supabase.auth.getSession().then(({ data: { session } }) => {
-    			setUser(session?.user ?? null);
-    			setLoading(false);
-    		});
+    - This component will wrap routes that require authentication
+    - Import and use the `useAuth` hook to get current user and loading state
+    - If loading is true, show a loading indicator (simple "Loading..." message)
+    - If user is null (not logged in), use React Router's `Navigate` component to redirect to `/login`
+    - If user exists (logged in), render the protected children components
+    - This component accepts `children` as a prop (the protected content to render)
 
-    		const {
-    			data: { subscription },
-    		} = supabase.auth.onAuthStateChange((_event, session) => {
-    			setUser(session?.user ?? null);
-    		});
+3. **Update App routing** (`src/App.tsx`):
+    - Import the `ProtectedRoute` component
+    - Wrap the `/dashboard` route with `<ProtectedRoute>` component
+    - This ensures the dashboard is only accessible to logged-in users
+    - Other routes (like `/login`) remain public and don't need protection
 
-    		return () => subscription.unsubscribe();
-    	}, []);
+**How It Works:**
 
-    	return { user, loading };
-    }
-    ```
+-   When a user tries to access `/dashboard`, the `ProtectedRoute` component checks if they're logged in
+-   If not logged in, they're automatically redirected to `/login`
+-   If logged in, they see the dashboard
+-   The `useAuth` hook listens for auth changes, so if a user logs out, all components using the hook will update automatically
+-   When the page refreshes, `getSession()` checks if there's an existing session, so users stay logged in
 
-2. Create protected route component `src/components/ProtectedRoute.tsx`:
+**Testing:**
 
-    ```typescript
-    import { Navigate } from "react-router-dom";
-    import { useAuth } from "../hooks/useAuth";
+-   Navigate to `/dashboard` while not logged in → should redirect to `/login`
+-   Log in successfully → should redirect to `/dashboard` and stay there
+-   Refresh the page while logged in → should remain on `/dashboard` (session persists)
+-   Log out → should redirect to `/login`
+-   Try accessing `/dashboard` directly via URL while logged out → should redirect to login
 
-    export default function ProtectedRoute({
-    	children,
-    }: {
-    	children: React.ReactNode;
-    }) {
-    	const { user, loading } = useAuth();
-
-    	if (loading) return <div>Loading...</div>;
-    	if (!user) return <Navigate to="/login" replace />;
-
-    	return <>{children}</>;
-    }
-    ```
-
-3. Update `src/App.tsx` to use ProtectedRoute for dashboard:
-    ```typescript
-    import ProtectedRoute from "./components/ProtectedRoute";
-    // ... wrap dashboard route with <ProtectedRoute>
-    ```
-
-**Testing:** App redirects to login when not authenticated, stays on dashboard when logged in.
-
-**Deliverable:** Auth state management working with route protection.
+**Deliverable:** Auth state management working with route protection. Users cannot access protected routes without being logged in, and the app remembers login state across page refreshes.
 
 ---
 
@@ -328,97 +312,195 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 2.1: Create Animal
 
-**Goal:** Coordinator can create an animal via mobile-first form.
+**Goal:** Allow coordinators to create new animal records through a mobile-friendly form interface. This milestone builds the first data entry feature - a form where coordinators can add new animals to the system. The form will collect essential animal information and save it to the Supabase database.
 
 **Tasks:**
 
-1. Create `src/pages/animals/NewAnimal.tsx` with form:
-    - Name (required)
-    - Species (required)
-    - Breed (optional)
-    - Status (dropdown, defaults to 'needs_foster')
-2. On submit, insert into `animals` table via Supabase:
-    ```typescript
-    const { data, error } = await supabase
-    	.from("animals")
-    	.insert([{ name, species, breed, status, created_by: user.id }]);
-    ```
-3. Show success message and redirect to animals list using `useNavigate`:
-    ```typescript
-    const navigate = useNavigate();
-    // After successful insert:
-    navigate("/animals");
-    ```
-4. Style with Tailwind for mobile-first responsive design
-5. Add route to `src/App.tsx`: `<Route path="/animals/new" element={<NewAnimal />} />`
+1. **Create the New Animal form page** (`src/pages/animals/NewAnimal.tsx`):
 
-**Testing:** Can create animal, see it in Supabase table editor. Form works on phone.
+    - Build a form component with the following fields:
+        - Name field (text input, required)
+        - Species field (text input or dropdown, required - e.g., "Cat", "Dog")
+        - Breed field (text input, optional)
+        - Status dropdown (required, defaults to 'needs_foster' - options: needs_foster, in_foster, adopted, medical_hold, available, transferred)
+    - Use React state to manage form field values
+    - Add form validation to ensure required fields are filled
+    - Style the form with Tailwind CSS for mobile-first responsive design (single column on mobile, comfortable spacing)
 
-**Deliverable:** Create animal form working.
+2. **Handle form submission**:
+
+    - Prevent default form submission behavior
+    - Get the current logged-in user's ID (from the auth context or useAuth hook)
+    - Use Supabase client to insert a new record into the `animals` table
+    - Include all form field values plus `created_by` field set to the current user's ID
+    - Handle errors from Supabase (display error message if insert fails)
+    - Show loading state while submitting (disable form, show loading indicator)
+
+3. **Handle successful submission**:
+
+    - Display a success message to the user
+    - Use React Router's `useNavigate` hook to redirect to the animals list page (`/animals`)
+    - This provides immediate feedback that the animal was created
+
+4. **Add navigation and routing**:
+    - Add a route in `src/App.tsx` for the new animal page: `/animals/new`
+    - Consider adding a "Create Animal" button/link on the animals list page (can be done in M2.2)
+    - Ensure the route is protected (wrapped in ProtectedRoute if needed)
+
+**How It Works:**
+
+-   Coordinator navigates to `/animals/new`
+-   Fills out the form with animal information
+-   Submits the form, which sends data to Supabase
+-   Supabase validates the data against the database schema
+-   On success, the new animal record is created in the database
+-   User is redirected to the animals list to see their new entry
+
+**Testing:**
+
+-   Fill out form with all required fields → should successfully create animal
+-   Submit form with missing required fields → should show validation error
+-   Check Supabase table editor → new animal should appear in `animals` table
+-   Verify `created_by` field is set to the logged-in user's ID
+-   Test form on mobile device → should be usable and responsive
+-   Test error handling → try submitting with invalid data, should show error message
+
+**Deliverable:** Working create animal form that saves data to Supabase database. Form is mobile-friendly and includes proper validation and error handling.
 
 ---
 
 ### Milestone 2.2: List Animals
 
-**Goal:** Display all animals in a mobile-friendly list.
+**Goal:** Display all animals in a mobile-friendly, scrollable list that allows users to browse and navigate to individual animal details. This milestone creates a page that fetches and displays all animals from the database. It uses React Query for efficient data fetching, caching, and automatic refetching. The list should be visually appealing and easy to navigate on mobile devices.
 
 **Tasks:**
 
-1. Create `src/pages/animals/AnimalsList.tsx`
-2. Fetch animals with React Query:
-    ```typescript
-    const { data, error } = useQuery({
-    	queryKey: ["animals"],
-    	queryFn: async () => {
-    		const { data, error } = await supabase
-    			.from("animals")
-    			.select("*")
-    			.order("created_at", { ascending: false });
-    		if (error) throw error;
-    		return data;
-    	},
-    });
-    ```
-3. Display in a card-based grid (mobile: 1 column, desktop: 2-3 columns)
-4. Add loading and error states
-5. Use `Link` from react-router-dom to navigate to detail pages:
-    ```typescript
-    import { Link } from "react-router-dom";
-    <Link to={`/animals/${animal.id}`}>View Details</Link>;
-    ```
-6. Add route to `src/App.tsx`: `<Route path="/animals" element={<AnimalsList />} />`
+1. **Create the Animals List page** (`src/pages/animals/AnimalsList.tsx`):
 
-**Testing:** Can see all created animals in the list. Responsive on phone and desktop.
+    - Create a new component that will display all animals
+    - Set up React Query's `useQuery` hook to fetch animals from Supabase
+    - Configure the query to:
+        - Use a query key of `["animals"]` for caching
+        - Fetch all records from the `animals` table using Supabase client
+        - Order results by `created_at` in descending order (newest first)
+        - Handle errors from Supabase and throw them so React Query can catch them
 
-**Deliverable:** Animals list page working.
+2. **Display animals in a responsive grid**:
+
+    - Use a card-based layout for each animal
+    - Each card should display key information: name, species, breed, status
+    - Design cards to be touch-friendly on mobile (adequate spacing, clear tap targets)
+    - Use Tailwind CSS grid or flexbox:
+        - Mobile: single column layout (one card per row)
+        - Desktop/tablet: 2-3 columns layout (multiple cards per row)
+    - Ensure cards are visually distinct with borders, shadows, or background colors
+
+3. **Handle loading and error states**:
+
+    - Show a loading indicator while data is being fetched (spinner or skeleton screens)
+    - Display an error message if the fetch fails
+    - Use React Query's built-in `isLoading` and `isError` states
+
+4. **Add navigation to detail pages**:
+
+    - Import `Link` component from react-router-dom
+    - Make each animal card clickable/linkable to its detail page
+    - Use the route pattern `/animals/{animal.id}` for navigation
+    - Add visual indication that cards are clickable (hover effects, cursor pointer)
+
+5. **Add routing**:
+    - Add route in `src/App.tsx`: `/animals` that renders the `AnimalsList` component
+    - Consider adding a "Create New Animal" button/link on this page that navigates to `/animals/new`
+
+**How It Works:**
+
+-   When the page loads, React Query automatically fetches animals from Supabase
+-   The data is cached, so if the user navigates away and comes back, it shows cached data immediately
+-   Animals are displayed in a responsive grid of cards
+-   Clicking a card navigates to that animal's detail page
+-   If data is stale or the user refocuses the window, React Query automatically refetches
+
+**Testing:**
+
+-   Navigate to `/animals` → should see all animals in the database
+-   Verify animals are ordered by newest first
+-   Test on mobile device → should display in single column, cards are easy to tap
+-   Test on desktop → should display in multiple columns
+-   Click an animal card → should navigate to detail page
+-   Test loading state → should show loading indicator while fetching
+-   Test error state → simulate network error, should show error message
+-   Verify data updates → create a new animal, list should update (or refresh to see new animal)
+
+**Deliverable:** Working animals list page that displays all animals in a responsive, mobile-friendly grid. Users can browse animals and navigate to individual detail pages.
 
 ---
 
 ### Milestone 2.3: View Animal Details
 
-**Goal:** Click an animal to see full details.
+**Goal:** Display complete information about a single animal when a user clicks on it from the list. This milestone creates a detail page that shows all information about a specific animal. The page will fetch the animal data based on the ID in the URL and display it in a readable, mobile-friendly format.
 
 **Tasks:**
 
-1. Create `src/pages/animals/AnimalDetail.tsx`
-2. Get animal ID from URL using `useParams`:
-    ```typescript
-    import { useParams } from "react-router-dom";
-    const { id } = useParams<{ id: string }>();
-    ```
-3. Fetch single animal by ID using React Query
-4. Display all fields in a readable, mobile-friendly format
-5. Add back button using `useNavigate`:
-    ```typescript
-    const navigate = useNavigate();
-    <button onClick={() => navigate(-1)}>Back</button>;
-    ```
-6. Add edit link (for coordinators)
-7. Add route to `src/App.tsx`: `<Route path="/animals/:id" element={<AnimalDetail />} />`
+1. **Create the Animal Detail page** (`src/pages/animals/AnimalDetail.tsx`):
 
-**Testing:** Can navigate to animal detail page and see all data. Works on phone.
+    - Create a new component to display a single animal's full details
+    - Use React Router's `useParams` hook to extract the animal ID from the URL
+    - The route will be `/animals/:id`, so the `id` parameter will contain the animal's UUID
 
-**Deliverable:** Animal detail page working.
+2. **Fetch the animal data**:
+
+    - Use React Query's `useQuery` hook to fetch a single animal by ID
+    - Configure the query to:
+        - Use a query key like `["animals", id]` for proper caching
+        - Query Supabase to select the animal where `id` matches the URL parameter
+        - Handle errors appropriately
+
+3. **Display all animal fields**:
+
+    - Show all available animal information in a readable format
+    - Organize information in sections or a clean vertical layout
+    - Display fields like: name, species, breed, status, dates (intake, available, etc.), notes
+    - Handle missing/optional fields gracefully (don't show empty fields or show "Not specified")
+    - Use mobile-first design with adequate spacing and readable font sizes
+    - Consider using a card or section-based layout for visual organization
+
+4. **Add navigation controls**:
+
+    - Add a "Back" button that uses React Router's `useNavigate` hook
+    - Use `navigate(-1)` to go back to the previous page (browser history)
+    - Alternatively, use `navigate("/animals")` to always go back to the list
+    - Style the back button to be easily tappable on mobile
+
+5. **Add edit functionality (for coordinators)**:
+
+    - Add an "Edit" button or link (will be functional in a later milestone)
+    - For now, this can just be a placeholder that shows the button
+    - Consider role-based visibility (only show for coordinators, not fosters)
+
+6. **Add routing**:
+    - Add route in `src/App.tsx`: `/animals/:id` that renders the `AnimalDetail` component
+    - The `:id` is a URL parameter that will be captured by `useParams`
+
+**How It Works:**
+
+-   User clicks an animal card in the list → navigates to `/animals/{animal-id}`
+-   The detail page extracts the ID from the URL
+-   React Query fetches that specific animal from Supabase
+-   All animal information is displayed in a readable format
+-   User can navigate back to the list using the back button
+
+**Testing:**
+
+-   Click an animal from the list → should navigate to detail page with correct animal
+-   Verify all animal fields are displayed correctly
+-   Test with animals that have missing/optional fields → should handle gracefully
+-   Test back button → should return to previous page
+-   Test on mobile device → should be readable and easy to navigate
+-   Test loading state → should show loading indicator while fetching
+-   Test error state → try accessing invalid animal ID, should show error message
+-   Test direct URL access → type `/animals/{valid-id}` directly, should load correctly
+
+**Deliverable:** Working animal detail page that displays complete animal information. Page is mobile-friendly and includes navigation back to the list.
 
 ---
 
@@ -426,122 +508,129 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 3.1: PWA Manifest
 
-**Goal:** Make app installable on phones (Add to Home Screen).
+**Goal:** Configure the app as a Progressive Web App (PWA) so users can install it on their phones like a native app. This milestone makes your web app installable on mobile devices. Users will be able to "Add to Home Screen" and launch it like a native app. This requires creating a web app manifest file and configuring the PWA plugin.
 
 **Tasks:**
 
-1. Install Vite PWA plugin:
-    ```bash
-    bun add -d vite-plugin-pwa
-    ```
-2. Create `public/manifest.json`:
-    ```json
-    {
-    	"name": "Foster Platform",
-    	"short_name": "Foster",
-    	"description": "Animal foster coordination platform",
-    	"start_url": "/",
-    	"display": "standalone",
-    	"background_color": "#ffffff",
-    	"theme_color": "#3b82f6",
-    	"icons": [
-    		{
-    			"src": "/icon-192.png",
-    			"sizes": "192x192",
-    			"type": "image/png",
-    			"purpose": "any maskable"
-    		},
-    		{
-    			"src": "/icon-512.png",
-    			"sizes": "512x512",
-    			"type": "image/png",
-    			"purpose": "any maskable"
-    		}
-    	]
-    }
-    ```
-3. Generate app icons (192x192 and 512x512) and place in `public/`
-4. Configure PWA plugin in `vite.config.ts`:
+1. **Install Vite PWA plugin**:
 
-    ```typescript
-    import { VitePWA } from "vite-plugin-pwa";
+    - Install `vite-plugin-pwa` as a dev dependency using Bun
+    - This plugin handles PWA configuration, service worker generation, and manifest creation
 
-    export default defineConfig({
-    	plugins: [
-    		react(),
-    		VitePWA({
-    			registerType: "autoUpdate",
-    			includeAssets: ["favicon.ico", "icon-192.png", "icon-512.png"],
-    			manifest: {
-    				name: "Foster Platform",
-    				short_name: "Foster",
-    				description: "Animal foster coordination platform",
-    				theme_color: "#3b82f6",
-    				icons: [
-    					{
-    						src: "icon-192.png",
-    						sizes: "192x192",
-    						type: "image/png",
-    					},
-    					{
-    						src: "icon-512.png",
-    						sizes: "512x512",
-    						type: "image/png",
-    					},
-    				],
-    			},
-    		}),
-    	],
-    });
-    ```
+2. **Create web app manifest** (`public/manifest.json`):
 
-5. Add meta tags to `index.html`:
-    ```html
-    <meta name="theme-color" content="#3b82f6" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    ```
+    - Create a JSON file that describes your app to the browser
+    - Include app metadata:
+        - `name`: Full app name ("Foster Platform")
+        - `short_name`: Short name for home screen ("Foster")
+        - `description`: What the app does
+        - `start_url`: Where the app starts when launched (usually "/")
+        - `display`: How the app appears ("standalone" means it looks like a native app, no browser UI)
+        - `background_color`: Background color while app loads
+        - `theme_color`: Color for browser UI elements
+    - Define app icons array with:
+        - Icon at 192x192 pixels (for Android home screen)
+        - Icon at 512x512 pixels (for splash screens and high-res displays)
+        - Each icon entry needs: src path, sizes, type, and purpose ("any maskable" for adaptive icons)
 
-**Testing:** Open app on phone, see "Add to Home Screen" prompt. App installs and opens fullscreen.
+3. **Generate app icons**:
 
-**Deliverable:** PWA manifest working, app installable.
+    - Create two icon images: 192x192 and 512x512 pixels
+    - Icons should be square PNG files
+    - Place them in the `public/` directory
+    - Icons should be recognizable and work well as app icons (simple, clear design)
+
+4. **Configure PWA plugin in Vite config** (`vite.config.ts`):
+
+    - Import the VitePWA plugin
+    - Add it to the plugins array in your Vite config
+    - Configure with:
+        - `registerType: "autoUpdate"` - automatically updates the service worker when new version is available
+        - `includeAssets` - list of static assets to include (favicon, icons)
+        - `manifest` - object containing the same manifest data (can reference the manifest.json or define inline)
+    - The plugin will automatically generate a service worker and register it
+
+5. **Add iOS-specific meta tags** (`index.html`):
+    - Add `theme-color` meta tag for browser theme color
+    - Add `apple-mobile-web-app-capable` meta tag set to "yes" (enables fullscreen on iOS)
+    - Add `apple-mobile-web-app-status-bar-style` meta tag (controls status bar appearance)
+
+**How It Works:**
+
+-   The manifest.json tells browsers this is an installable PWA
+-   The Vite PWA plugin generates a service worker (for offline support) and registers it
+-   When users visit the app on mobile, browsers detect the manifest and show an "Add to Home Screen" prompt
+-   Once installed, the app opens in standalone mode (no browser UI) and appears in the app drawer/home screen
+
+**Testing:**
+
+-   Open the app on a mobile device (phone browser)
+-   Look for "Add to Home Screen" prompt or browser menu option
+-   Install the app to home screen
+-   Launch the installed app → should open fullscreen without browser UI
+-   Verify app icon appears correctly on home screen
+-   Test on both Android and iOS if possible (iOS requires Safari, Android works in Chrome/Edge)
+
+**Deliverable:** PWA manifest configured and working. App is installable on mobile devices and opens in standalone mode when launched from home screen.
 
 ---
 
 ### Milestone 3.2: Service Worker (Offline Support)
 
-**Goal:** Enable offline access and background sync.
+**Goal:** Enable the app to work offline by caching assets and data, allowing users to access previously viewed content without an internet connection. This milestone configures caching strategies so the app can function offline. The service worker (automatically generated by Vite PWA plugin) will cache app files and API responses, allowing users to view cached content when offline.
 
 **Tasks:**
 
-1. The Vite PWA plugin automatically generates a service worker
-2. Configure caching strategies in `vite.config.ts`:
-    ```typescript
-    VitePWA({
-    	// ... previous config
-    	workbox: {
-    		globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
-    		runtimeCaching: [
-    			{
-    				urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-    				handler: "NetworkFirst",
-    				options: {
-    					cacheName: "supabase-cache",
-    					expiration: {
-    						maxEntries: 50,
-    						maxAgeSeconds: 60 * 60 * 24, // 24 hours
-    					},
-    				},
-    			},
-    		],
-    	},
-    });
-    ```
-3. Test offline mode: Turn off WiFi, app should still load cached pages
+1. **Understand service worker generation**:
 
-**Testing:** App works offline, service worker registers successfully.
+    - The Vite PWA plugin automatically generates a service worker during build
+    - The service worker is a JavaScript file that runs in the background
+    - It intercepts network requests and can serve cached content instead
 
-**Deliverable:** Service worker working, basic offline support.
+2. **Configure caching strategies in Vite config** (`vite.config.ts`):
+
+    - Add `workbox` configuration to the VitePWA plugin options
+    - Configure `globPatterns` to specify which files to cache:
+        - Cache all JavaScript, CSS, HTML, icon, and SVG files
+        - These are your app's static assets that don't change often
+    - Configure `runtimeCaching` for API requests:
+        - Set up caching for Supabase API calls (URLs matching `*.supabase.co`)
+        - Use "NetworkFirst" strategy: try network first, fall back to cache if offline
+        - Configure cache options:
+            - `cacheName`: Name for this cache (e.g., "supabase-cache")
+            - `expiration`: How long to keep cached data (e.g., 24 hours, max 50 entries)
+    - This ensures API responses are cached and available offline
+
+3. **Test offline functionality**:
+    - Build the app for production (service worker only works in production build)
+    - Serve the production build locally or deploy it
+    - Open the app in a browser
+    - Open browser DevTools → Application tab → Service Workers
+    - Verify service worker is registered
+    - Turn off WiFi or disable network in DevTools
+    - Refresh the page → app should still load (using cached files)
+    - Navigate to previously viewed pages → should work offline
+    - Try accessing new pages → may show offline message or cached content
+
+**How It Works:**
+
+-   When the app loads, the service worker registers and starts caching files
+-   Static assets (JS, CSS, HTML) are cached immediately
+-   API responses are cached as they're fetched (using NetworkFirst strategy)
+-   When offline, the service worker intercepts requests and serves cached content
+-   If no cache exists for a request, it fails gracefully (shows error or offline message)
+
+**Testing:**
+
+-   Build the app for production
+-   Verify service worker registers in browser DevTools
+-   Test offline mode: disable network, refresh page → app should still load
+-   Navigate to previously viewed pages → should work offline
+-   Check that cached API data is available offline
+-   Verify cache expiration works (old data is cleared after expiration time)
+-   Test on mobile device → turn off WiFi, app should still function for cached content
+
+**Deliverable:** Service worker configured and working. App can load and display cached content when offline. Users can access previously viewed pages and data without an internet connection.
 
 ---
 
