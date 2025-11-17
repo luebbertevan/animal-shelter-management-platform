@@ -16,7 +16,7 @@ export default function Login() {
 		setError(null);
 
 		try {
-			const { error: signInError } =
+			const { data, error: signInError } =
 				await supabase.auth.signInWithPassword({
 					email: email.trim(),
 					password: password,
@@ -25,9 +25,13 @@ export default function Login() {
 			if (signInError) {
 				setError(signInError.message);
 				setLoading(false);
-			} else {
-				// Login successful - redirect to dashboard
+			} else if (data.session) {
+				// Session is available in the response - login successful
 				navigate("/dashboard", { replace: true });
+			} else {
+				// No session (unexpected - should not happen with signInWithPassword)
+				setError("Login failed. Please try again.");
+				setLoading(false);
 			}
 		} catch {
 			setError("An unexpected error occurred. Please try again.");

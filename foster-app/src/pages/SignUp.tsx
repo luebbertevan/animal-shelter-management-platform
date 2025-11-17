@@ -30,7 +30,7 @@ export default function SignUp() {
 		}
 
 		try {
-			const { error: signUpError } = await supabase.auth.signUp({
+			const { data, error: signUpError } = await supabase.auth.signUp({
 				email: email.trim(),
 				password: password,
 			});
@@ -38,8 +38,11 @@ export default function SignUp() {
 			if (signUpError) {
 				setError(signUpError.message);
 				setLoading(false);
+			} else if (data.session) {
+				// Session is available immediately in the response - user is automatically logged in
+				navigate("/dashboard", { replace: true });
 			} else {
-				// Signup successful - redirect to login
+				// No session (shouldn't happen with email confirmation disabled, but handle gracefully)
 				navigate("/login", { replace: true });
 			}
 		} catch {
