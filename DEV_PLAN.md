@@ -212,19 +212,47 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 1.3: Authentication UI
 
-**Goal:** Build mobile-first login screen that works on phones.
+**Goal:** Build mobile-first login screen.
 
 **Tasks:**
 
-1. Create `src/pages/Login.tsx` with mobile-first login form (see existing file for reference)
+1. **Create Login form** (`src/pages/Login.tsx`):
 
-2. Update `src/App.tsx` to include Login route
-3. Test: Create a test user in Supabase Auth dashboard, try logging in
-4. Test on a real phone: Deploy to Netlify/Vercel (or use ngrok) and open on phone browser
+    - Email and password inputs
+    - Form submission handler using `supabase.auth.signInWithPassword()`
+    - Loading state (disable button during submission)
+    - Error handling (display error messages)
+    - Mobile-first styling with Tailwind CSS
+    - Redirect to `/dashboard` on successful login
 
-**Testing:** Can log in via web, redirects to dashboard. Works on phone browser.
+2. **Verify routing** (`src/App.tsx`):
 
-**Deliverable:** Working mobile-first login screen.
+    - `/login` route already exists (no changes needed)
+    - Confirm route works
+
+3. **Local testing**:
+
+    - Create test user in Supabase dashboard → Authentication → Users
+    - Run `bun run dev` and navigate to `http://localhost:5173/login`
+    - Test login with valid credentials (should redirect to dashboard)
+    - Test error cases (wrong password, non-existent email, empty fields)
+
+4. **Optional: Test on phone** (via local network):
+    - Find your computer's local IP: `ifconfig` (Mac) or `ipconfig` (Windows)
+    - Run dev server: `bun run dev --host`
+    - On phone (same WiFi), open `http://YOUR_IP:5173/login`
+    - Test login on phone browser
+
+**Testing:**
+
+-   Can log in via browser (localhost)
+-   Redirects to dashboard on success
+-   Shows error messages on failure
+-   Works on phone browser (via local network, optional)
+
+**Deliverable:** Working mobile-first login screen with error handling.
+
+**Note:** Deployment to production is covered in Phase 3.5 (recommended after PWA Setup is complete).
 
 ---
 
@@ -514,6 +542,119 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Testing:** App works offline, service worker registers successfully.
 
 **Deliverable:** Service worker working, basic offline support.
+
+---
+
+## Phase 3.5: Deployment (For Real Device Testing)
+
+**Goal:** Deploy the PWA to a public URL so you can test on real phones and share with others.
+
+**Why Deploy After Phase 3:**
+
+-   You have a complete working feature (auth + animals CRUD)
+-   PWA is ready - can test "Add to Home Screen" on real devices
+-   Makes sense to deploy a PWA (not just a web app)
+-   Early enough for testing, but meaningful enough to be useful
+-   Verify environment variables work in production
+-   Learn deployment process (it's easier than it seems!)
+
+**When to Deploy:**
+
+-   **Recommended:** After Phase 3 (PWA Setup) is complete
+-   **Alternative:** After Phase 2 if you want to test earlier (but you'll miss PWA features)
+-   **Can skip:** If you're only testing locally for now
+
+### Milestone 3.5.1: Deploy to Vercel (Recommended)
+
+**Goal:** Deploy Vite PWA to Vercel (free, easy, fast).
+
+**Tasks:**
+
+1. **Create Vercel account**:
+
+    - Go to https://vercel.com
+    - Sign up with GitHub (recommended) or email
+
+2. **Install Vercel CLI** (optional but helpful):
+
+    ```bash
+    brew install vercel
+    ```
+
+3. **Deploy via Vercel Dashboard** (easiest for first time):
+
+    - Go to Vercel dashboard → Add New Project
+    - Import your GitHub repository (or connect Git provider)
+    - Configure project:
+        - **Root Directory:** `foster-app`
+        - **Framework Preset:** Vite
+        - **Build Command:** `bun run build` (or `npm run build`)
+        - **Output Directory:** `dist`
+        - **Install Command:** `bun install` (or `npm install`)
+    - Add environment variables:
+        - `VITE_SUPABASE_URL` = your Supabase URL
+        - `VITE_SUPABASE_ANON_KEY` = your Supabase anon key
+    - Click "Deploy"
+
+4. **Deploy via CLI** (alternative):
+
+    ```bash
+    cd foster-app
+    vercel
+    # Follow prompts to configure
+    # Add environment variables when prompted
+    ```
+
+5. **Verify deployment**:
+
+    - Vercel gives you a URL (e.g., `https://your-app.vercel.app`)
+    - Open URL in browser
+    - Test login functionality
+    - Test animals CRUD functionality
+    - Check that environment variables are working
+
+6. **Test PWA on phone**:
+    - Open the Vercel URL on your phone browser
+    - Test "Add to Home Screen" (should work since PWA is configured)
+    - Install app to home screen
+    - Test login and animals CRUD on real device
+    - Verify mobile-first design works
+    - Test offline functionality (if service worker is working)
+
+**Testing:**
+
+-   App loads on Vercel URL
+-   Login works (can authenticate with Supabase)
+-   Animals CRUD works (can create, view, edit animals)
+-   PWA installs to home screen on phone
+-   App works offline (basic cached pages)
+-   Environment variables are accessible
+
+**Deliverable:** PWA deployed to Vercel with working authentication and animals CRUD.
+
+### Milestone 3.5.2: Alternative Deployment Options
+
+**Option A: Netlify**
+
+-   Similar to Vercel
+-   Go to https://netlify.com
+-   Drag and drop `foster-app/dist` folder (after building)
+-   Add environment variables in Netlify dashboard
+-   Or use Netlify CLI: `netlify deploy`
+
+**Option B: Supabase Hosting**
+
+-   Hosted by Supabase (same provider as database)
+-   Go to Supabase dashboard → Hosting
+-   Follow setup instructions
+-   Automatically configured for Supabase projects
+
+**Option C: GitHub Pages** (free but more setup)
+
+-   Requires GitHub Actions for deployment
+-   More complex, not recommended for first deployment
+
+**Recommendation:** Use Vercel for first deployment (easiest, free, fast).
 
 ---
 
@@ -1097,5 +1238,5 @@ Each of these can be added one milestone at a time, following the same pattern: 
 -   **Use Supabase Docs:** The Supabase documentation is excellent—refer to it often.
 -   **Ask for Help:** If stuck on a milestone for more than a few hours, step back and break it down further.
 -   **Version Control:** Commit after each milestone so you can roll back if needed.
--   **Deploy Early:** Deploy to Netlify/Vercel/Supabase Hosting early so you can test on real phones via URL (no app store needed!). Vite builds to static files, so any static host works.
+-   **Deployment:** See Phase 3.5 for dedicated deployment milestone. Recommended after Phase 3 (PWA Setup) is complete, so you can test PWA installation on real devices.
 -   **React Router Benefits:** Pure SPA setup is simpler than Next.js for internal tools. Easy to share components with Expo later since it's pure React.
