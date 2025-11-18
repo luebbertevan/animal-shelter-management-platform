@@ -527,7 +527,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 2. **Display animals in a responsive grid**:
 
     - Use a card-based layout for each animal
-    - Each card should display key information: name, species, breed, status
+    - Each card should display key information: name, status, sex (when available)
+    - Note: Species and breed are not displayed in MVP list view
     - Design cards to be touch-friendly on mobile (adequate spacing, clear tap targets)
     - Use Tailwind CSS grid or flexbox:
         - Mobile: single column layout (one card per row)

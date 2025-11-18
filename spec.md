@@ -138,6 +138,8 @@
 
 **Decision Point:** Revisit when adding more fields or if form management becomes cumbersome.
 
+**UI Implementation Note:** For the current MVP, keep UI components minimal, consistent, and reusable so the end-to-end flows can be tested quickly. A Figma-driven redesign is planned once the scaffold is proven, so prioritize structure and functionality now—styling can be refined later without major refactors.
+
 #### Authentication Security & Feature Specifications
 
 **To Be Determined:**
