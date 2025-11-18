@@ -5,7 +5,11 @@ import { supabase } from "../../lib/supabase";
 import type { Animal } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import { getErrorMessage } from "../../lib/errorUtils";
+import {
+	getErrorMessage,
+	checkOfflineAndThrow,
+	isOffline,
+} from "../../lib/errorUtils";
 
 type AnimalsListItem = Pick<
 	Animal,
@@ -25,24 +29,48 @@ function createSlug(name: string | undefined | null): string {
 }
 
 async function fetchAnimals() {
-	const { data, error } = await supabase
-		.from("animals")
-		.select("id, name, status, sex, priority")
-		.order("created_at", { ascending: false });
+	try {
+		// Check if we're offline before making the request
+		checkOfflineAndThrow();
 
-	if (error) {
-		// Use errorUtils to get user-friendly message
+		const { data, error } = await supabase
+			.from("animals")
+			.select("id, name, status, sex, priority")
+			.order("created_at", { ascending: false });
+
+		if (error) {
+			// Use errorUtils to get user-friendly message
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to fetch animals. Please try again."
+				)
+			);
+		}
+
+		// Explicitly handle null/undefined data (shouldn't happen, but safety check)
+		// Using unique message to help identify this specific bug if it occurs
+		if (data === null || data === undefined) {
+			throw new Error(
+				"Unexpected error: No data returned from server. Please try again."
+			);
+		}
+
+		// If we're offline and got empty data, treat it as a network error
+		// (Supabase might return empty array instead of error when offline)
+		if (isOffline() && data.length === 0) {
+			throw new TypeError("Failed to fetch");
+		}
+
+		// Return empty array if no animals (this is valid, not an error)
+		return data as AnimalsListItem[];
+	} catch (err) {
+		// Catch network errors that occur before Supabase returns (TypeError: Failed to fetch)
+		// or any other unexpected errors
 		throw new Error(
-			getErrorMessage(error, "Failed to fetch animals. Please try again.")
+			getErrorMessage(err, "Failed to fetch animals. Please try again.")
 		);
 	}
-
-	// Explicitly handle null/undefined data
-	if (data === null || data === undefined) {
-		throw new Error("Failed to fetch animals. Please try again.");
-	}
-
-	return data as AnimalsListItem[];
 }
 
 export default function AnimalsList() {
@@ -121,9 +149,31 @@ export default function AnimalsList() {
 				)}
 
 				{!isLoading && !isError && animals.length === 0 && (
-					<div className="bg-white rounded-lg shadow-sm p-6 text-gray-600">
-						No animals found yet. Once you add animals, they will
-						appear here.
+					<div className="bg-white rounded-lg shadow-sm p-6">
+						{isOffline() ? (
+							<div className="text-red-700">
+								<p className="font-medium mb-2">
+									Unable to load animals right now.
+								</p>
+								<p className="text-sm mb-4">
+									Unable to connect to the server. Please
+									check your internet connection and try
+									again.
+								</p>
+								<button
+									type="button"
+									onClick={() => refetch()}
+									className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								>
+									Try Again
+								</button>
+							</div>
+						) : (
+							<div className="text-gray-600">
+								No animals found yet. Once you add animals, they
+								will appear here.
+							</div>
+						)}
 					</div>
 				)}
 

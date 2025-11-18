@@ -95,15 +95,12 @@ export default function NewAnimal() {
 						"Failed to create animal. Please try again."
 					)
 				);
-				setLoading(false);
 			} else if (!insertedData) {
 				// No error but no data returned (unexpected)
 				setSubmitError("Animal was not created. Please try again.");
-				setLoading(false);
 			} else {
 				// Success - data exists and no error
 				setSuccessMessage("Animal created successfully!");
-				setLoading(false);
 
 				// Redirect to dashboard after a brief delay to show success message
 				// (Will redirect to /animals list page once M2.2 is complete)
@@ -121,6 +118,7 @@ export default function NewAnimal() {
 					"An unexpected error occurred. Please try again."
 				)
 			);
+		} finally {
 			setLoading(false);
 		}
 	};

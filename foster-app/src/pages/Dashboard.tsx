@@ -43,7 +43,6 @@ export default function Dashboard() {
 							)}
 						</div>
 					</div>
-					<p className="text-gray-600">Dashboard coming soon...</p>
 				</div>
 
 				<div className="bg-white rounded-lg shadow-md p-6 mb-4">

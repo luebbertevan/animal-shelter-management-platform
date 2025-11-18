@@ -4,7 +4,12 @@ import { supabase } from "../../lib/supabase";
 import type { Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
-import { getErrorMessage } from "../../lib/errorUtils";
+import {
+	getErrorMessage,
+	checkOfflineAndThrow,
+	handleSupabaseNotFound,
+	isOffline,
+} from "../../lib/errorUtils";
 
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -21,27 +26,54 @@ export default function AnimalDetail() {
 				throw new Error("Animal ID is required");
 			}
 
-			const { data, error: fetchError } = await supabase
-				.from("animals")
-				.select("*")
-				.eq("id", id)
-				.single();
+			try {
+				// Check if we're offline before making the request
+				checkOfflineAndThrow();
 
-			if (fetchError) {
-				// Use errorUtils to get user-friendly message
+				const { data, error: fetchError } = await supabase
+					.from("animals")
+					.select("*")
+					.eq("id", id)
+					.single();
+
+				if (fetchError) {
+					// Check if it's a "not found" error or network error
+					const notFoundError = handleSupabaseNotFound(
+						fetchError,
+						null,
+						"Animal"
+					);
+
+					// If it's a network error (TypeError), use getErrorMessage for user-friendly message
+					if (notFoundError instanceof TypeError) {
+						throw new Error(
+							getErrorMessage(
+								notFoundError,
+								"Failed to load animal details. Please try again."
+							)
+						);
+					}
+
+					// Otherwise, it's a real "not found" error
+					throw notFoundError;
+				}
+
+				if (!data) {
+					// Use helper to determine if it's "not found" or network error
+					throw handleSupabaseNotFound(null, data, "Animal");
+				}
+
+				return data as Animal;
+			} catch (err) {
+				// Catch network errors that occur before Supabase returns (TypeError: Failed to fetch)
+				// or any other unexpected errors
 				throw new Error(
 					getErrorMessage(
-						fetchError,
+						err,
 						"Failed to load animal details. Please try again."
 					)
 				);
 			}
-
-			if (!data) {
-				throw new Error("Animal not found");
-			}
-
-			return data as Animal;
 		},
 		enabled: !!id, // Only run query if id exists
 	});
@@ -64,13 +96,10 @@ export default function AnimalDetail() {
 				<div className="max-w-4xl mx-auto">
 					<div className="bg-white rounded-lg shadow-sm p-6 border border-red-200">
 						<div className="text-red-700">
-							<p className="font-medium mb-2">
-								Unable to load animal details.
-							</p>
-							<p className="text-sm mb-4">
+							<p className="font-medium mb-4">
 								{error instanceof Error
 									? error.message
-									: "Unknown error"}
+									: "Unable to load animal details. Please try again."}
 							</p>
 							<NavLinkButton
 								to="/animals"
@@ -88,8 +117,32 @@ export default function AnimalDetail() {
 			<div className="min-h-screen p-4 bg-gray-50">
 				<div className="max-w-4xl mx-auto">
 					<div className="bg-white rounded-lg shadow-sm p-6">
-						<p className="text-gray-600 mb-4">Animal not found.</p>
-						<NavLinkButton to="/animals" label="Back to Animals" />
+						{isOffline() ? (
+							<div className="text-red-700">
+								<p className="font-medium mb-4">
+									Unable to load animal details.
+								</p>
+								<p className="text-sm mb-4">
+									Unable to connect to the server. Please
+									check your internet connection and try
+									again.
+								</p>
+								<NavLinkButton
+									to="/animals"
+									label="Back to Animals"
+								/>
+							</div>
+						) : (
+							<>
+								<p className="text-gray-600 mb-4">
+									Animal not found.
+								</p>
+								<NavLinkButton
+									to="/animals"
+									label="Back to Animals"
+								/>
+							</>
+						)}
 					</div>
 				</div>
 			</div>

@@ -140,6 +140,7 @@
     -   Form validation with type-safe error messages
     -   Runtime type checking (TypeScript only provides compile-time checks)
     -   This becomes especially valuable when integrating with external APIs or handling user input
+-   **Future Improvement — API Wrapper Layer:** Consider adding a dedicated API wrapper layer after the MVP to normalize Supabase responses, convert network and "not found" errors into typed error classes, and simplify error handling across the app.
 
 **Decision Point:** Revisit when adding more fields or if form management becomes cumbersome.
 

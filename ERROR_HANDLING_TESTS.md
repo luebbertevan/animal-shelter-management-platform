@@ -1,134 +1,99 @@
-# Minimal Error Handling Tests
+# Error Handling Tests
 
-Quick tests to verify error handling works correctly across the app.
+Quick tests to verify all error handling in the app.
 
 ## Setup
 
-1. Open browser DevTools (F12) → Network tab
-2. Keep DevTools open to see network requests
+Open DevTools (F12) → Network tab → Use "Offline" checkbox for network tests.
 
 ---
 
-## Test 1: Network Error (Offline) - Login
+## Authentication Errors
 
-**Steps:**
+### Login - Network Error
+
 1. Go to `/login`
-2. In DevTools → Network tab → Check "Offline" checkbox (or use browser's offline mode)
-3. Enter any email/password and click "Log in"
+2. Set offline in DevTools
+3. Enter credentials → Click "Log in"
+   **Expected:** "Unable to connect to the server. Please check your internet connection and try again."
 
-**Expected:**
-- Shows: "Unable to connect to the server. Please check your internet connection and try again."
-- Not a generic "Failed to fetch" message
+### Login - Invalid Credentials
 
----
+1. Go to `/login` (online)
+2. Enter wrong email/password → Click "Log in"
+   **Expected:** Supabase error message (e.g., "Invalid login credentials")
 
-## Test 2: Network Error (Offline) - Sign Up
+### SignUp - Network Error
 
-**Steps:**
 1. Go to `/signup`
-2. In DevTools → Network tab → Check "Offline" checkbox
-3. Fill out form and click "Sign up"
+2. Set offline in DevTools
+3. Fill form → Click "Sign up"
+   **Expected:** "Unable to connect to the server. Please check your internet connection and try again."
 
-**Expected:**
-- Shows: "Unable to connect to the server. Please check your internet connection and try again."
+### SignUp - Validation Errors
 
----
-
-## Test 3: Invalid Credentials - Login
-
-**Steps:**
-1. Go to `/login`
-2. Make sure you're **online** (uncheck "Offline" in DevTools)
-3. Enter wrong email or password
-4. Click "Log in"
-
-**Expected:**
-- Shows Supabase's error message (e.g., "Invalid login credentials")
-- Not a generic error
+1. Go to `/signup` (online)
+2. Enter password < 6 chars → Click "Sign up"
+   **Expected:** "Password must be at least 6 characters long."
+3. Enter mismatched passwords → Click "Sign up"
+   **Expected:** "Passwords do not match."
 
 ---
 
-## Test 4: Network Error (Offline) - Create Animal
+## Animal Management Errors
 
-**Steps:**
-1. Log in successfully
-2. Go to `/animals/new`
-3. In DevTools → Network tab → Check "Offline" checkbox
-4. Fill out form and click "Create Animal"
+### Create Animal - Network Error
 
-**Expected:**
-- Shows: "Unable to connect to the server. Please check your internet connection and try again."
+1. Log in → Go to `/animals/new`
+2. Set offline in DevTools
+3. Fill form → Click "Create Animal"
+   **Expected:** "Unable to connect to the server. Please check your internet connection and try again."
 
----
+### Animals List - Network Error
 
-## Test 5: Network Error (Offline) - Animals List
+1. Log in → Set offline in DevTools
+2. Go to `/animals`
+   **Expected:** Error message with "Try Again" button: "Unable to connect to the server..."
 
-**Steps:**
-1. Log in successfully
-2. In DevTools → Network tab → Check "Offline" checkbox
-3. Go to `/animals`
+### Animals List - Empty State (Online)
 
-**Expected:**
-- Shows error message with "Try Again" button
-- Message: "Unable to connect to the server. Please check your internet connection and try again."
+1. Log in → Go to `/animals` (with no animals in DB, online)
+   **Expected:** "No animals found yet. Once you add animals, they will appear here."
 
----
+### Animal Detail - Network Error
 
-## Test 6: Network Error (Offline) - Animal Detail
+1. Log in → Go to `/animals` (online) → Note an animal ID
+2. Set offline in DevTools
+3. Navigate to `/animals/{id}/name`
+   **Expected:** Error message with "Back to Animals" button: "Unable to connect to the server..."
 
-**Steps:**
-1. Log in successfully
-2. Go to `/animals` (while online) to see an animal ID
-3. In DevTools → Network tab → Check "Offline" checkbox
-4. Click on an animal card or go directly to `/animals/{id}/some-name`
+### Animal Detail - Not Found
 
-**Expected:**
-- Shows error message with "Back to Animals" button
-- Message: "Unable to connect to the server. Please check your internet connection and try again."
+1. Log in (online)
+2. Go to `/animals/00000000-0000-0000-0000-000000000000/invalid`
+   **Expected:** "Animal not found" with "Back to Animals" button
 
 ---
 
-## Test 7: Invalid Animal ID - Animal Detail
+## Loading States
 
-**Steps:**
-1. Log in successfully
-2. Make sure you're **online**
-3. Go to `/animals/00000000-0000-0000-0000-000000000000/invalid-animal`
+### Dashboard Loading
 
-**Expected:**
-- Shows: "Animal not found" or similar error message
-- Has "Back to Animals" button
-
----
-
-## Test 8: Dashboard Loading State
-
-**Steps:**
-1. Clear browser cache/localStorage (or use incognito)
+1. Clear cache/localStorage (or incognito)
 2. Go to `/dashboard`
-
-**Expected:**
-- Shows "Loading dashboard..." spinner (not blank white screen)
-- Then shows dashboard content
+   **Expected:** Shows "Loading..." spinner (not blank screen) → Then dashboard
 
 ---
 
 ## Quick Checklist
 
-- [ ] Login offline → shows network error message
-- [ ] SignUp offline → shows network error message
-- [ ] Create Animal offline → shows network error message
-- [ ] Animals List offline → shows network error message with retry
-- [ ] Animal Detail offline → shows network error message
-- [ ] Invalid credentials → shows Supabase error message
-- [ ] Invalid animal ID → shows "not found" message
-- [ ] Dashboard loading → shows spinner (not blank)
-
----
-
-## Notes
-
-- **Offline mode:** Use DevTools Network tab → "Offline" checkbox (easiest)
-- **Alternative:** Disconnect WiFi, but DevTools is faster
-- **All tests should show user-friendly messages**, not technical errors like "Failed to fetch" or "TypeError"
-
+-   [ ] Login offline → network error
+-   [ ] Login invalid credentials → Supabase error
+-   [ ] SignUp offline → network error
+-   [ ] SignUp validation → field errors
+-   [ ] Create Animal offline → network error
+-   [ ] Animals List offline → network error with retry
+-   [ ] Animals List empty (online) → "No animals found"
+-   [ ] Animal Detail offline → network error
+-   [ ] Animal Detail not found → "Animal not found"
+-   [ ] Dashboard loading → spinner (not blank)
