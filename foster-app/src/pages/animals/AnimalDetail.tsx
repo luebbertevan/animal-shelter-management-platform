@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../hooks/useAuth";
 import type { Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
@@ -13,6 +14,7 @@ import {
 
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
+	const { user } = useAuth();
 
 	const {
 		data: animal,
@@ -20,7 +22,7 @@ export default function AnimalDetail() {
 		isError,
 		error,
 	} = useQuery<Animal, Error>({
-		queryKey: ["animals", id],
+		queryKey: ["animals", user?.id, id], // Include user ID in cache key
 		queryFn: async () => {
 			if (!id) {
 				throw new Error("Animal ID is required");
@@ -75,7 +77,7 @@ export default function AnimalDetail() {
 				);
 			}
 		},
-		enabled: !!id, // Only run query if id exists
+		enabled: !!id && !!user, // Only run query if id and user exist
 	});
 
 	if (isLoading) {

@@ -1,4 +1,5 @@
 import { useNavigate, Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import Button from "../components/ui/Button";
@@ -6,6 +7,7 @@ import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 export default function Dashboard() {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const { user, loading } = useAuth();
 
 	const handleLogout = async () => {
@@ -14,6 +16,9 @@ export default function Dashboard() {
 		if (error) {
 			console.error("Error signing out:", error);
 		}
+
+		// Clear React Query cache to prevent showing previous user's data
+		queryClient.clear();
 
 		// Always redirect - local session is cleared regardless of network errors
 		navigate("/login", { replace: true });

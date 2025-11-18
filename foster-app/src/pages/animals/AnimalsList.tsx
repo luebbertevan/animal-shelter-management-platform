@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../hooks/useAuth";
 import type { Animal } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
@@ -74,6 +75,8 @@ async function fetchAnimals() {
 }
 
 export default function AnimalsList() {
+	const { user } = useAuth();
+
 	const {
 		data = [],
 		isLoading,
@@ -81,8 +84,9 @@ export default function AnimalsList() {
 		error,
 		refetch,
 	} = useQuery({
-		queryKey: ["animals"],
+		queryKey: ["animals", user?.id], // Include user ID in cache key
 		queryFn: fetchAnimals,
+		enabled: !!user, // Only fetch if user is logged in
 	});
 
 	const animals = useMemo(() => data, [data]);
