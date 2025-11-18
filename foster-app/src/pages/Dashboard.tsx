@@ -41,9 +41,14 @@ export default function Dashboard() {
 					<h2 className="text-lg font-semibold text-gray-900 mb-4">
 						Quick Actions
 					</h2>
-					<Link to="/animals/new">
-						<Button>Create New Animal</Button>
-					</Link>
+					<div className="space-y-4">
+						<Link to="/animals" className="block">
+							<Button>View Animals</Button>
+						</Link>
+						<Link to="/animals/new" className="block">
+							<Button>Create New Animal</Button>
+						</Link>
+					</div>
 				</div>
 
 				<div className="bg-white rounded-lg shadow-md p-6">
