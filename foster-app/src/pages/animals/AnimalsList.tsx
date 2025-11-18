@@ -1,7 +1,9 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import type { Animal } from "../../types";
+import Button from "../../components/ui/Button";
 
 type AnimalsListItem = Pick<
 	Animal,
@@ -38,23 +40,29 @@ export default function AnimalsList() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-5xl mx-auto">
-				<div className="flex items-center justify-between mb-6">
-					<div>
-						<h1 className="text-2xl font-bold text-gray-900">
-							Animals
-						</h1>
-						<p className="text-gray-600">
-							Browse all animals currently tracked in the system.
-						</p>
+				<div className="mb-6">
+					<div className="flex items-center justify-between mb-4">
+						<div>
+							<h1 className="text-2xl font-bold text-gray-900">
+								Animals
+							</h1>
+							<p className="text-gray-600">
+								Browse all animals currently tracked in the
+								system.
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={() => refetch()}
+							className="text-sm text-pink-600 hover:text-pink-700 font-medium"
+							disabled={isLoading}
+						>
+							Refresh
+						</button>
 					</div>
-					<button
-						type="button"
-						onClick={() => refetch()}
-						className="text-sm text-pink-600 hover:text-pink-700 font-medium"
-						disabled={isLoading}
-					>
-						Refresh
-					</button>
+					<Link to="/animals/new">
+						<Button>Create New Animal</Button>
+					</Link>
 				</div>
 
 				{isLoading && (

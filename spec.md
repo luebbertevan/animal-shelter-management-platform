@@ -238,6 +238,20 @@
 -   **Shared Design System:** Reuse UI primitives between mobile and web for consistency and faster delivery; Expo + Next.js support shared component libraries.
 -   **Extensible Notifications:** Abstract notification delivery now to enable email and push immediately, with an easy path to add SMS/MMS when fosters request it.
 
+### Routing & Navigation (MVP)
+
+-   **Current Approach (MVP):** Flat route structure using React Router. All routes are defined at the top level in `App.tsx` for simplicity and clarity during MVP development.
+-   **Route Nesting (Post-MVP):** Consider implementing nested routes when:
+    -   A shared layout/navbar is needed for related pages (e.g., all `/animals/*` routes)
+    -   Multiple nested routes exist (e.g., `/animals/:id/edit`, `/animals/:id/timeline`, `/animals/:id/photos`)
+    -   Context or data needs to be shared across related routes
+-   **Shared Navigation Bar (Post-MVP):** Implement a shared navigation component for authenticated pages that provides:
+    -   Quick access to main sections (Animals, Fosters, Messages, Dashboard)
+    -   User profile/logout controls
+    -   Consistent navigation across all protected routes
+    -   Mobile-friendly hamburger menu for smaller screens
+-   **Benefits of Future Nesting:** Reduces code duplication (shared `ProtectedRoute` wrapper), enables shared layouts, and improves route organization as the app grows.
+
 ### Integration & Data Considerations
 
 -   **Imports:** CSV template for migrating existing spreadsheets.
