@@ -72,9 +72,14 @@ export default function AnimalsList() {
 							Refresh
 						</button>
 					</div>
-					<Link to="/animals/new">
-						<Button>Create New Animal</Button>
-					</Link>
+					<div className="space-y-4">
+						<Link to="/dashboard" className="block">
+							<Button variant="outline">Back to Dashboard</Button>
+						</Link>
+						<Link to="/animals/new" className="block">
+							<Button>Create New Animal</Button>
+						</Link>
+					</div>
 				</div>
 
 				{isLoading && (
