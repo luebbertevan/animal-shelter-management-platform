@@ -8,17 +8,24 @@ export function useAuth() {
 
 	useEffect(() => {
 		// Check for existing session on mount (handles page refresh)
-		supabase.auth.getSession().then(({ data: { session } }) => {
-			setUser(session?.user ?? null);
-			setLoading(false);
-		});
+		supabase.auth
+			.getSession()
+			.then(({ data: { session } }) => {
+				setUser(session?.user ?? null);
+				setLoading(false);
+			})
+			.catch((error) => {
+				console.error("Error getting session:", error);
+				// On error, assume no user is logged in
+				setUser(null);
+				setLoading(false);
+			});
 
 		// Listen for auth state changes (login, logout, token refresh)
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((_event, session) => {
 			setUser(session?.user ?? null);
-			setLoading(false);
 		});
 
 		// Cleanup: unsubscribe when component unmounts

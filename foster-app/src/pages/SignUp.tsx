@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { getErrorMessage } from "../lib/errorUtils";
 import FormContainer from "../components/ui/FormContainer";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
@@ -40,7 +41,12 @@ export default function SignUp() {
 			});
 
 			if (signUpError) {
-				setError(signUpError.message);
+				setError(
+					getErrorMessage(
+						signUpError,
+						"Sign up failed. Please try again."
+					)
+				);
 			} else if (data.session) {
 				// Session is available immediately in the response - user is automatically logged in
 				navigate("/dashboard", { replace: true });
@@ -48,8 +54,13 @@ export default function SignUp() {
 				// No session (shouldn't happen with email confirmation disabled, but handle gracefully)
 				navigate("/login", { replace: true });
 			}
-		} catch {
-			setError("An unexpected error occurred. Please try again.");
+		} catch (err) {
+			setError(
+				getErrorMessage(
+					err,
+					"An unexpected error occurred. Please try again."
+				)
+			);
 		} finally {
 			setLoading(false);
 		}

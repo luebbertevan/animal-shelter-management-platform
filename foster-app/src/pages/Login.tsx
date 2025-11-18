@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { getErrorMessage } from "../lib/errorUtils";
 import FormContainer from "../components/ui/FormContainer";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
@@ -27,7 +28,12 @@ export default function Login() {
 				});
 
 			if (signInError) {
-				setError(signInError.message);
+				setError(
+					getErrorMessage(
+						signInError,
+						"Login failed. Please try again."
+					)
+				);
 			} else if (data.session) {
 				// Session is available in the response - login successful
 				navigate("/dashboard", { replace: true });
@@ -35,8 +41,13 @@ export default function Login() {
 				// No session (unexpected - should not happen with signInWithPassword)
 				setError("Login failed. Please try again.");
 			}
-		} catch {
-			setError("An unexpected error occurred. Please try again.");
+		} catch (err) {
+			setError(
+				getErrorMessage(
+					err,
+					"An unexpected error occurred. Please try again."
+				)
+			);
 		} finally {
 			setLoading(false);
 		}

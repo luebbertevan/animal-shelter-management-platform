@@ -8,6 +8,7 @@ import Select from "../../components/ui/Select";
 import Toggle from "../../components/ui/Toggle";
 import Button from "../../components/ui/Button";
 import ErrorMessage from "../../components/ui/ErrorMessage";
+import { getErrorMessage } from "../../lib/errorUtils";
 import type { AnimalStatus, Sex } from "../../types";
 
 export default function NewAnimal() {
@@ -80,21 +81,26 @@ export default function NewAnimal() {
 			// Add priority field
 			animalData.priority = priority;
 
-			const { error: insertError } = await supabase
+			const { data: insertedData, error: insertError } = await supabase
 				.from("animals")
-				.insert(animalData);
+				.insert(animalData)
+				.select()
+				.single();
 
 			if (insertError) {
 				console.error("Error creating animal:", insertError);
 				setSubmitError(
-					insertError.message ||
+					getErrorMessage(
+						insertError,
 						"Failed to create animal. Please try again."
+					)
 				);
-				setLoading(false);
+			} else if (!insertedData) {
+				// No error but no data returned (unexpected)
+				setSubmitError("Animal was not created. Please try again.");
 			} else {
-				// Success - show message and redirect
+				// Success - data exists and no error
 				setSuccessMessage("Animal created successfully!");
-				setLoading(false);
 
 				// Redirect to dashboard after a brief delay to show success message
 				// (Will redirect to /animals list page once M2.2 is complete)
@@ -104,7 +110,15 @@ export default function NewAnimal() {
 			}
 		} catch (err) {
 			console.error("Unexpected error:", err);
-			setSubmitError("An unexpected error occurred. Please try again.");
+			// This catch handles errors that occur outside the Supabase call
+			// (e.g., network errors before the request completes, or other unexpected errors)
+			setSubmitError(
+				getErrorMessage(
+					err,
+					"An unexpected error occurred. Please try again."
+				)
+			);
+		} finally {
 			setLoading(false);
 		}
 	};

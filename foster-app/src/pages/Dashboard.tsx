@@ -1,10 +1,12 @@
 import { useNavigate, Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import Button from "../components/ui/Button";
 
 export default function Dashboard() {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const { user } = useAuth();
 
 	const handleLogout = async () => {
@@ -13,6 +15,9 @@ export default function Dashboard() {
 		if (error) {
 			console.error("Error signing out:", error);
 		}
+
+		// Clear React Query cache to prevent showing previous user's data
+		queryClient.clear();
 
 		// Always redirect - local session is cleared regardless of network errors
 		navigate("/login", { replace: true });
@@ -34,16 +39,20 @@ export default function Dashboard() {
 							)}
 						</div>
 					</div>
-					<p className="text-gray-600">Dashboard coming soon...</p>
 				</div>
 
 				<div className="bg-white rounded-lg shadow-md p-6 mb-4">
 					<h2 className="text-lg font-semibold text-gray-900 mb-4">
 						Quick Actions
 					</h2>
-					<Link to="/animals/new">
-						<Button>Create New Animal</Button>
-					</Link>
+					<div className="space-y-4">
+						<Link to="/animals" className="block">
+							<Button>View Animals</Button>
+						</Link>
+						<Link to="/animals/new" className="block">
+							<Button>Create New Animal</Button>
+						</Link>
+					</div>
 				</div>
 
 				<div className="bg-white rounded-lg shadow-md p-6">
