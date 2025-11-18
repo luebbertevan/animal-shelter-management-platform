@@ -2,9 +2,11 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
+import { useUserProfile } from "../../hooks/useUserProfile";
 import type { Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
+import Button from "../../components/ui/Button";
 import {
 	getErrorMessage,
 	checkOfflineAndThrow,
@@ -15,6 +17,7 @@ import {
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
 	const { user } = useAuth();
+	const { isCoordinator } = useUserProfile();
 
 	const {
 		data: animal,
@@ -159,9 +162,23 @@ export default function AnimalDetail() {
 				</div>
 
 				<div className="bg-white rounded-lg shadow-sm p-6">
-					<h1 className="text-2xl font-bold text-gray-900 mb-6">
-						{animal.name?.trim() || "Unnamed Animal"}
-					</h1>
+					<div className="mb-6">
+						<h1 className="text-2xl font-bold text-gray-900 mb-2">
+							{animal.name?.trim() || "Unnamed Animal"}
+						</h1>
+						{isCoordinator && (
+							<Button
+								variant="outline"
+								className="w-auto text-sm py-1.5 px-3"
+								onClick={() => {
+									// Placeholder - will be functional in a later milestone
+									alert("Edit functionality coming soon!");
+								}}
+							>
+								Edit
+							</Button>
+						)}
+					</div>
 
 					<div className="space-y-4">
 						{animal.status && (
