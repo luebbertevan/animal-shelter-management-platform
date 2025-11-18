@@ -541,14 +541,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Display an error message if the fetch fails
     - Use React Query's built-in `isLoading` and `isError` states
 
-4. **Add navigation to detail pages**:
-
-    - Import `Link` component from react-router-dom
-    - Make each animal card clickable/linkable to its detail page
-    - Use the route pattern `/animals/{animal.id}` for navigation
-    - Add visual indication that cards are clickable (hover effects, cursor pointer)
-
-5. **Add routing**:
+4. **Add routing**:
     - Add route in `src/App.tsx`: `/animals` that renders the `AnimalsList` component
     - Consider adding a "Create New Animal" button/link on this page that navigates to `/animals/new`
 
@@ -557,7 +550,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   When the page loads, React Query automatically fetches animals from Supabase
 -   The data is cached, so if the user navigates away and comes back, it shows cached data immediately
 -   Animals are displayed in a responsive grid of cards
--   Clicking a card navigates to that animal's detail page
 -   If data is stale or the user refocuses the window, React Query automatically refetches
 
 **Testing:**
@@ -566,12 +558,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Verify animals are ordered by newest first
 -   Test on mobile device → should display in single column, cards are easy to tap
 -   Test on desktop → should display in multiple columns
--   Click an animal card → should navigate to detail page
 -   Test loading state → should show loading indicator while fetching
--   Test error state → simulate network error, should show error message
+-   Test error state → simulate network error, should show error message with retry button
 -   Verify data updates → create a new animal, list should update (or refresh to see new animal)
 
-**Deliverable:** Working animals list page that displays all animals in a responsive, mobile-friendly grid. Users can browse animals and navigate to individual detail pages.
+**Deliverable:** Working animals list page that displays all animals in a responsive, mobile-friendly grid with proper loading and error states. Users can browse animals in the list.
 
 ---
 
@@ -581,13 +572,21 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. **Create the Animal Detail page** (`src/pages/animals/AnimalDetail.tsx`):
+1. **Add navigation from list to detail pages**:
+
+    - Import `Link` component from react-router-dom in `AnimalsList.tsx`
+    - Make each animal card clickable/linkable to its detail page
+    - Use the route pattern `/animals/{animal.id}` for navigation
+    - Add visual indication that cards are clickable (hover effects, cursor pointer)
+    - Wrap each card in a `Link` component or make the card itself a clickable link
+
+2. **Create the Animal Detail page** (`src/pages/animals/AnimalDetail.tsx`):
 
     - Create a new component to display a single animal's full details
     - Use React Router's `useParams` hook to extract the animal ID from the URL
     - The route will be `/animals/:id`, so the `id` parameter will contain the animal's UUID
 
-2. **Fetch the animal data**:
+3. **Fetch the animal data**:
 
     - Use React Query's `useQuery` hook to fetch a single animal by ID
     - Configure the query to:
@@ -595,7 +594,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Query Supabase to select the animal where `id` matches the URL parameter
         - Handle errors appropriately
 
-3. **Display all animal fields**:
+4. **Display all animal fields**:
 
     - Show all available animal information in a readable format
     - Organize information in sections or a clean vertical layout
@@ -604,20 +603,20 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Use mobile-first design with adequate spacing and readable font sizes
     - Consider using a card or section-based layout for visual organization
 
-4. **Add navigation controls**:
+5. **Add navigation controls**:
 
     - Add a "Back" button that uses React Router's `useNavigate` hook
     - Use `navigate(-1)` to go back to the previous page (browser history)
     - Alternatively, use `navigate("/animals")` to always go back to the list
     - Style the back button to be easily tappable on mobile
 
-5. **Add edit functionality (for coordinators)**:
+6. **Add edit functionality (for coordinators)**:
 
     - Add an "Edit" button or link (will be functional in a later milestone)
     - For now, this can just be a placeholder that shows the button
     - Consider role-based visibility (only show for coordinators, not fosters)
 
-6. **Add routing**:
+7. **Add routing**:
     - Add route in `src/App.tsx`: `/animals/:id` that renders the `AnimalDetail` component
     - The `:id` is a URL parameter that will be captured by `useParams`
 
