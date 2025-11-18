@@ -65,6 +65,7 @@ export interface Animal {
 	source?: string; // Rescue name/source (renamed from 'from' - SQL reserved word)
 	intake_type?: IntakeType;
 	status: AnimalStatus;
+	priority?: boolean; // High priority flag for urgent placement needs
 	current_foster_id?: string; // ID of current foster (references User/Foster)
 
 	// Medical (structured as string for now, can be split into tags/arrays later)

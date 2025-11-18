@@ -77,10 +77,8 @@ export default function NewAnimal() {
 				animalData.sex = sex;
 			}
 
-			// Add priority as a tag if high priority
-			if (priority) {
-				animalData.tags = ["high_priority"];
-			}
+			// Add priority field
+			animalData.priority = priority;
 
 			const { error: insertError } = await supabase
 				.from("animals")

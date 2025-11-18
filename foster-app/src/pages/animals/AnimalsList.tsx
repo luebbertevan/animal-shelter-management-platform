@@ -3,12 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import type { Animal } from "../../types";
 
-type AnimalsListItem = Pick<Animal, "id" | "name" | "status" | "sex" | "tags">;
+type AnimalsListItem = Pick<
+	Animal,
+	"id" | "name" | "status" | "sex" | "priority"
+>;
 
 async function fetchAnimals() {
 	const { data, error } = await supabase
 		.from("animals")
-		.select("id, name, status, sex, tags")
+		.select("id, name, status, sex, priority")
 		.order("created_at", { ascending: false });
 
 	if (error) {
@@ -115,7 +118,7 @@ export default function AnimalsList() {
 											</span>
 										</p>
 									)}
-									{animal.tags?.includes("high_priority") && (
+									{animal.priority && (
 										<p>
 											<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
 												High Priority
