@@ -3,12 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import Button from "../components/ui/Button";
-import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 export default function Dashboard() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { user, loading } = useAuth();
+	const { user } = useAuth();
 
 	const handleLogout = async () => {
 		const { error } = await supabase.auth.signOut();
@@ -23,14 +22,6 @@ export default function Dashboard() {
 		// Always redirect - local session is cleared regardless of network errors
 		navigate("/login", { replace: true });
 	};
-
-	if (loading) {
-		return (
-			<div className="min-h-screen p-4 bg-gray-50 flex items-center justify-center">
-				<LoadingSpinner message="Loading dashboard..." />
-			</div>
-		);
-	}
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">

@@ -26,7 +26,6 @@ export function useAuth() {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((_event, session) => {
 			setUser(session?.user ?? null);
-			setLoading(false);
 		});
 
 		// Cleanup: unsubscribe when component unmounts
