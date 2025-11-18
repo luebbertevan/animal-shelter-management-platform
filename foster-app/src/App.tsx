@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Dashboard from "./pages/Dashboard";
 import AnimalsList from "./pages/animals/AnimalsList";
+import AnimalDetail from "./pages/animals/AnimalDetail";
 import NewAnimal from "./pages/animals/NewAnimal";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -33,6 +34,14 @@ function App() {
 					element={
 						<ProtectedRoute>
 							<NewAnimal />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/animals/:id/:slug?"
+					element={
+						<ProtectedRoute>
+							<AnimalDetail />
 						</ProtectedRoute>
 					}
 				/>

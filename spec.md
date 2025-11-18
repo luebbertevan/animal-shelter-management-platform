@@ -135,6 +135,11 @@
     -   Single state object instead of multiple useState hooks
     -   `useReducer` for complex form logic
     -   Form libraries handle this automatically
+-   **Runtime Validation:** Consider using a schema validation library like Zod for:
+    -   Validating API responses (ensuring data matches expected TypeScript types)
+    -   Form validation with type-safe error messages
+    -   Runtime type checking (TypeScript only provides compile-time checks)
+    -   This becomes especially valuable when integrating with external APIs or handling user input
 
 **Decision Point:** Revisit when adding more fields or if form management becomes cumbersome.
 
@@ -251,6 +256,7 @@
     -   Consistent navigation across all protected routes
     -   Mobile-friendly hamburger menu for smaller screens
 -   **Benefits of Future Nesting:** Reduces code duplication (shared `ProtectedRoute` wrapper), enables shared layouts, and improves route organization as the app grows.
+-   **Navigation Controls:** Pages should include navigation controls (e.g., "Back" buttons) where appropriate. Back buttons can use React Router's `useNavigate` hook with `navigate(-1)` for browser history or `navigate("/path")` for specific routes. Navigation controls should be easily tappable on mobile devices.
 
 ### Integration & Data Considerations
 

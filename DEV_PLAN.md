@@ -222,7 +222,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Email and password inputs
     - Form submission handler using `supabase.auth.signInWithPassword()`
     - Loading state (disable button during submission)
-    - Error handling (display error messages)
+    - Error handling using `errorUtils` for consistent user-friendly messages
     - Mobile-first styling with Tailwind CSS
     - Redirect to `/dashboard` on successful login
 
@@ -333,9 +333,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Prevent default form submission behavior
     - Validate all fields before submitting
     - Use Supabase client to create new user account: `supabase.auth.signUp({ email, password })`
-    - Handle errors from Supabase (display error messages)
+    - Handle errors from Supabase using `errorUtils` for consistent user-friendly messages
     - Show loading state while submitting (disable form, show loading indicator)
-    - On success, show success message and redirect to login page
+    - On success, automatically log user in and redirect to dashboard (M1.6)
 
 3. **Add routing**:
     - Add route in `src/App.tsx`: `/signup` that renders the `SignUp` component
@@ -408,6 +408,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
     - Import `useNavigate` from react-router-dom
     - Import `supabase` from lib/supabase
+    - Import `LoadingSpinner` component for loading state
+    - Check `loading` state from `useAuth()` hook and show spinner if loading
     - Create a `handleLogout` function that:
         - Calls `supabase.auth.signOut()` to clear the session
         - Redirects to `/login` page after successful logout
@@ -477,7 +479,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Get the current logged-in user's ID (from the auth context or useAuth hook)
     - Use Supabase client to insert a new record into the `animals` table
     - Include all form field values plus `created_by` field set to the current user's ID
-    - Handle errors from Supabase (display error message if insert fails)
+    - Handle errors from Supabase using `errorUtils` for consistent user-friendly messages
+    - Verify data was inserted (check both error and data response)
     - Show loading state while submitting (disable form, show loading indicator)
 
 4. **Handle successful submission**:
@@ -522,7 +525,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Use a query key of `["animals"]` for caching
         - Fetch all records from the `animals` table using Supabase client
         - Order results by `created_at` in descending order (newest first)
-        - Handle errors from Supabase and throw them so React Query can catch them
+        - Handle errors from Supabase using `errorUtils` and throw them so React Query can catch them
 
 2. **Display animals in a responsive grid**:
 
@@ -592,7 +595,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Configure the query to:
         - Use a query key like `["animals", id]` for proper caching
         - Query Supabase to select the animal where `id` matches the URL parameter
-        - Handle errors appropriately
+        - Handle errors using `errorUtils` and throw them so React Query can catch them
 
 4. **Display all animal fields**:
 
@@ -603,20 +606,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Use mobile-first design with adequate spacing and readable font sizes
     - Consider using a card or section-based layout for visual organization
 
-5. **Add navigation controls**:
-
-    - Add a "Back" button that uses React Router's `useNavigate` hook
-    - Use `navigate(-1)` to go back to the previous page (browser history)
-    - Alternatively, use `navigate("/animals")` to always go back to the list
-    - Style the back button to be easily tappable on mobile
-
-6. **Add edit functionality (for coordinators)**:
+5. **Add edit functionality (for coordinators)**:
 
     - Add an "Edit" button or link (will be functional in a later milestone)
     - For now, this can just be a placeholder that shows the button
     - Consider role-based visibility (only show for coordinators, not fosters)
 
-7. **Add routing**:
+6. **Add routing**:
     - Add route in `src/App.tsx`: `/animals/:id` that renders the `AnimalDetail` component
     - The `:id` is a URL parameter that will be captured by `useParams`
 
