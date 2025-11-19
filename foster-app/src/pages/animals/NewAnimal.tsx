@@ -8,7 +8,7 @@ import Select from "../../components/ui/Select";
 import Toggle from "../../components/ui/Toggle";
 import Button from "../../components/ui/Button";
 import ErrorMessage from "../../components/ui/ErrorMessage";
-import { getErrorMessage } from "../../lib/errorUtils";
+import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import type { AnimalStatus, Sex } from "../../types";
 
 export default function NewAnimal() {
@@ -65,6 +65,9 @@ export default function NewAnimal() {
 		setLoading(true);
 
 		try {
+			// Check if we're offline before making the request
+			checkOfflineAndThrow();
+
 			// Prepare data for insertion
 			const animalData: Record<string, unknown> = {
 				name: name.trim() || null, // Empty string becomes null

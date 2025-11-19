@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { getErrorMessage } from "../lib/errorUtils";
+import { getErrorMessage, checkOfflineAndThrow } from "../lib/errorUtils";
 import FormContainer from "../components/ui/FormContainer";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
@@ -21,6 +21,9 @@ export default function Login() {
 		setError(null);
 
 		try {
+			// Check if we're offline before making the request
+			checkOfflineAndThrow();
+
 			const { data, error: signInError } =
 				await supabase.auth.signInWithPassword({
 					email: email.trim(),
