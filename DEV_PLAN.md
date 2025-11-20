@@ -856,30 +856,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Deliverable:** PWA deployed to Vercel with working authentication and animals CRUD.
 
-### Milestone 3.5.2: Alternative Deployment Options
-
-**Option A: Netlify**
-
--   Similar to Vercel
--   Go to https://netlify.com
--   Drag and drop `foster-app/dist` folder (after building)
--   Add environment variables in Netlify dashboard
--   Or use Netlify CLI: `netlify deploy`
-
-**Option B: Supabase Hosting**
-
--   Hosted by Supabase (same provider as database)
--   Go to Supabase dashboard → Hosting
--   Follow setup instructions
--   Automatically configured for Supabase projects
-
-**Option C: GitHub Pages** (free but more setup)
-
--   Requires GitHub Actions for deployment
--   More complex, not recommended for first deployment
-
-**Recommendation:** Use Vercel for first deployment (easiest, free, fast).
-
 ---
 
 ## Phase 4: Push Notifications (CRITICAL - Communication Core)
