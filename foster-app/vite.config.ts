@@ -15,6 +15,62 @@ export default defineConfig({
 				"icon-512.png",
 			],
 			// Manifest is read from public/manifest.json automatically
+			workbox: {
+				globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+				runtimeCaching: [
+					{
+						// Navigation requests (HTML pages) - CacheFirst for iOS Safari offline support
+						// iOS Safari tries to fetch HTML before service worker can intercept
+						// CacheFirst ensures HTML is served from precache/cache immediately
+						urlPattern: ({ request }) =>
+							request.mode === "navigate",
+						handler: "CacheFirst",
+						options: {
+							cacheName: "pages",
+							expiration: {
+								maxEntries: 10,
+								maxAgeSeconds: 60 * 60 * 24, // 24 hours
+							},
+						},
+					},
+					{
+						// Cache static assets (JS, CSS, images) and fall back to cache while updating in background
+						urlPattern: ({ request }) =>
+							[
+								"style",
+								"script",
+								"worker",
+								"font",
+								"image",
+							].includes(request.destination),
+						handler: "StaleWhileRevalidate",
+						options: {
+							cacheName: "static-resources",
+							expiration: {
+								maxEntries: 60,
+								maxAgeSeconds: 60 * 60 * 24, // 24 hours
+							},
+						},
+					},
+					{
+						// Supabase REST API calls
+						urlPattern:
+							/^https:\/\/[a-z0-9-]+\.supabase\.co\/rest\/v1\/.*$/i,
+						handler: "NetworkFirst",
+						options: {
+							cacheName: "supabase-data",
+							networkTimeoutSeconds: 10,
+							expiration: {
+								maxEntries: 50,
+								maxAgeSeconds: 60 * 5, // 5 minutes
+							},
+							cacheableResponse: {
+								statuses: [0, 200, 204],
+							},
+						},
+					},
+				],
+			},
 		}),
 	],
 });

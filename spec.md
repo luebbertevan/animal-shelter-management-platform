@@ -141,6 +141,15 @@
     -   Runtime type checking (TypeScript only provides compile-time checks)
     -   This becomes especially valuable when integrating with external APIs or handling user input
 -   **Future Improvement — API Wrapper Layer:** Consider adding a dedicated API wrapper layer after the MVP to normalize Supabase responses, convert network and "not found" errors into typed error classes, and simplify error handling across the app.
+-   **Offline Status Indicators (Post-MVP):** Add visual indicators when the app is offline or using cached data:
+    -   Small banner/badge showing "Offline" or "Using cached data" when `navigator.onLine` is false
+    -   Helps users understand why they might see stale data or why new actions might fail
+    -   Can use browser's `online`/`offline` events to update indicator in real-time
+    -   Improves transparency when service worker serves cached content during offline refreshes
+-   **iOS Safari Offline PWA Support (Post-MVP):** iOS Safari has limitations with offline PWA functionality:
+    -   Service worker must be registered and activated while online before offline functionality works
+    -   iOS Safari may show "Safari can't open page" error when launching PWA offline if service worker wasn't properly activated
+    -   Future investigation needed: Test different caching strategies (CacheFirst vs NetworkFirst), ensure HTML is properly precached, and verify service worker registration timing on iOS
 
 **Decision Point:** Revisit when adding more fields or if form management becomes cumbersome.
 

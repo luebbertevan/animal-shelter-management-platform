@@ -9,7 +9,6 @@ import NavLinkButton from "../../components/ui/NavLinkButton";
 import Button from "../../components/ui/Button";
 import {
 	getErrorMessage,
-	checkOfflineAndThrow,
 	handleSupabaseNotFound,
 	isOffline,
 } from "../../lib/errorUtils";
@@ -32,9 +31,7 @@ export default function AnimalDetail() {
 			}
 
 			try {
-				// Check if we're offline before making the request
-				checkOfflineAndThrow();
-
+				// Let service worker handle offline - it will serve cached data if available
 				const { data, error: fetchError } = await supabase
 					.from("animals")
 					.select("*")

@@ -6,11 +6,7 @@ import { useAuth } from "../../hooks/useAuth";
 import type { Animal } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import {
-	getErrorMessage,
-	checkOfflineAndThrow,
-	isOffline,
-} from "../../lib/errorUtils";
+import { getErrorMessage, isOffline } from "../../lib/errorUtils";
 
 type AnimalsListItem = Pick<
 	Animal,
@@ -31,9 +27,7 @@ function createSlug(name: string | undefined | null): string {
 
 async function fetchAnimals() {
 	try {
-		// Check if we're offline before making the request
-		checkOfflineAndThrow();
-
+		// Let service worker handle offline - it will serve cached data if available
 		const { data, error } = await supabase
 			.from("animals")
 			.select("id, name, status, sex, priority")
