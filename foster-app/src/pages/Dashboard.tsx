@@ -2,12 +2,14 @@ import { useNavigate, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
+import { useUserProfile } from "../hooks/useUserProfile";
 import Button from "../components/ui/Button";
 
 export default function Dashboard() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const { user } = useAuth();
+	const { profile } = useUserProfile();
 
 	const handleLogout = async () => {
 		const { error } = await supabase.auth.signOut();
@@ -29,6 +31,11 @@ export default function Dashboard() {
 				<div className="bg-white rounded-lg shadow-md p-6 mb-4">
 					<div className="flex justify-between items-center mb-4">
 						<div>
+							{profile?.organization_name && (
+								<p className="text-lg font-semibold text-pink-600 mb-2">
+									{profile.organization_name}
+								</p>
+							)}
 							<h1 className="text-2xl font-bold text-gray-900">
 								Dashboard
 							</h1>

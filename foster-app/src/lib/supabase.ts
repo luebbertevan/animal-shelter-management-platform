@@ -10,3 +10,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// // Temporarily expose for testing RLS policies (remove after testing)
+// if (typeof window !== "undefined") {
+// 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// 	(window as any).supabase = supabase;
+// }

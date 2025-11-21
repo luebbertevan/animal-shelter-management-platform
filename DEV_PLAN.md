@@ -349,7 +349,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Submits form, which sends data to Supabase
 -   Supabase creates the user account in the auth system
 -   On success, user is redirected to login page to sign in
--   Note: Profile creation will be handled automatically via database trigger (Phase 5.1)
+-   Note: Profile creation will be handled automatically via database trigger (created in initial schema setup, updated in Phase 4.2 to include organization_id, and updated again in Phase 5.2 to create conversations)
 
 **Testing:**
 
@@ -894,29 +894,62 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 4.2: Add Organization ID to Core Tables
 
-**Goal:** Link users, animals, and animal groups to organizations for data isolation.
+**Goal:** Link users, animals, and animal groups to organizations for data isolation without breaking existing functionality.
+
+**Migration Strategy (Simplified - Existing Data Deleted):**
+
+1. **Use existing organization:**
+
+    - Use existing "Fractal For Cats" organization (ID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
+    - This is the default organization for all new records
+
+2. **Add organization_id columns as NOT NULL with DEFAULT:**
+
+    - Add `organization_id UUID NOT NULL DEFAULT '2c20afd1-43b6-4e67-8790-fac084a71fa2' REFERENCES public.organizations(id)` to:
+        - `public.profiles` table
+        - `public.animals` table
+        - `public.animal_groups` table
+    - Since existing data is deleted, we can add columns directly as NOT NULL with DEFAULT
+    - This ensures all new records automatically get the default organization_id
+
+3. **Add foreign key constraints:**
+
+    - Foreign key constraints are included in the column definition above
+    - This prevents orphaned records
+
+4. **Create profile creation trigger:**
+    - **Note:** The trigger does not currently exist in migrations (checked)
+    - Create trigger function: `public.handle_new_user()` that:
+        - Inserts into `public.profiles` with: `id`, `email`, `role` (default 'foster'), and `organization_id` (default org UUID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
+    - Create trigger: `on_auth_user_created` that fires AFTER INSERT on `auth.users`
+    - **Note:** The trigger will be updated again in Phase 5.2 (M 5.2 - Create Conversation on User Signup) to also create conversations, but for now it just needs to set organization_id
+    - This ensures new signups (before Phase 7) get assigned to default organization
 
 **Tasks:**
 
 1. Create new migration file for adding organization_id columns
-2. Add `organization_id UUID REFERENCES public.organizations(id)` to:
-    - `public.profiles` table
-    - `public.animals` table
-    - `public.animal_groups` table
-3. Make `organization_id` NOT NULL for new records (add default for existing)
-4. Create default organization record (e.g., "Default Shelter")
-5. Update existing records to reference default organization
-6. Add foreign key constraints
-7. Run migration and verify data integrity
+2. Add `organization_id` columns directly as NOT NULL with DEFAULT to all three tables (using org ID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
+3. Create profile creation trigger function and trigger
+4. Run migration and verify data integrity
+
+**Additional Implementation (Completed in M4.2):**
+
+-   Update `useUserProfile` hook to fetch `organization_id` from profile
+-   Update `NewAnimal.tsx` to explicitly set `organization_id` from user's profile when creating animals
+-   This ensures animals are assigned to the creator's organization (better than relying on database DEFAULT)
+-   Prepares for multi-org support where users from different orgs can create records
 
 **Testing:**
 
 -   All tables have organization_id column
--   Existing records are assigned to default organization
--   Cannot create record without organization_id
+-   New records automatically get default organization_id (Fractal For Cats) via DEFAULT
+-   Creation forms explicitly set organization_id from user's profile (better practice)
+-   Cannot create record without organization_id (enforced by NOT NULL)
 -   Foreign key constraints prevent orphaned records
+-   New signups automatically get assigned to default organization via trigger
+-   App functionality works correctly with organization_id on all records
 
-**Deliverable:** All core tables linked to organizations.
+**Deliverable:** All core tables linked to organizations with safe migration. Creation forms explicitly set organization_id from user profile.
 
 ---
 
@@ -926,25 +959,43 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Update `profiles` RLS policies:
+1. **Update `profiles` RLS policies:**
+
+    - Users can view their own profile (always allowed)
     - Users can view profiles in their organization
     - Coordinators can view all profiles in their organization
-2. Update `animals` RLS policies:
+
+2. **Update `animals` RLS policies:**
+
     - Users can view animals in their organization
     - Coordinators can create/update animals in their organization
-3. Update `animal_groups` RLS policies:
+
+3. **Update `animal_groups` RLS policies:**
+
     - Users can view animal groups in their organization
     - Coordinators can create/update animal groups in their organization
-4. Test policies: Create test user in different org, verify data isolation
-5. Update `is_coordinator()` function to check organization if needed
+
+4. **Update `is_coordinator()` function:**
+
+    - Check organization if needed (for multi-org coordinator checks)
+    - For now, can keep simple (role check) since all users are in default org
+
+5. **Test policies:**
+    - Existing users can still see their data (all in default org)
+    - Create test user in different org (manually), verify data isolation
+    - Verify users can only see their organization's data
+
+**Note:** Since existing data can be deleted, we don't need fallback policies. All new records will have organization_id (via DEFAULT), so policies can require it.
 
 **Testing:**
 
--   User in Org A cannot see data from Org B
+-   Existing users can still access their data (all in default org)
+-   User in Org A cannot see data from Org B (when we add second org)
 -   Coordinator in Org A can only manage Org A data
 -   Policies work correctly for all CRUD operations
+-   New signups (before Phase 7) get default org and can see default org data
 
-**Deliverable:** RLS policies enforce organization isolation.
+**Deliverable:** RLS policies enforce organization isolation with safe fallbacks.
 
 ---
 
@@ -954,22 +1005,51 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Update `useUserProfile` hook to fetch user's organization_id
-2. Create `useOrganization` hook that returns current user's organization
-3. Update all animal queries to include `.eq('organization_id', orgId)`
-4. Update all profile queries to include organization filter
-5. Update all animal group queries to include organization filter
-6. Test: Verify users only see their organization's data in UI
-7. Update `NewAnimal.tsx` to set organization_id on creation
-8. Update any other creation forms to include organization_id
+1. **Update `useUserProfile` hook:**
+
+    - Fetch user's `organization_id` from profile
+    - Return `organization_id` in hook response
+    - All profiles will have organization_id (via DEFAULT in M 4.2)
+
+2. **Update `useUserProfile` hook:**
+
+    - Already updated in M4.2 to fetch `organization_id` from profile
+    - Returns `organization_id` in hook response for use throughout app
+
+3. **Update all animal queries:**
+
+    - Include `.eq('organization_id', orgId)` filter
+    - Update `AnimalsList.tsx` query
+    - Update `AnimalDetail.tsx` query
+
+4. **Update all profile queries:**
+
+    - Include organization filter where appropriate
+    - `useUserProfile` already fetches organization_id (updated in M4.2)
+
+5. **Update all animal group queries:**
+
+    - Include organization filter
+
+6. **Update creation forms:**
+
+    - `NewAnimal.tsx` already updated in M4.2 to set `organization_id` from user's profile
+    - Update any other creation forms (animal_groups, etc.) similarly when implemented
+
+7. **Test:**
+    - Verify existing users can still see their animals (all in default org)
+    - Verify creating animal assigns it to user's organization
+    - Verify users only see their organization's data in UI
+
+**Note:** Since existing data can be deleted, all new records will have organization_id. Queries should always filter by organization_id.
 
 **Testing:**
 
 -   Animals list only shows animals from user's organization
--   Creating animal assigns it to user's organization
--   Switching organizations (if implemented) shows different data
+-   Creating animal assigns it to user's organization automatically
+-   New signups (before Phase 7) get default org and see default org data
 
-**Deliverable:** All queries filter by organization automatically.
+**Deliverable:** All queries filter by organization automatically with safe fallbacks.
 
 ---
 

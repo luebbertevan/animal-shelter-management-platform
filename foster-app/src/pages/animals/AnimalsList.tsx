@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
+import { useUserProfile } from "../../hooks/useUserProfile";
 import type { Animal } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
@@ -25,12 +26,13 @@ function createSlug(name: string | undefined | null): string {
 		.replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
 }
 
-async function fetchAnimals() {
+async function fetchAnimals(organizationId: string) {
 	try {
 		// Let service worker handle offline - it will serve cached data if available
 		const { data, error } = await supabase
 			.from("animals")
 			.select("id, name, status, sex, priority")
+			.eq("organization_id", organizationId) // Filter by organization
 			.order("created_at", { ascending: false });
 
 		if (error) {
@@ -70,6 +72,7 @@ async function fetchAnimals() {
 
 export default function AnimalsList() {
 	const { user } = useAuth();
+	const { profile } = useUserProfile();
 
 	const {
 		data = [],
@@ -78,9 +81,14 @@ export default function AnimalsList() {
 		error,
 		refetch,
 	} = useQuery({
-		queryKey: ["animals", user?.id], // Include user ID in cache key
-		queryFn: fetchAnimals,
-		enabled: !!user, // Only fetch if user is logged in
+		queryKey: ["animals", user?.id, profile?.organization_id], // Include user ID and org ID in cache key
+		queryFn: () => {
+			if (!profile?.organization_id) {
+				throw new Error("Organization ID not available");
+			}
+			return fetchAnimals(profile.organization_id);
+		},
+		enabled: !!user && !!profile?.organization_id, // Only fetch if user is logged in and has org ID
 	});
 
 	const animals = useMemo(() => data, [data]);
