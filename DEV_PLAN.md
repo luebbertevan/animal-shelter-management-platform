@@ -896,40 +896,31 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Goal:** Link users, animals, and animal groups to organizations for data isolation without breaking existing functionality.
 
-**Migration Strategy (Safe, Non-Breaking):**
+**Migration Strategy (Simplified - Existing Data Deleted):**
 
-1. **Create default organization first:**
+1. **Use existing organization:**
 
-    - Insert default organization record (e.g., "Default Shelter") and save its UUID
-    - This ensures we have an org to reference
+    - Use existing "Fractal For Cats" organization (ID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
+    - This is the default organization for all new records
 
-2. **Add organization_id columns as nullable:**
+2. **Add organization_id columns as NOT NULL with DEFAULT:**
 
-    - Add `organization_id UUID REFERENCES public.organizations(id)` to:
+    - Add `organization_id UUID NOT NULL DEFAULT '2c20afd1-43b6-4e67-8790-fac084a71fa2' REFERENCES public.organizations(id)` to:
         - `public.profiles` table
         - `public.animals` table
         - `public.animal_groups` table
-    - **Make columns nullable initially** (allows existing records to work)
+    - Since existing data is deleted, we can add columns directly as NOT NULL with DEFAULT
+    - This ensures all new records automatically get the default organization_id
 
-3. **Update existing records:**
+3. **Add foreign key constraints:**
 
-    - Set all existing `profiles.organization_id` to default organization UUID
-    - Set all existing `animals.organization_id` to default organization UUID
-    - Set all existing `animal_groups.organization_id` to default organization UUID
+    - Foreign key constraints are included in the column definition above
+    - This prevents orphaned records
 
-4. **Make organization_id NOT NULL with DEFAULT:**
-
-    - Alter columns to be NOT NULL with DEFAULT value (default organization UUID)
-    - This ensures new records always have an organization_id
-
-5. **Add foreign key constraints:**
-
-    - Add foreign key constraints (should work since all records now have valid org IDs)
-
-6. **Create profile creation trigger:**
+4. **Create profile creation trigger:**
     - **Note:** The trigger does not currently exist in migrations (checked)
     - Create trigger function: `public.handle_new_user()` that:
-        - Inserts into `public.profiles` with: `id`, `email`, `role` (default 'foster'), and `organization_id` (default org UUID)
+        - Inserts into `public.profiles` with: `id`, `email`, `role` (default 'foster'), and `organization_id` (default org UUID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
     - Create trigger: `on_auth_user_created` that fires AFTER INSERT on `auth.users`
     - **Note:** The trigger will be updated again in Phase 5.2 (M 5.2 - Create Conversation on User Signup) to also create conversations, but for now it just needs to set organization_id
     - This ensures new signups (before Phase 7) get assigned to default organization
@@ -937,22 +928,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Tasks:**
 
 1. Create new migration file for adding organization_id columns
-2. Insert default organization: `INSERT INTO organizations (name) VALUES ('Default Shelter') RETURNING id;`
-3. Add nullable `organization_id` columns to all three tables
-4. Update all existing records: `UPDATE profiles SET organization_id = '<default-org-id>' WHERE organization_id IS NULL;` (repeat for animals, animal_groups)
-5. Alter columns to NOT NULL with DEFAULT: `ALTER TABLE profiles ALTER COLUMN organization_id SET NOT NULL, SET DEFAULT '<default-org-id>';`
-6. Add foreign key constraints
-7. Verify no NULL values exist
-8. Run migration and verify data integrity
+2. Add `organization_id` columns directly as NOT NULL with DEFAULT to all three tables (using org ID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
+3. Create profile creation trigger function and trigger
+4. Run migration and verify data integrity
 
 **Testing:**
 
 -   All tables have organization_id column
--   Existing records are assigned to default organization
--   New records automatically get default organization_id
+-   New records automatically get default organization_id (Fractal For Cats)
 -   Cannot create record without organization_id (enforced by NOT NULL)
 -   Foreign key constraints prevent orphaned records
--   Existing app functionality still works (all users/animals in same default org)
+-   New signups automatically get assigned to default organization via trigger
+-   App functionality works correctly with organization_id on all records
 
 **Deliverable:** All core tables linked to organizations with safe migration.
 
