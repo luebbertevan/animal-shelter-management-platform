@@ -4,6 +4,7 @@ import { useAuth } from "./useAuth";
 
 interface UserProfile {
 	role: "coordinator" | "foster";
+	organization_id: string;
 }
 
 /**
@@ -21,7 +22,7 @@ export function useUserProfile() {
 			try {
 				const { data, error } = await supabase
 					.from("profiles")
-					.select("role")
+					.select("role, organization_id")
 					.eq("id", user.id)
 					.single();
 

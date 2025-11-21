@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
+import { useUserProfile } from "../../hooks/useUserProfile";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import Toggle from "../../components/ui/Toggle";
@@ -15,6 +16,7 @@ import type { AnimalStatus, Sex } from "../../types";
 export default function NewAnimal() {
 	const navigate = useNavigate();
 	const { user } = useAuth();
+	const { profile } = useUserProfile();
 	const [name, setName] = useState("");
 	const [status, setStatus] = useState<AnimalStatus>("needs_foster");
 	const [sex, setSex] = useState<Sex | "">("");
@@ -63,6 +65,13 @@ export default function NewAnimal() {
 			return;
 		}
 
+		if (!profile?.organization_id) {
+			setSubmitError(
+				"Unable to determine your organization. Please try again."
+			);
+			return;
+		}
+
 		setLoading(true);
 
 		try {
@@ -75,6 +84,7 @@ export default function NewAnimal() {
 				species: "cat", // Default to "cat" for MVP (can be made configurable later)
 				status: status,
 				created_by: user.id,
+				organization_id: profile.organization_id, // Explicitly set from user's profile
 			};
 
 			// Add optional fields only if they have values

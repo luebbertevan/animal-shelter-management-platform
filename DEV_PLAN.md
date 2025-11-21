@@ -932,16 +932,24 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 3. Create profile creation trigger function and trigger
 4. Run migration and verify data integrity
 
+**Additional Implementation (Completed in M4.2):**
+
+-   Update `useUserProfile` hook to fetch `organization_id` from profile
+-   Update `NewAnimal.tsx` to explicitly set `organization_id` from user's profile when creating animals
+-   This ensures animals are assigned to the creator's organization (better than relying on database DEFAULT)
+-   Prepares for multi-org support where users from different orgs can create records
+
 **Testing:**
 
 -   All tables have organization_id column
--   New records automatically get default organization_id (Fractal For Cats)
+-   New records automatically get default organization_id (Fractal For Cats) via DEFAULT
+-   Creation forms explicitly set organization_id from user's profile (better practice)
 -   Cannot create record without organization_id (enforced by NOT NULL)
 -   Foreign key constraints prevent orphaned records
 -   New signups automatically get assigned to default organization via trigger
 -   App functionality works correctly with organization_id on all records
 
-**Deliverable:** All core tables linked to organizations with safe migration.
+**Deliverable:** All core tables linked to organizations with safe migration. Creation forms explicitly set organization_id from user profile.
 
 ---
 
@@ -1003,10 +1011,10 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Return `organization_id` in hook response
     - All profiles will have organization_id (via DEFAULT in M 4.2)
 
-2. **Create `useOrganization` hook (optional):**
+2. **Update `useUserProfile` hook:**
 
-    - Returns current user's organization_id
-    - Can be used throughout app for organization filtering
+    - Already updated in M4.2 to fetch `organization_id` from profile
+    - Returns `organization_id` in hook response for use throughout app
 
 3. **Update all animal queries:**
 
@@ -1017,7 +1025,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 4. **Update all profile queries:**
 
     - Include organization filter where appropriate
-    - Update `useUserProfile` to filter by organization if needed
+    - `useUserProfile` already fetches organization_id (updated in M4.2)
 
 5. **Update all animal group queries:**
 
@@ -1025,9 +1033,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 6. **Update creation forms:**
 
-    - Update `NewAnimal.tsx` to set `organization_id` from user's profile
-    - Organization_id will be set automatically via DEFAULT, but explicitly setting it from user's profile is clearer
-    - Update any other creation forms similarly
+    - `NewAnimal.tsx` already updated in M4.2 to set `organization_id` from user's profile
+    - Update any other creation forms (animal_groups, etc.) similarly when implemented
 
 7. **Test:**
     - Verify existing users can still see their animals (all in default org)
