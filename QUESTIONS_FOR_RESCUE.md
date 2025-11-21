@@ -126,3 +126,11 @@
 22. **What information is most critical for day-to-day operations?**
     -   What do coordinators need to see immediately when viewing an animal?
     -   What can be hidden or shown at the bottom if it's missing?
+
+## Activity Logging & Tracking
+
+23. **Activity Logging:**
+    -   Do you need to track who performed what actions? (e.g., "John updated Fluffy's status", "Sarah assigned Mittens to Jane")
+    -   Or is it enough to just show timestamps of when things changed? (e.g., "Updated 2 hours ago")
+    -   Would an activity timeline showing who did what be useful, or is it unnecessary complexity?
+    -   What actions are most important to track? (status changes, assignments, message sending, etc.)

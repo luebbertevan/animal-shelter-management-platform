@@ -59,7 +59,7 @@
 -   **Availability:** Simple boolean toggle (available/not available) for MVP. Might change to calendar with specific date ranges later for more granular scheduling.
 -   Assignment tracking: current and historical placements; surfacing open capacity.
 -   Quick filters/search (e.g., "experienced bottle feeders", "available next week").
--   **Foster account confirmation (Post-MVP):** Coordinators can generate confirmation codes/passwords for approved fosters. Codes are easily shareable via text/email. Fosters use code to create account (replaces open registration). Keeps application process in Petstablished while controlling platform access. For MVP, simple email/password signup is used. Confirmation code flow will be implemented after MVP to add access control.
+-   **Account confirmation (Phase 7):** Admin generates confirmation codes for both coordinators and fosters. Codes are linked to email addresses, organizations, and determine user role. Users must provide matching email and code to create account. This replaces open registration and ensures users are assigned to correct organizations. Codes are easily shareable via email.
 
 #### Communication Hub
 
@@ -111,8 +111,12 @@
 
 #### Authentication & Account Management
 
--   **Sign Up (MVP):** Simple email/password registration. Users can create accounts directly through the signup form. No confirmation codes required for MVP.
--   **Sign Up with Confirmation Code (Post-MVP):** Coordinators generate confirmation codes for approved fosters. Fosters use the code during signup to verify they're approved. This adds access control while keeping the application process in Petstablished.
+-   **Sign Up (Initial MVP - Phase 1):** Simple email/password registration. Users can create accounts directly through the signup form. No confirmation codes required initially.
+-   **Sign Up with Confirmation Code (Phase 7):** Admin generates confirmation codes for both coordinators and fosters. Codes are linked to:
+    -   Email address (user must sign up with matching email)
+    -   Organization (user is assigned to correct shelter)
+    -   Role (coordinator or foster - determined by code)
+-   **Organization Setup:** Organizations are created manually by admin (via Supabase dashboard). Users are assigned to organizations via confirmation codes during signup.
 -   **Password Recovery:** Users can reset forgotten passwords via email. "Forgot password?" link on login page triggers Supabase's password reset flow. User receives email with reset link, clicks link, and sets new password.
 -   **Sign Out:** Logout functionality available on Dashboard and other authenticated pages. Clears session and redirects to login.
 
@@ -273,9 +277,15 @@
 -   **Imports:** CSV template for migrating existing spreadsheets.
 -   **Bulk Intake Automation (Post-MVP):** Pipeline for uploading semi-structured rescue manifests (spreadsheets, PDFs, email dumps) and converting them into animal profiles using AI-assisted extraction.
 -   **Exports:** PDF or CSV report for animal summaries and task compliance.
+-   **Data Export Failsafe (Post-MVP):** Ability to export critical data (animals, fosters, assignments, messages) to CSV/Google Sheets format for emergency access if app goes down.
 -   **Audit Trail:** Store immutable event history for compliance and debugging.
 -   **Media Handling:** Limit upload sizes; auto-generate thumbnails; ensure secure signed URLs.
 -   **Petstablished Compatibility:** App designed to work alongside Petstablished. Application process remains in Petstablished; app handles day-to-day coordination. Future integration will enable data sync (see Stretch Roadmap).
+-   **Coordinator Fostering Edge Case:** Coordinators may also foster animals. System should handle this by:
+    -   Allowing coordinators to have ui for both roles.
+    -   Coordinators can see their own foster assignments in addition to all animals.
+    -   Coordinators can update animals they're fostering (same permissions as regular fosters for their assigned animals).
+    -   UI should show coordinator-specific features alongside foster features when coordinator is also fostering.
 
 ### Stretch Roadmap (Post-MVP)
 
@@ -289,11 +299,24 @@
     -   Data transfer and synchronization between app and Petstablished.
     -   Bidirectional updates (animal records, foster assignments, medical records).
     -   Keeps detailed records in Petstablished while using app for day-to-day coordination.
+-   **Message Read Receipts:**
+    -   Show which users have read each message.
+    -   Display "Read" indicators in message bubbles.
+    -   Real-time updates when messages are read.
+-   **Activity Logging System:**
+    -   Track who performed what actions (e.g., "John updated Fluffy's status", "Sarah assigned Mittens to Jane").
+    -   Display activity timeline on animal detail pages.
+    -   Show activity feed on coordinator dashboard.
+    -   Note: This is separate from timestamp display (which shows when data changed, not who changed it).
 -   Adoption workflow (applications, approvals, contracts).
 -   Public-facing adoptable animal listings with shareable profiles and social media integrations.
 -   Advanced analytics (foster success metrics, medical trends).
 -   QR codes on kennels leading to read-only animal snapshots.
 -   Automated document generation (adoption agreements, medical summaries).
+-   **Data Export Failsafe:**
+    -   Ability to export critical data (animals, fosters, assignments) to CSV/Google Sheets format.
+    -   Emergency data access if app goes down.
+    -   Regular automated backups to external storage.
 
 ### 11. Open Questions
 
