@@ -311,7 +311,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 1.5: Sign Up
 
-**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. For MVP, we'll use simple signup without confirmation codes (confirmation code flow will be added later as specified in the spec).
+**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. **Note:** This open signup will be replaced in Phase 7 with confirmation code-based signup that links users to organizations and determines their role (coordinator vs foster).
 
 **Tasks:**
 
@@ -879,7 +879,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - `updated_at` (TIMESTAMPTZ)
 3. Enable RLS on organizations table
 4. Create RLS policy: "Users can view organizations they belong to"
-5. Create RLS policy: "Coordinators can create organizations" (for future use)
+5. **Note:** Organizations are created manually by admin (via Supabase dashboard). Coordinators and fosters are assigned to organizations via confirmation codes during signup.
 6. Run migration and verify table creation
 
 **Testing:**
@@ -1415,49 +1415,55 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 7: Foster Confirmation Codes
+## Phase 7: Confirmation Codes (For Both Coordinators & Fosters)
 
-**Goal:** Enable coordinators to generate and share confirmation codes for approved fosters, controlling platform access while keeping application process external.
+**Goal:** Enable coordinators to generate confirmation codes for both coordinators and fosters in their organization, controlling platform access. Codes are linked to email addresses and organizations, and determine user role. This replaces open signup and eliminates the need for separate signup pages or organization creation flows.
 
 ---
 
 ### Milestone 7.1: Confirmation Codes Schema
 
-**Goal:** Create database schema for confirmation codes linked to organizations.
+**Goal:** Create database schema for confirmation codes that link users to organizations and determine their role.
 
 **Tasks:**
 
 1. Create `public.confirmation_codes` table:
     - `id` (UUID primary key)
-    - `code` (TEXT, unique, required) - human-readable code
-    - `organization_id` (UUID, references organizations)
-    - `created_by` (UUID, references profiles - coordinator who created it)
-    - `used_by` (UUID, nullable, references profiles - foster who used it)
-    - `expires_at` (TIMESTAMPTZ, nullable)
-    - `created_at`, `updated_at`
+    - `code` (TEXT, unique, required) - human-readable code (e.g., "ABC123")
+    - `email` (TEXT, required) - email address the code is assigned to
+    - `organization_id` (UUID, references organizations, required)
+    - `role` (TEXT, required, CHECK role IN ('coordinator', 'foster')) - determines user role
+    - `created_by` (UUID, references profiles - coordinator who created the code)
+    - `used_by` (UUID, nullable, references profiles - user who used it)
+    - `used_at` (TIMESTAMPTZ, nullable) - when code was used
+    - `expires_at` (TIMESTAMPTZ, nullable) - optional expiration
 2. Enable RLS on confirmation_codes table
 3. Create RLS policies:
-    - Coordinators can view codes in their organization
-    - Coordinators can create codes
-    - Coordinators can revoke codes (delete or mark as used)
     - Anyone can view unused codes (for validation during signup)
-4. Add index on `code` for fast lookup
+    - Coordinators can view codes in their organization
+    - Coordinators can create codes in their organization
+    - Coordinators can revoke codes in their organization (mark as used or delete)
+4. Add indexes:
+    - Index on `code` for fast lookup during signup
+    - Index on `email` for lookup by email
+    - Index on `organization_id` for filtering
 5. Test: Create test code, verify it's stored correctly
 
 **Testing:**
 
 -   Table created with correct structure
--   Can create confirmation code
+-   Can create confirmation code with email, organization, and role
 -   RLS policies work correctly
 -   Code lookup is fast
+-   Email matching works correctly
 
-**Deliverable:** Confirmation codes schema ready.
+**Deliverable:** Confirmation codes schema ready with email and role support.
 
 ---
 
-### Milestone 7.2: Generate Confirmation Codes
+### Milestone 7.2: Coordinator Code Generation UI
 
-**Goal:** Coordinators can generate shareable confirmation codes for approved fosters.
+**Goal:** Coordinators can generate confirmation codes via a simple form UI, linking codes to email addresses and roles.
 
 **Tasks:**
 
@@ -1466,94 +1472,123 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Ensure uniqueness in database
     - Make it readable and shareable
 2. Create `src/pages/coordinators/ConfirmationCodes.tsx`:
-    - Display list of codes (active and used)
-    - Show code, created date, used status, used by (if used)
-    - "Generate New Code" button
-    - Generate code and save to database
-    - Link code to coordinator's organization
+    - Form to generate new code:
+        - Email address input (required, type="email")
+        - Role selector (dropdown: "Coordinator" or "Foster")
+        - "Generate Code" button
+    - When code is generated:
+        - Save to database with:
+            - Email from form
+            - Role from form
+            - Organization from coordinator's organization (automatic)
+            - Created by coordinator's user ID (automatic)
+            - Generated code
+        - Display generated code prominently
+        - Show "Copy Code" button
+        - Show "Email Code" button (opens email client)
+    - Display list of previously generated codes:
+        - Show code, email, role, status (active/used), created date
+        - Filter by role or status (optional)
 3. Add route `/coordinators/codes` (coordinator-only)
 4. Add navigation link for coordinators
-5. Test: Coordinator can generate codes, codes are unique, codes are linked to organization
+5. Test: Coordinator can generate codes, codes are unique, codes are linked to correct organization and email
 
 **Testing:**
 
--   Coordinator can generate codes
+-   Coordinator can generate codes with email and role
 -   Codes are unique
--   Codes are linked to correct organization
--   Codes appear in list
+-   Codes are automatically linked to coordinator's organization
+-   Codes have correct role assigned
+-   Codes appear in list after generation
+-   Can copy and email codes
 
-**Deliverable:** Code generation working.
+**Deliverable:** Coordinator code generation UI working.
 
 ---
 
-### Milestone 7.3: Validate Code During Signup
+### Milestone 7.3: Update Signup to Use Confirmation Codes
 
-**Goal:** Fosters must provide valid confirmation code to create account.
+**Goal:** Replace open signup with confirmation code-based signup. Codes determine role and organization assignment.
 
 **Tasks:**
 
 1. Update `src/pages/SignUp.tsx`:
-    - Add "Confirmation Code" input field
-    - Make code required for signup
+    - Add "Confirmation Code" input field (required)
+    - Add email validation to match code's email
     - Validate code before submitting:
         - Code exists in database
         - Code is not already used
-        - Code belongs to organization (if multi-org)
+        - Email matches code's email address
         - Code is not expired (if expiration implemented)
+    - Show clear error messages for invalid codes
 2. Create function to validate code:
     - Query database for code
-    - Check if code is valid and unused
-    - Return validation result
+    - Check if code is valid, unused, and email matches
+    - Return validation result with organization_id and role
 3. On successful signup:
-    - Mark code as used
-    - Link code to new user profile
-    - Assign user to code's organization
-4. Show error messages for invalid codes
-5. Test: Try signup with valid code, invalid code, used code
+    - Create user account with Supabase auth
+    - Create profile with:
+        - Role from confirmation code
+        - Organization from confirmation code
+        - Email from signup form
+    - Mark code as used (set `used_by` to new user's ID, `used_at` to now)
+    - Auto-login user (as in M 1.6)
+4. Handle role-based routing after signup:
+    - Coordinators → coordinator dashboard
+    - Fosters → foster dashboard
+5. Test: Try signup with valid coordinator code, valid foster code, invalid code, used code, wrong email
 
 **Testing:**
 
--   Valid code allows signup
+-   Valid coordinator code creates coordinator account
+-   Valid foster code creates foster account
 -   Invalid code shows error
 -   Used code shows error
+-   Wrong email shows error
 -   Code is marked as used after signup
--   User is assigned to code's organization
+-   User is assigned to correct organization and role
+-   User is auto-logged in after signup
 
-**Deliverable:** Code validation during signup working.
+**Deliverable:** Confirmation code-based signup working for both coordinators and fosters.
 
 ---
 
-### Milestone 7.4: Simple Code Generation & Sharing
+### Milestone 7.4: Code Management & Sharing
 
-**Goal:** Coordinators can generate codes, copy them, and share via email.
+**Goal:** Coordinators can view, manage, and share confirmation codes they've generated.
 
 **Tasks:**
 
 1. Update `src/pages/coordinators/ConfirmationCodes.tsx`:
-    - Simple list showing: code, created date, status (active/used)
-    - "Generate New Code" button
-    - When code is generated:
-        - Display code prominently
+    - Display list of all codes in coordinator's organization:
+        - Show: code, email, role, status (active/used), created date, created by (coordinator name), used date (if used)
+        - Filter by role or status (optional, for better organization)
+        - Show used codes with clear "Used" indicator
+    - For each code:
         - "Copy Code" button (copies to clipboard)
-        - "Email Code" button (opens email client with code in body and signup URL)
-    - Show list of previously generated codes (simple display, no complex filtering)
-2. Implement code copying:
-    - Copy code to clipboard when button clicked
-    - Show confirmation message when copied
-3. Implement email sharing:
+        - "Email Code" button (opens email client with code and signup URL)
+        - Show who used the code (if used) - link to user profile
+2. Implement code sharing:
     - Generate mailto link with code in email body
     - Include signup URL with code as parameter (e.g., `https://app.vercel.app/signup?code=ABC123`)
-    - Open default email client
-4. Test: Generate code, copy code, email code
+    - Pre-fill recipient email address from code's email
+    - Include friendly message explaining what the code is for
+3. Add code management features:
+    - View all codes (active and used)
+    - See which codes have been used and by whom
+    - Resend code via email if needed
+4. Test: View codes, copy code, email code, verify codes are filtered by organization
 
 **Testing:**
 
--   Can generate new codes
+-   Coordinator can view all codes in their organization
 -   Can copy code to clipboard
 -   Can email code via mailto link
--   Codes display correctly in list
+-   Codes display correctly with all information
+-   Used codes show who used them
+-   Codes are properly filtered by organization
 
-**Deliverable:** Simple code generation and sharing working.
+**Deliverable:** Code management and sharing working for coordinators.
 
 ---
 

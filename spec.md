@@ -59,7 +59,7 @@
 -   **Availability:** Simple boolean toggle (available/not available) for MVP. Might change to calendar with specific date ranges later for more granular scheduling.
 -   Assignment tracking: current and historical placements; surfacing open capacity.
 -   Quick filters/search (e.g., "experienced bottle feeders", "available next week").
--   **Foster account confirmation (Post-MVP):** Coordinators can generate confirmation codes/passwords for approved fosters. Codes are easily shareable via text/email. Fosters use code to create account (replaces open registration). Keeps application process in Petstablished while controlling platform access. For MVP, simple email/password signup is used. Confirmation code flow will be implemented after MVP to add access control.
+-   **Account confirmation (Phase 7):** Admin generates confirmation codes for both coordinators and fosters. Codes are linked to email addresses, organizations, and determine user role. Users must provide matching email and code to create account. This replaces open registration and ensures users are assigned to correct organizations. Codes are easily shareable via email.
 
 #### Communication Hub
 
@@ -111,8 +111,12 @@
 
 #### Authentication & Account Management
 
--   **Sign Up (MVP):** Simple email/password registration. Users can create accounts directly through the signup form. No confirmation codes required for MVP.
--   **Sign Up with Confirmation Code (Post-MVP):** Coordinators generate confirmation codes for approved fosters. Fosters use the code during signup to verify they're approved. This adds access control while keeping the application process in Petstablished.
+-   **Sign Up (Initial MVP - Phase 1):** Simple email/password registration. Users can create accounts directly through the signup form. No confirmation codes required initially.
+-   **Sign Up with Confirmation Code (Phase 7):** Admin generates confirmation codes for both coordinators and fosters. Codes are linked to:
+    -   Email address (user must sign up with matching email)
+    -   Organization (user is assigned to correct shelter)
+    -   Role (coordinator or foster - determined by code)
+-   **Organization Setup:** Organizations are created manually by admin (via Supabase dashboard). Users are assigned to organizations via confirmation codes during signup.
 -   **Password Recovery:** Users can reset forgotten passwords via email. "Forgot password?" link on login page triggers Supabase's password reset flow. User receives email with reset link, clicks link, and sets new password.
 -   **Sign Out:** Logout functionality available on Dashboard and other authenticated pages. Clears session and redirects to login.
 
