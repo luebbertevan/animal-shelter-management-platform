@@ -311,7 +311,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 1.5: Sign Up
 
-**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. **Note:** This open signup will be replaced in Phase 7 with confirmation code-based signup that links users to organizations and determines their role (coordinator vs foster).
+**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. **Note:** This open signup will be replaced in Phase 8 with confirmation code-based signup that links users to organizations and determines their role (coordinator vs foster).
 
 **Tasks:**
 
@@ -923,7 +923,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Inserts into `public.profiles` with: `id`, `email`, `role` (default 'foster'), and `organization_id` (default org UUID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
     - Create trigger: `on_auth_user_created` that fires AFTER INSERT on `auth.users`
     - **Note:** The trigger will be updated again in Phase 5.2 (M 5.2 - Create Conversation on User Signup) to also create conversations, but for now it just needs to set organization_id
-    - This ensures new signups (before Phase 7) get assigned to default organization
+    - This ensures new signups (before Phase 8) get assigned to default organization
 
 **Tasks:**
 
@@ -993,7 +993,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   User in Org A cannot see data from Org B (when we add second org)
 -   Coordinator in Org A can only manage Org A data
 -   Policies work correctly for all CRUD operations
--   New signups (before Phase 7) get default org and can see default org data
+-   New signups (before Phase 8) get default org and can see default org data
 
 **Deliverable:** RLS policies enforce organization isolation with safe fallbacks.
 
@@ -1047,7 +1047,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 -   Animals list only shows animals from user's organization
 -   Creating animal assigns it to user's organization automatically
--   New signups (before Phase 7) get default org and see default org data
+-   New signups (before Phase 8) get default org and see default org data
 
 **Deliverable:** All queries filter by organization automatically with safe fallbacks.
 
@@ -1068,34 +1068,52 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 1. Create `public.conversations` table:
     - `id` (UUID primary key)
     - `organization_id` (UUID, references organizations)
-    - `type` (TEXT: 'household' or 'coordinator_group')
-    - `foster_household_id` (UUID, nullable, for household chats - references profiles)
+    - `type` (TEXT: 'household' or 'coordinator_group', CHECK constraint)
+    - `foster_profile_id` (UUID, nullable, for household chats - references profiles)
     - `created_at`, `updated_at`
+    - Constraint: `foster_profile_id` must be set for 'household' type, NULL for 'coordinator_group'
+    - Note: Future type 'organization_group' for org-wide chat (all org members)
 2. Create `public.messages` table:
     - `id` (UUID primary key)
     - `conversation_id` (UUID, references conversations)
     - `sender_id` (UUID, references profiles)
     - `content` (TEXT, required)
     - `created_at` (TIMESTAMPTZ)
-3. Enable RLS on both tables
-4. Create RLS policies for conversations:
-    - Fosters can view their household conversation
-    - Coordinators can view all conversations in their organization
-    - Coordinators can view coordinator group chat
-5. Create RLS policies for messages:
-    - Users can view messages in conversations they have access to
-    - Users can create messages in conversations they have access to
-6. Add indexes on `conversation_id` and `created_at` for performance
+    - `edited_at` (TIMESTAMPTZ, nullable) - for future edit support
+3. Create `public.message_animal_links` table (for tagging animals/groups in messages):
+    - `id` (UUID primary key)
+    - `message_id` (UUID, references messages)
+    - `animal_id` (UUID, nullable, references animals)
+    - `group_id` (UUID, nullable, references animal_groups)
+    - Constraint: Exactly one of `animal_id` or `group_id` must be set
+    - Index on `message_id` and `animal_id`/`group_id` for querying
+    - Note: Messages are not deleted (only soft-deleted if needed), so no CASCADE needed
+4. Enable RLS on all three tables
+5. Create RLS policies for conversations:
+    - Fosters can view their household conversation: `foster_profile_id = auth.uid()`
+    - Coordinators can view all household conversations in their organization: `organization_id` matches AND `type = 'household'`
+    - Coordinators can view coordinator group chat: `organization_id` matches AND `type = 'coordinator_group'` AND user role is 'coordinator'
+6. Create RLS policies for messages:
+    - Users can view messages in conversations they have access to (via conversation RLS)
+    - Users can create messages in conversations they have access to (via conversation RLS)
+7. Create RLS policies for message_animal_links:
+    - Users can view links for messages they can access (via message RLS)
+8. Add indexes:
+    - `conversations`: `organization_id`, `type`, `foster_profile_id`
+    - `messages`: `conversation_id`, `(conversation_id, created_at DESC)` for efficient message fetching
+    - `message_animal_links`: `message_id`, `animal_id`, `group_id`
 
 **Testing:**
 
 -   Tables created with correct structure
+-   Constraints prevent invalid conversation types
 -   RLS policies prevent unauthorized access
 -   Can create test conversations and messages
 -   Foster can only see their household conversation
--   Coordinator can see all conversations
+-   Coordinator can see all conversations in their organization
+-   Message-animal links can be created and queried
 
-**Deliverable:** Messaging schema with proper RLS policies.
+**Deliverable:** Messaging schema with proper RLS policies and message tagging support.
 
 ---
 
@@ -1124,25 +1142,44 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 5.3: Coordinator Group Chat Setup
 
-**Goal:** Create and manage coordinator group chat for each organization.
+**Goal:** Create and manage coordinator group chat for each organization, automatically created for new and existing organizations.
 
 **Tasks:**
 
-1. Create function or trigger to ensure coordinator group chat exists:
+1. Create database trigger `on_organization_created()`:
+    - Fires when organization is inserted
+    - Automatically creates coordinator_group conversation for new organization
+    - Sets `organization_id`, `type = 'coordinator_group'`, `foster_profile_id = NULL`
+2. Create function `ensure_coordinator_group_chat(org_id UUID)`:
     - Check if coordinator group chat exists for organization
     - If not, create it
-    - Link all coordinators in organization to it
-2. Create migration or seed script to create coordinator group chat for existing organizations
-3. Update coordinator creation logic to add them to group chat
-4. Test: Verify coordinator group chat exists and coordinators can access it
+    - Returns conversation ID
+    - Used for manual creation if needed
+3. Create migration to create coordinator group chat for existing organizations:
+    - Run `ensure_coordinator_group_chat()` for each existing organization
+    - Only create if doesn't already exist
+4. Test automatic creation:
+    - Create new organization via Supabase dashboard
+    - Verify coordinator group chat is automatically created
+5. Test access:
+    - New coordinators automatically have access via RLS (role = 'coordinator' AND organization_id matches)
+    - All coordinators in org can access group chat
+    - No manual linking needed - RLS handles access control
+
+**Flow Summary:**
+
+-   New organization created → trigger automatically creates coordinator_group conversation
+-   New coordinator signs up → automatically has access via RLS (no action needed)
+-   No manual group chat creation needed for coordinators
 
 **Testing:**
 
--   Coordinator group chat exists for each organization
--   All coordinators in org can access group chat
--   New coordinators are automatically added to group chat
+-   New organization creation automatically creates coordinator group chat
+-   Coordinator group chat exists for each organization (including existing ones)
+-   All coordinators in org can access group chat via RLS
+-   New coordinators automatically have access when they join org
 
-**Deliverable:** Coordinator group chat system working.
+**Deliverable:** Coordinator group chat system working with automatic creation.
 
 ---
 
@@ -1177,9 +1214,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.5: Chat UI - Message Input Component
+### Milestone 5.5: Chat UI - Message Input Component with Tagging
 
-**Goal:** Allow users to type and send messages in conversations.
+**Goal:** Allow users to type and send messages in conversations, with ability to tag/link animals or groups.
 
 **Tasks:**
 
@@ -1189,28 +1226,70 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Disable input while sending
     - Clear input after successful send
     - Handle validation (non-empty message)
-2. Create function to send message:
+2. Add tagging UI to MessageInput:
+    - Autocomplete/selector for animals and groups
+    - Allow multiple tags per message
+    - Display selected tags as chips before sending
+    - Fetch animals/groups from organization for autocomplete
+3. Create function to send message:
     - Insert message into `messages` table
     - Link to conversation_id
     - Set sender_id to current user
+    - If tags selected, insert into `message_animal_links` table
     - Handle errors with user-friendly messages
-3. Integrate with MessageList to show new message immediately
-4. Test: Send message, verify it appears in list, verify it's saved to database
+4. Update MessageBubble component to display tags:
+    - Show linked animals/groups as clickable chips/badges
+    - Link to animal detail page or group detail page
+    - Style tags distinctively from message content
+5. Integrate with MessageList to show new message immediately
+6. Test: Send message, verify it appears in list, verify it's saved to database, verify tags are linked
 
 **Testing:**
 
 -   Can type and send messages
+-   Can tag animals/groups in messages
+-   Tags appear in message display
+-   Tagged animals/groups link to detail pages
 -   Message appears immediately in list
--   Message is saved to database
+-   Message and tags are saved to database
 -   Error handling works for failed sends
 
-**Deliverable:** Message input and sending working.
+**Deliverable:** Message input, sending, and tagging working.
+
+---
+
+### Milestone 5.5a: Basic Conversation Detail Page
+
+**Goal:** Create basic conversation detail page to test messaging in UI before adding real-time.
+
+**Tasks:**
+
+1. Create `src/pages/messaging/ConversationDetail.tsx`:
+    - Accept `conversationId` from URL params
+    - Fetch conversation details
+    - Display conversation header (foster name or "Coordinator Chat")
+    - Include MessageList component
+    - Include MessageInput component
+    - Handle loading and error states
+2. Create route `/messages/:conversationId`
+3. Add back button to return to conversations list
+4. Test: Can view conversation, send messages, see messages appear (no real-time yet)
+
+**Testing:**
+
+-   Conversation loads correctly
+-   Messages display properly
+-   Can send new messages
+-   Messages appear after refresh or manual refetch
+-   Navigation works
+
+**Deliverable:** Basic conversation detail page working (without real-time).
 
 ---
 
 ### Milestone 5.6: Real-Time Message Updates
 
-**Goal:** Messages appear instantly when sent by other users without page refresh.
+**Goal:** Add real-time updates to existing conversation detail page so messages appear instantly.
 
 **Tasks:**
 
@@ -1218,13 +1297,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Subscribe to new messages in conversation
     - Update message list when new message arrives
     - Handle connection errors gracefully
-2. Update MessageList to use Realtime:
+2. Update MessageList component to use Realtime:
     - Subscribe when component mounts
     - Unsubscribe when component unmounts
     - Append new messages to list
     - Scroll to bottom when new message arrives
-3. Test: Open conversation on two devices, send message from one, verify it appears on other
-4. Handle edge cases: Multiple tabs, connection loss, reconnection
+3. Update ConversationDetail to handle real-time subscriptions
+4. Test: Open conversation on two devices, send message from one, verify it appears on other
+5. Handle edge cases: Multiple tabs, connection loss, reconnection
 
 **Testing:**
 
@@ -1232,8 +1312,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   No page refresh needed
 -   Works when offline then reconnects
 -   Multiple conversations update independently
+-   Tags in real-time messages display correctly
 
-**Deliverable:** Real-time messaging working.
+**Deliverable:** Real-time messaging working on conversation detail page.
 
 ---
 
@@ -1293,42 +1374,205 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9: Conversation Detail Page
+### Milestone 5.9: Polish Conversation Detail Page
 
-**Goal:** Full conversation view with message list and input.
+**Goal:** Refine and polish conversation detail page based on testing, add any missing features.
 
 **Tasks:**
 
-1. Create `src/pages/messaging/ConversationDetail.tsx`:
-    - Accept `conversationId` from URL params
-    - Fetch conversation details
-    - Display conversation header (foster name or "Coordinator Chat")
-    - Include MessageList component
-    - Include MessageInput component
-    - Handle loading and error states
-2. Create route `/messages/:conversationId`
-3. Add back button to return to conversations list
-4. Test: Can view conversation, send messages, see real-time updates
+1. Refine `src/pages/messaging/ConversationDetail.tsx`:
+    - Improve loading states and error handling
+    - Add message editing UI (if needed for future)
+    - Improve mobile responsiveness
+    - Add keyboard shortcuts if helpful
+    - Optimize performance (virtual scrolling if many messages)
+2. Enhance message display:
+    - Show message status indicators (sent, delivered, read - if implemented)
+    - Improve timestamp formatting (relative vs absolute)
+    - Add message grouping by sender/time
+    - Improve tag display and interaction
+3. Add additional features:
+    - Search within conversation (if needed)
+    - Message reactions/emojis (optional)
+    - File/image attachments (if needed)
+4. Test: Full end-to-end testing with multiple users and devices
 
 **Testing:**
 
--   Conversation loads correctly
--   Messages display properly
--   Can send new messages
--   Real-time updates work
--   Navigation works
+-   All features work smoothly
+-   Performance is acceptable with many messages
+-   Mobile experience is polished
+-   Real-time updates work reliably
+-   Tagging works seamlessly
 
-**Deliverable:** Conversation detail page working.
+**Deliverable:** Polished conversation detail page ready for production.
 
 ---
 
-## Phase 6: Push Notifications (PWA)
+## Phase 6: Animal Forms & Groups Management
+
+**Goal:** Complete animal creation/editing forms with all data attributes, enable group management, and allow coordinators to edit animals and groups.
+
+---
+
+### Milestone 6.1: Complete Animal Creation Form
+
+**Goal:** Expand NewAnimal form to include all animal data attributes from schema.
+
+**Tasks:**
+
+1. Update `src/pages/animals/NewAnimal.tsx`:
+    - Add all optional fields from animals schema:
+        - Basic Info: `name`, `primary_breed`, `physical_characteristics`, `sex`, `spay_neuter_status`, `life_stage`
+        - Dates & Age: `intake_date`, `date_of_birth`, `age_estimate`, `date_available_for_adoption`
+        - Source & Placement: `source`, `intake_type`
+        - Medical: `medical_needs`, `vaccines`, `felv_fiv_test`, `felv_fiv_test_date`
+        - Behavioral: `behavioral_needs`, `socialization_level`
+        - Tags: `tags` (array of text)
+        - Additional: `additional_notes`, `priority`
+    - Group fields into logical sections (Basic Info, Medical, Behavioral, etc.)
+    - Add validation where appropriate
+    - Keep all fields optional as per schema design
+    - Show "Info Missing" indicators for key fields
+2. Add smart data entry features:
+    - Autocomplete for `primary_breed` (show recently used values)
+    - Autocomplete for `source`, `intake_type` (show recently used values)
+    - Tag input with autocomplete from existing tags
+3. Style form for mobile-first design with collapsible sections
+4. Test: Create animal with minimal data, create with full data, verify all fields save correctly
+
+**Testing:**
+
+-   Can create animal with only required fields (species, status)
+-   Can create animal with all optional fields populated
+-   All field values save correctly to database
+-   Autocomplete suggestions appear for repeatable fields
+-   Form is mobile-friendly
+
+**Deliverable:** Complete animal creation form working.
+
+---
+
+### Milestone 6.2: Animal Editing for Coordinators
+
+**Goal:** Enable coordinators to edit existing animals with all data attributes.
+
+**Tasks:**
+
+1. Create `src/pages/animals/EditAnimal.tsx`:
+    - Fetch animal by ID from URL params
+    - Pre-populate form with existing animal data
+    - Include all fields from NewAnimal form
+    - Handle loading and error states
+    - Update animal in database on submit
+    - Redirect to animal detail page after successful update
+2. Create route `/animals/:id/edit` (coordinator-only)
+3. Add "Edit" button to AnimalDetail page (coordinator-only)
+4. Update RLS policies if needed to ensure only coordinators can update
+5. Test: Coordinator can edit animals, fosters cannot
+
+**Testing:**
+
+-   Coordinator can access edit page for animals
+-   All fields pre-populate correctly
+-   Changes save to database
+-   Foster cannot access edit page
+-   Navigation works correctly
+
+**Deliverable:** Animal editing working for coordinators.
+
+---
+
+### Milestone 6.3: Group Management UI
+
+**Goal:** Create UI for viewing, creating, and editing animal groups.
+
+**Tasks:**
+
+1. Create `src/pages/animals/GroupsList.tsx`:
+    - Fetch all animal groups in organization
+    - Display groups in list format
+    - Show group name, description, member count
+    - Link to group detail page
+    - Add "New Group" button (coordinator-only)
+2. Create `src/pages/animals/GroupDetail.tsx`:
+    - Fetch group by ID from URL params
+    - Display group information
+    - Show list of animals in group with links to animal detail pages
+    - Add "Edit" button (coordinator-only)
+    - Display group-level information (shared care needs, etc.)
+3. Create `src/pages/animals/NewGroup.tsx`:
+    - Form to create new group
+    - Fields: `name`, `description`
+    - Allow selecting animals to add to group (multi-select)
+    - Save group and update animal `group_id` fields
+4. Create `src/pages/animals/EditGroup.tsx`:
+    - Fetch group by ID
+    - Allow editing `name`, `description`
+    - Allow adding/removing animals from group
+    - Update `animal_groups.animal_ids` array and `animals.group_id` fields
+5. Create routes:
+    - `/groups` for groups list
+    - `/groups/:id` for group detail
+    - `/groups/new` for new group (coordinator-only)
+    - `/groups/:id/edit` for edit group (coordinator-only)
+6. Add navigation links to groups page
+7. Test: View groups, create groups, edit groups, add/remove animals
+
+**Testing:**
+
+-   Can view all groups in organization
+-   Coordinator can create new groups
+-   Coordinator can edit groups
+-   Can add/remove animals from groups
+-   Animal detail pages show group membership
+-   Group detail pages show all group members
+
+**Deliverable:** Group management UI working.
+
+---
+
+### Milestone 6.4: Display Groups in Animal UI
+
+**Goal:** Show group information throughout animal UI and allow adding animals to groups during creation/editing.
+
+**Tasks:**
+
+1. Update `AnimalDetail.tsx`:
+    - Display group membership if animal is in a group
+    - Link to group detail page
+    - Show group name and other group members
+2. Update `NewAnimal.tsx`:
+    - Add field to select/create group when creating animal
+    - Link animal to selected group on creation
+3. Update `EditAnimal.tsx`:
+    - Add field to change group membership
+    - Allow adding animal to existing group or removing from group
+4. Update `AnimalsList.tsx`:
+    - Show group indicator/badge for animals in groups
+    - Allow filtering by group
+    - Show group name in animal preview cards
+5. Test: Groups display correctly throughout UI, animals can be added to groups during creation
+
+**Testing:**
+
+-   Animal detail shows group membership
+-   Animals list shows group indicators
+-   Can create animal and assign to group in one step
+-   Can change group membership when editing animal
+-   Filtering by group works
+
+**Deliverable:** Group display and assignment working throughout animal UI.
+
+---
+
+## Phase 7: Push Notifications (PWA)
 
 **Goal:** Enable push notifications for messaging and important updates, ensuring users are alerted even when app is closed.
 
 ---
 
-### Milestone 6.1: Firebase Cloud Messaging Setup
+### Milestone 7.1: Firebase Cloud Messaging Setup
 
 **Goal:** Configure FCM for web push notifications on Android and desktop browsers.
 
@@ -1359,7 +1603,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.2: Push Token Storage
+### Milestone 7.2: Push Token Storage
 
 **Goal:** Store user's push token in database so backend can send notifications.
 
@@ -1396,7 +1640,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.3: In-App Notifications System
+### Milestone 7.3: In-App Notifications System
 
 **Goal:** Store notifications in database so users see missed notifications when they return.
 
@@ -1429,7 +1673,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.4: Send Push Notifications for Messages
+### Milestone 7.4: Send Push Notifications for Messages
 
 **Goal:** Send push notification when new message arrives in conversation.
 
@@ -1462,7 +1706,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.5: Notification Preferences
+### Milestone 7.5: Notification Preferences
 
 **Goal:** Allow users to control what types of notifications they receive.
 
@@ -1495,13 +1739,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 7: Confirmation Codes (For Both Coordinators & Fosters)
+## Phase 8: Confirmation Codes (For Both Coordinators & Fosters)
 
 **Goal:** Enable coordinators to generate confirmation codes for both coordinators and fosters in their organization, controlling platform access. Codes are linked to email addresses and organizations, and determine user role. This replaces open signup and eliminates the need for separate signup pages or organization creation flows.
 
 ---
 
-### Milestone 7.1: Confirmation Codes Schema
+### Milestone 8.1: Confirmation Codes Schema
 
 **Goal:** Create database schema for confirmation codes that link users to organizations and determine their role.
 
@@ -1547,7 +1791,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 7.2: Coordinator Code Generation UI
+### Milestone 8.2: Coordinator Code Generation UI
 
 **Goal:** Coordinators can generate confirmation codes via a simple form UI, linking codes to email addresses and roles.
 
@@ -1592,7 +1836,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 7.3: Update Signup to Use Confirmation Codes
+### Milestone 8.3: Update Signup to Use Confirmation Codes
 
 **Goal:** Replace open signup with confirmation code-based signup. Codes determine role and organization assignment.
 
@@ -1639,7 +1883,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 7.4: Code Management & Sharing
+### Milestone 8.4: Code Management & Sharing
 
 **Goal:** Coordinators can view, manage, and share confirmation codes they've generated.
 
@@ -1678,13 +1922,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 8: Quality of Life Features
+## Phase 9: Quality of Life Features
 
 **Goal:** Add filtering, search, and timestamp display to improve usability and tracking.
 
 ---
 
-### Milestone 8.1: Animal Filtering & Search
+### Milestone 9.1: Animal Filtering & Search
 
 **Goal:** Allow users to filter and search animals by various criteria.
 
@@ -1720,7 +1964,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 8.2: Timestamp Display & History
+### Milestone 9.2: Timestamp Display & History
 
 **Goal:** Display timestamps on messages and data edits to show when information changed.
 
@@ -1760,7 +2004,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 8.3: Photo Uploads for Animals
+### Milestone 9.3: Photo Uploads for Animals
 
 **Goal:** Allow coordinators and fosters to upload photos for animals.
 
@@ -1801,7 +2045,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 8.4: User Deactivation & Reactivation
+### Milestone 9.4: User Deactivation & Reactivation
 
 **Goal:** Allow coordinators to deactivate and reactivate user accounts (fosters) while preserving all historical data.
 
@@ -1856,13 +2100,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 9: UX Polish & Navigation
+## Phase 10: UX Polish & Navigation
 
 **Goal:** Improve user experience with polished design, better navigation, and refined interactions based on Figma designs.
 
 ---
 
-### Milestone 9.1: Navigation Structure
+### Milestone 10.1: Navigation Structure
 
 **Goal:** Create consistent, mobile-friendly navigation throughout the app.
 
@@ -1897,7 +2141,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 9.2: Figma Design Implementation
+### Milestone 10.2: Figma Design Implementation
 
 **Goal:** Implement polished UI designs from Figma, improving visual consistency and user experience.
 
@@ -1937,7 +2181,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 9.3: Loading States & Empty States
+### Milestone 10.3: Loading States & Empty States
 
 **Goal:** Improve perceived performance and user guidance with better loading and empty states.
 
@@ -1970,7 +2214,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 9.4: Error Handling Improvements
+### Milestone 10.4: Error Handling Improvements
 
 **Goal:** Provide better error messages and recovery options throughout the app.
 
@@ -2006,7 +2250,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 9.5: Quick Actions & Shortcuts
+### Milestone 10.5: Quick Actions & Shortcuts
 
 **Goal:** Add convenient shortcuts and quick actions to improve workflow efficiency.
 
@@ -2041,13 +2285,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 10: Expo Wrapping (For Reliable iOS Notifications)
+## Phase 11: Expo Wrapping (For Reliable iOS Notifications)
 
 **Goal:** Wrap PWA in Expo to enable App Store distribution and reliable iOS push notifications via APNs.
 
 ---
 
-### Milestone 10.1: Initialize Expo Project
+### Milestone 11.1: Initialize Expo Project
 
 **Goal:** Create Expo app that wraps the existing PWA.
 
@@ -2079,7 +2323,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.2: Expo Push Notifications
+### Milestone 11.2: Expo Push Notifications
 
 **Goal:** Replace FCM with Expo Push Notifications for reliable iOS support.
 
@@ -2111,7 +2355,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.3: Build & Publish
+### Milestone 11.3: Build & Publish
 
 **Goal:** Build and publish app to App Store and Play Store.
 
@@ -2160,37 +2404,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   **Version Control:** Commit after each milestone so you can roll back if needed.
 -   **Deployment:** See Phase 3.5 for dedicated deployment milestone. Recommended after Phase 3 (PWA Setup) is complete, so you can test PWA installation on real devices.
 -   **React Router Benefits:** Pure SPA setup is simpler than Next.js for internal tools. Easy to share components with Expo later since it's pure React.
-
----
-
-## Success Criteria for MVP
-
-**Goal:** When user signs up, create profile record.
-
-**Tasks:**
-
-1. Create Supabase database trigger or Edge Function:
-
-    ```sql
-    CREATE OR REPLACE FUNCTION public.handle_new_user()
-    RETURNS TRIGGER AS $$
-    BEGIN
-      INSERT INTO public.profiles (id, email, role)
-      VALUES (NEW.id, NEW.email, 'foster');
-      RETURN NEW;
-    END;
-    $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-    CREATE TRIGGER on_auth_user_created
-      AFTER INSERT ON auth.users
-      FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-    ```
-
-2. Test: Create new user, verify profile is created automatically
-
-**Testing:** New user signup creates profile record.
-
-**Deliverable:** Automatic profile creation working.
 
 ---
 
@@ -2254,18 +2467,3 @@ At the end of these milestones, you should have:
 -   Figma designs implemented
 -   Improved loading and empty states
 -   Better error handling
-
----
-
-## Next Steps After Scaffold
-
-Once this scaffold is complete, you can add MVP features incrementally:
-
-1. **Foster Management** — Add fosters table, assignment logic
-2. **Communication Hub** — Add messages table, chat UI (with push notifications)
-3. **Foster Opportunities Board** — Add posting and browsing
-4. **Task & Reminder Engine** — Add tasks table, automated notifications
-5. **Media Uploads** — Add photo uploads to Supabase Storage
-6. **Update Timeline** — Add updates table, display history
-
-Each of these can be added one milestone at a time, following the same pattern: database schema → API/RLS → Web UI → Testing → Push notifications integration.
