@@ -611,6 +611,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Add an "Edit" button or link (will be functional in a later milestone)
     - For now, this can just be a placeholder that shows the button
     - Consider role-based visibility (only show for coordinators, not fosters)
+    - **Note: Coordinator Fostering Edge Case:** Coordinators may also foster animals. When a coordinator is fostering an animal, they should see both:
+        - Coordinator features (can edit all animals, view all animals)
+        - Foster features (can upload photos/updates for animals they're fostering)
 
 6. **Add routing**:
     - Add route in `src/App.tsx`: `/animals/:id` that renders the `AnimalDetail` component
@@ -858,207 +861,1133 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 4: Push Notifications (CRITICAL - Communication Core)
+## Phase 4: Schema Rework & Multi-Tenancy Foundation
 
-### Milestone 4.1: Firebase Cloud Messaging (FCM) Setup
+**Goal:** Add organizations to support multiple shelters and prepare schema for future expansion based on customer feedback.
 
-**Goal:** Set up FCM for push notifications on Android and web.
+### Milestone 4.1: Add Organizations Table
+
+**Goal:** Create organizations table to support multiple shelters using the same system.
+
+**Tasks:**
+
+1. Create new migration file for organizations
+2. Create `public.organizations` table with:
+    - `id` (UUID primary key)
+    - `name` (TEXT, required)
+    - `created_at` (TIMESTAMPTZ)
+    - `updated_at` (TIMESTAMPTZ)
+3. Enable RLS on organizations table
+4. Create RLS policy: "Users can view organizations they belong to"
+5. Create RLS policy: "Coordinators can create organizations" (for future use)
+6. Run migration and verify table creation
+
+**Testing:**
+
+-   Organizations table exists in Supabase
+-   Can insert organization via Supabase dashboard
+-   RLS policies prevent unauthorized access
+
+**Deliverable:** Organizations table created with RLS policies.
+
+---
+
+### Milestone 4.2: Add Organization ID to Core Tables
+
+**Goal:** Link users, animals, and animal groups to organizations for data isolation.
+
+**Tasks:**
+
+1. Create new migration file for adding organization_id columns
+2. Add `organization_id UUID REFERENCES public.organizations(id)` to:
+    - `public.profiles` table
+    - `public.animals` table
+    - `public.animal_groups` table
+3. Make `organization_id` NOT NULL for new records (add default for existing)
+4. Create default organization record (e.g., "Default Shelter")
+5. Update existing records to reference default organization
+6. Add foreign key constraints
+7. Run migration and verify data integrity
+
+**Testing:**
+
+-   All tables have organization_id column
+-   Existing records are assigned to default organization
+-   Cannot create record without organization_id
+-   Foreign key constraints prevent orphaned records
+
+**Deliverable:** All core tables linked to organizations.
+
+---
+
+### Milestone 4.3: Update RLS Policies for Organization Isolation
+
+**Goal:** Ensure users can only see data from their own organization.
+
+**Tasks:**
+
+1. Update `profiles` RLS policies:
+    - Users can view profiles in their organization
+    - Coordinators can view all profiles in their organization
+2. Update `animals` RLS policies:
+    - Users can view animals in their organization
+    - Coordinators can create/update animals in their organization
+3. Update `animal_groups` RLS policies:
+    - Users can view animal groups in their organization
+    - Coordinators can create/update animal groups in their organization
+4. Test policies: Create test user in different org, verify data isolation
+5. Update `is_coordinator()` function to check organization if needed
+
+**Testing:**
+
+-   User in Org A cannot see data from Org B
+-   Coordinator in Org A can only manage Org A data
+-   Policies work correctly for all CRUD operations
+
+**Deliverable:** RLS policies enforce organization isolation.
+
+---
+
+### Milestone 4.4: Update Queries to Filter by Organization
+
+**Goal:** All frontend queries automatically filter by user's organization.
+
+**Tasks:**
+
+1. Update `useUserProfile` hook to fetch user's organization_id
+2. Create `useOrganization` hook that returns current user's organization
+3. Update all animal queries to include `.eq('organization_id', orgId)`
+4. Update all profile queries to include organization filter
+5. Update all animal group queries to include organization filter
+6. Test: Verify users only see their organization's data in UI
+7. Update `NewAnimal.tsx` to set organization_id on creation
+8. Update any other creation forms to include organization_id
+
+**Testing:**
+
+-   Animals list only shows animals from user's organization
+-   Creating animal assigns it to user's organization
+-   Switching organizations (if implemented) shows different data
+
+**Deliverable:** All queries filter by organization automatically.
+
+---
+
+## Phase 5: Messaging System (CRITICAL)
+
+**Goal:** Enable real-time communication between coordinators and fosters, with full coordinator visibility into all conversations.
+
+---
+
+### Milestone 5.1: Messages & Conversations Schema
+
+**Goal:** Create database schema for messaging system supporting household chats and coordinator group chat.
+
+**Tasks:**
+
+1. Create `public.conversations` table:
+    - `id` (UUID primary key)
+    - `organization_id` (UUID, references organizations)
+    - `type` (TEXT: 'household' or 'coordinator_group')
+    - `foster_household_id` (UUID, nullable, for household chats - references profiles)
+    - `created_at`, `updated_at`
+2. Create `public.messages` table:
+    - `id` (UUID primary key)
+    - `conversation_id` (UUID, references conversations)
+    - `sender_id` (UUID, references profiles)
+    - `content` (TEXT, required)
+    - `created_at` (TIMESTAMPTZ)
+3. Enable RLS on both tables
+4. Create RLS policies for conversations:
+    - Fosters can view their household conversation
+    - Coordinators can view all conversations in their organization
+    - Coordinators can view coordinator group chat
+5. Create RLS policies for messages:
+    - Users can view messages in conversations they have access to
+    - Users can create messages in conversations they have access to
+6. Add indexes on `conversation_id` and `created_at` for performance
+
+**Testing:**
+
+-   Tables created with correct structure
+-   RLS policies prevent unauthorized access
+-   Can create test conversations and messages
+-   Foster can only see their household conversation
+-   Coordinator can see all conversations
+
+**Deliverable:** Messaging schema with proper RLS policies.
+
+---
+
+### Milestone 5.2: Create Conversation on User Signup
+
+**Goal:** Automatically create household conversation when foster signs up.
+
+**Tasks:**
+
+1. Update profile creation trigger (or create new trigger):
+    - When foster profile is created, create household conversation
+    - Link conversation to foster's profile and organization
+    - Set conversation type to 'household'
+2. Test: Sign up as foster, verify conversation is created
+3. Handle edge case: What if coordinator signs up? (No household conversation needed)
+
+**Testing:**
+
+-   New foster signup creates household conversation
+-   Conversation is linked to correct organization
+-   Coordinator signup does not create household conversation
+
+**Deliverable:** Automatic conversation creation working.
+
+---
+
+### Milestone 5.3: Coordinator Group Chat Setup
+
+**Goal:** Create and manage coordinator group chat for each organization.
+
+**Tasks:**
+
+1. Create function or trigger to ensure coordinator group chat exists:
+    - Check if coordinator group chat exists for organization
+    - If not, create it
+    - Link all coordinators in organization to it
+2. Create migration or seed script to create coordinator group chat for existing organizations
+3. Update coordinator creation logic to add them to group chat
+4. Test: Verify coordinator group chat exists and coordinators can access it
+
+**Testing:**
+
+-   Coordinator group chat exists for each organization
+-   All coordinators in org can access group chat
+-   New coordinators are automatically added to group chat
+
+**Deliverable:** Coordinator group chat system working.
+
+---
+
+### Milestone 5.4: Chat UI - Message List Component
+
+**Goal:** Create reusable message list component that displays messages in chronological order.
+
+**Tasks:**
+
+1. Create `src/components/messaging/MessageList.tsx`:
+    - Accept `conversationId` as prop
+    - Fetch messages for conversation using React Query
+    - Display messages in chronological order (oldest first)
+    - Show sender name, message content, timestamp
+    - Style for mobile-first design
+    - Handle loading and error states
+2. Create `src/components/messaging/MessageBubble.tsx`:
+    - Display individual message
+    - Show different styling for own messages vs others
+    - Display timestamp in readable format
+3. Add scroll-to-bottom functionality when new messages arrive
+4. Test: Display messages correctly, handle empty state
+
+**Testing:**
+
+-   Messages display in correct order
+-   Sender names and timestamps are correct
+-   Empty state shows when no messages
+-   Loading and error states work
+
+**Deliverable:** Message list component working.
+
+---
+
+### Milestone 5.5: Chat UI - Message Input Component
+
+**Goal:** Allow users to type and send messages in conversations.
+
+**Tasks:**
+
+1. Create `src/components/messaging/MessageInput.tsx`:
+    - Text input field for message content
+    - Send button (or Enter key to send)
+    - Disable input while sending
+    - Clear input after successful send
+    - Handle validation (non-empty message)
+2. Create function to send message:
+    - Insert message into `messages` table
+    - Link to conversation_id
+    - Set sender_id to current user
+    - Handle errors with user-friendly messages
+3. Integrate with MessageList to show new message immediately
+4. Test: Send message, verify it appears in list, verify it's saved to database
+
+**Testing:**
+
+-   Can type and send messages
+-   Message appears immediately in list
+-   Message is saved to database
+-   Error handling works for failed sends
+
+**Deliverable:** Message input and sending working.
+
+---
+
+### Milestone 5.6: Real-Time Message Updates
+
+**Goal:** Messages appear instantly when sent by other users without page refresh.
+
+**Tasks:**
+
+1. Set up Supabase Realtime subscription for messages:
+    - Subscribe to new messages in conversation
+    - Update message list when new message arrives
+    - Handle connection errors gracefully
+2. Update MessageList to use Realtime:
+    - Subscribe when component mounts
+    - Unsubscribe when component unmounts
+    - Append new messages to list
+    - Scroll to bottom when new message arrives
+3. Test: Open conversation on two devices, send message from one, verify it appears on other
+4. Handle edge cases: Multiple tabs, connection loss, reconnection
+
+**Testing:**
+
+-   Message sent on Device A appears instantly on Device B
+-   No page refresh needed
+-   Works when offline then reconnects
+-   Multiple conversations update independently
+
+**Deliverable:** Real-time messaging working.
+
+---
+
+### Milestone 5.7: Conversation List for Fosters
+
+**Goal:** Fosters can see and access their household conversation.
+
+**Tasks:**
+
+1. Create `src/pages/messaging/ConversationsList.tsx`:
+    - Fetch user's household conversation
+    - Display conversation in list format
+    - Show last message preview and timestamp
+    - Link to conversation detail page
+2. Create route `/messages` for conversations list
+3. Add navigation link to messages page
+4. Style for mobile-first design
+5. Test: Foster can see their conversation, can navigate to it
+
+**Testing:**
+
+-   Foster sees their household conversation
+-   Last message and timestamp are correct
+-   Can click to open conversation
+-   Empty state if no conversation exists
+
+**Deliverable:** Foster conversation list working.
+
+---
+
+### Milestone 5.8: Conversation List for Coordinators
+
+**Goal:** Coordinators can see all household conversations and coordinator group chat.
+
+**Tasks:**
+
+1. Update `src/pages/messaging/ConversationsList.tsx`:
+    - Fetch all household conversations in organization
+    - Fetch coordinator group chat
+    - Display all conversations in list
+    - Show foster name for household conversations
+    - Show "Coordinator Chat" for group chat
+    - Show last message preview and unread counts
+2. Add filtering/search (optional, can be Phase 8):
+    - Filter by foster name
+    - Search message content
+3. Test: Coordinator sees all conversations, can navigate to any
+
+**Testing:**
+
+-   Coordinator sees all household conversations
+-   Coordinator sees coordinator group chat
+-   Can navigate to any conversation
+-   List updates when new messages arrive
+
+**Deliverable:** Coordinator conversation list working.
+
+---
+
+### Milestone 5.9: Conversation Detail Page
+
+**Goal:** Full conversation view with message list and input.
+
+**Tasks:**
+
+1. Create `src/pages/messaging/ConversationDetail.tsx`:
+    - Accept `conversationId` from URL params
+    - Fetch conversation details
+    - Display conversation header (foster name or "Coordinator Chat")
+    - Include MessageList component
+    - Include MessageInput component
+    - Handle loading and error states
+2. Create route `/messages/:conversationId`
+3. Add back button to return to conversations list
+4. Test: Can view conversation, send messages, see real-time updates
+
+**Testing:**
+
+-   Conversation loads correctly
+-   Messages display properly
+-   Can send new messages
+-   Real-time updates work
+-   Navigation works
+
+**Deliverable:** Conversation detail page working.
+
+---
+
+## Phase 6: Push Notifications (PWA)
+
+**Goal:** Enable push notifications for messaging and important updates, ensuring users are alerted even when app is closed.
+
+---
+
+### Milestone 6.1: Firebase Cloud Messaging Setup
+
+**Goal:** Configure FCM for web push notifications on Android and desktop browsers.
 
 **Tasks:**
 
 1. Create Firebase project at console.firebase.google.com
-2. Add web app to Firebase project, get config:
-    ```js
-    const firebaseConfig = {
-    	apiKey: "...",
-    	authDomain: "...",
-    	projectId: "...",
-    	storageBucket: "...",
-    	messagingSenderId: "...",
-    	appId: "...",
-    };
-    ```
-3. Install Firebase SDK:
-    ```bash
-    bun add firebase
-    ```
-4. Create `foster-app/lib/firebase.ts`:
+2. Add web app to Firebase project
+3. Get Firebase configuration (API key, project ID, etc.)
+4. Install Firebase SDK: `bun add firebase`
+5. Create `src/lib/firebase.ts`:
+    - Initialize Firebase app with config
+    - Initialize messaging service
+    - Create function to request notification permission
+    - Create function to get FCM push token
+    - Create function to handle foreground messages
+6. Get VAPID key from Firebase Console → Project Settings → Cloud Messaging
+7. Store VAPID key in environment variables
+8. Test: Request permission, verify token is generated
 
-    ```typescript
-    import { initializeApp } from "firebase/app";
-    import { getMessaging, getToken, onMessage } from "firebase/messaging";
+**Testing:**
 
-    const app = initializeApp(firebaseConfig);
-    const messaging = getMessaging(app);
+-   Can request notification permission
+-   FCM token is generated and logged
+-   Permission prompt appears correctly
+-   Token is valid format
 
-    export async function requestNotificationPermission() {
-    	const permission = await Notification.requestPermission();
-    	if (permission === "granted") {
-    		const token = await getToken(messaging, {
-    			vapidKey: "YOUR_VAPID_KEY", // Get from Firebase Console
-    		});
-    		return token;
-    	}
-    	return null;
-    }
-
-    export function onMessageListener() {
-    	return new Promise((resolve) => {
-    		onMessage(messaging, (payload) => {
-    			resolve(payload);
-    		});
-    	});
-    }
-    ```
-
-5. Get VAPID key from Firebase Console → Project Settings → Cloud Messaging
-
-**Testing:** Can request permission and get FCM token. Token appears in console.
-
-**Deliverable:** FCM configured and ready.
+**Deliverable:** FCM configured and ready to use.
 
 ---
 
-### Milestone 4.2: Store Push Tokens in Database
+### Milestone 6.2: Push Token Storage
 
-**Goal:** Save user's push token to Supabase so we can send notifications.
+**Goal:** Store user's push token in database so backend can send notifications.
 
 **Tasks:**
 
-1. Add `push_tokens` table in Supabase:
+1. Create `public.push_tokens` table:
+    - `id` (UUID primary key)
+    - `user_id` (UUID, references profiles)
+    - `token` (TEXT, unique, required)
+    - `platform` (TEXT: 'web', 'ios', 'android')
+    - `organization_id` (UUID, references organizations)
+    - `created_at`, `updated_at`
+2. Enable RLS on push_tokens table
+3. Create RLS policies:
+    - Users can manage their own tokens
+    - Coordinators can view tokens in their organization (for sending notifications)
+4. Create `src/hooks/usePushNotifications.ts`:
+    - Request notification permission on mount
+    - Get FCM token when permission granted
+    - Upsert token to database (handle token updates)
+    - Listen for foreground messages
+    - Show browser notification for foreground messages
+5. Add hook to main app layout
+6. Test: Grant permission, verify token saved to database
 
-    ```sql
-    CREATE TABLE public.push_tokens (
-      id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-      user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-      token TEXT NOT NULL UNIQUE,
-      platform TEXT, -- 'web', 'ios', 'android'
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
+**Testing:**
 
-    ALTER TABLE public.push_tokens ENABLE ROW LEVEL SECURITY;
+-   Token is saved to database when permission granted
+-   Token is updated if user grants permission again
+-   Token is linked to correct user and organization
+-   Foreground notifications appear when app is open
 
-    CREATE POLICY "Users can manage own tokens"
-      ON public.push_tokens
-      FOR ALL
-      USING (auth.uid() = user_id);
-    ```
-
-2. Create hook `foster-app/hooks/usePushNotifications.ts`:
-
-    ```typescript
-    import { useEffect } from "react";
-    import {
-    	requestNotificationPermission,
-    	onMessageListener,
-    } from "@/lib/firebase";
-    import { supabase } from "@/lib/supabase";
-    import { useAuth } from "./useAuth";
-
-    export function usePushNotifications() {
-    	const { user } = useAuth();
-
-    	useEffect(() => {
-    		if (!user) return;
-
-    		// Request permission and save token
-    		requestNotificationPermission().then(async (token) => {
-    			if (token) {
-    				await supabase.from("push_tokens").upsert({
-    					user_id: user.id,
-    					token,
-    					platform: "web",
-    				});
-    			}
-    		});
-
-    		// Listen for foreground messages
-    		onMessageListener().then((payload) => {
-    			console.log("Message received:", payload);
-    			// Show notification
-    			new Notification(payload.notification?.title || "New message", {
-    				body: payload.notification?.body,
-    				icon: "/icon-192.png",
-    			});
-    		});
-    	}, [user]);
-    }
-    ```
-
-3. Add hook to main layout
-
-**Testing:** Token saved to database when user grants permission.
-
-**Deliverable:** Push tokens stored and managed.
+**Deliverable:** Push tokens stored and managed automatically.
 
 ---
 
-### Milestone 4.3: Send Test Notification
+### Milestone 6.3: In-App Notifications System
 
-**Goal:** Send a notification from backend to verify it works.
+**Goal:** Store notifications in database so users see missed notifications when they return.
 
 **Tasks:**
 
-1. Create Supabase Edge Function `send-notification`:
+1. Complete `public.notifications` table (from Phase 4.5):
+    - Ensure all columns exist: `id`, `user_id`, `organization_id`, `type`, `title`, `body`, `read`, `created_at`
+2. Enable RLS on notifications table
+3. Create RLS policies:
+    - Users can view their own notifications
+    - Users can update read status
+    - Coordinators can create notifications (for sending)
+4. Create `src/hooks/useNotifications.ts`:
+    - Fetch unread notifications for current user
+    - Mark notifications as read
+    - Subscribe to new notifications via Realtime
+5. Create notification badge component:
+    - Show unread count
+    - Display in navigation/header
+6. Test: Create notification, verify it appears, verify read status updates
 
-    ```typescript
-    // supabase/functions/send-notification/index.ts
-    import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+**Testing:**
 
-    serve(async (req) => {
-    	const { userId, title, body } = await req.json();
+-   Notifications are stored in database
+-   Users see their notifications
+-   Unread count is accurate
+-   Marking as read updates database
 
-    	// Get user's push token
-    	const supabase = createClient(/* ... */);
-    	const { data: tokens } = await supabase
-    		.from("push_tokens")
-    		.select("token")
-    		.eq("user_id", userId);
-
-    	// Send via FCM Admin SDK (or use webhook)
-    	// For MVP, use a simple HTTP request to FCM API
-
-    	return new Response(JSON.stringify({ success: true }), {
-    		headers: { "Content-Type": "application/json" },
-    	});
-    });
-    ```
-
-2. Or use a simpler approach: Supabase Database Webhook → external service (e.g., OneSignal, Pusher)
-3. For MVP, use Supabase Realtime + browser Notification API:
-    - Create `notifications` table
-    - Use Supabase Realtime to listen for new notifications
-    - Show browser notification when received
-
-**Testing:** Coordinator creates animal → foster receives push notification on phone.
-
-**Deliverable:** Push notifications working end-to-end.
+**Deliverable:** In-app notifications system working.
 
 ---
 
-### Milestone 4.4: Notification Preferences
+### Milestone 6.4: Send Push Notifications for Messages
 
-**Goal:** Let users control what notifications they receive.
+**Goal:** Send push notification when new message arrives in conversation.
 
 **Tasks:**
 
-1. Add `notification_preferences` column to profiles table
-2. Create settings page to toggle:
-    - New animal assignments
-    - Messages from coordinator
-    - Task reminders
-3. Respect preferences when sending notifications
+1. Create Supabase Edge Function `send-push-notification`:
+    - Accept user_id, title, body as parameters
+    - Fetch user's push tokens from database
+    - Send notification via FCM API
+    - Handle errors gracefully
+2. Create database trigger or function:
+    - When new message is inserted
+    - Get conversation participants (excluding sender)
+    - For each participant, create in-app notification
+    - For each participant with push token, call Edge Function
+3. Test: Send message, verify recipients receive push notification
+4. Handle edge cases:
+    - User has no push token (only in-app notification)
+    - Multiple devices (send to all tokens)
+    - Notification permission denied
 
-**Testing:** Users can toggle preferences, notifications respect settings.
+**Testing:**
+
+-   Message sent triggers push notification to recipients
+-   Notification appears on recipient's device
+-   Works when app is closed
+-   In-app notification also created
+
+**Deliverable:** Push notifications for messages working.
+
+---
+
+### Milestone 6.5: Notification Preferences
+
+**Goal:** Allow users to control what types of notifications they receive.
+
+**Tasks:**
+
+1. Add `notification_preferences` JSONB column to profiles table:
+    - Store preferences as JSON object
+    - Types: `messages`, `assignments`, `reminders`, `updates`
+    - Each type: boolean (enabled/disabled)
+2. Create `src/pages/settings/NotificationSettings.tsx`:
+    - Fetch user's notification preferences
+    - Display toggles for each notification type
+    - Save preferences to database
+    - Show current preference state
+3. Add route `/settings/notifications`
+4. Add link to settings in navigation
+5. Update notification sending logic:
+    - Check user's preferences before sending
+    - Respect disabled notification types
+6. Test: Toggle preferences, verify notifications respect settings
+
+**Testing:**
+
+-   Users can view and update preferences
+-   Preferences are saved correctly
+-   Notifications respect disabled types
+-   Enabled types still send notifications
 
 **Deliverable:** Notification preferences working.
 
 ---
 
-## Phase 5: Profile Management & Role-Based Features
+## Phase 7: Foster Confirmation Codes
 
-### Milestone 5.1: User Profile Creation
+**Goal:** Enable coordinators to generate and share confirmation codes for approved fosters, controlling platform access while keeping application process external.
+
+---
+
+### Milestone 7.1: Confirmation Codes Schema
+
+**Goal:** Create database schema for confirmation codes linked to organizations.
+
+**Tasks:**
+
+1. Create `public.confirmation_codes` table:
+    - `id` (UUID primary key)
+    - `code` (TEXT, unique, required) - human-readable code
+    - `organization_id` (UUID, references organizations)
+    - `created_by` (UUID, references profiles - coordinator who created it)
+    - `used_by` (UUID, nullable, references profiles - foster who used it)
+    - `expires_at` (TIMESTAMPTZ, nullable)
+    - `created_at`, `updated_at`
+2. Enable RLS on confirmation_codes table
+3. Create RLS policies:
+    - Coordinators can view codes in their organization
+    - Coordinators can create codes
+    - Coordinators can revoke codes (delete or mark as used)
+    - Anyone can view unused codes (for validation during signup)
+4. Add index on `code` for fast lookup
+5. Test: Create test code, verify it's stored correctly
+
+**Testing:**
+
+-   Table created with correct structure
+-   Can create confirmation code
+-   RLS policies work correctly
+-   Code lookup is fast
+
+**Deliverable:** Confirmation codes schema ready.
+
+---
+
+### Milestone 7.2: Generate Confirmation Codes
+
+**Goal:** Coordinators can generate shareable confirmation codes for approved fosters.
+
+**Tasks:**
+
+1. Create function to generate unique code:
+    - Generate random alphanumeric code (e.g., "ABC123")
+    - Ensure uniqueness in database
+    - Make it readable and shareable
+2. Create `src/pages/coordinators/ConfirmationCodes.tsx`:
+    - Display list of codes (active and used)
+    - Show code, created date, used status, used by (if used)
+    - "Generate New Code" button
+    - Generate code and save to database
+    - Link code to coordinator's organization
+3. Add route `/coordinators/codes` (coordinator-only)
+4. Add navigation link for coordinators
+5. Test: Coordinator can generate codes, codes are unique, codes are linked to organization
+
+**Testing:**
+
+-   Coordinator can generate codes
+-   Codes are unique
+-   Codes are linked to correct organization
+-   Codes appear in list
+
+**Deliverable:** Code generation working.
+
+---
+
+### Milestone 7.3: Validate Code During Signup
+
+**Goal:** Fosters must provide valid confirmation code to create account.
+
+**Tasks:**
+
+1. Update `src/pages/SignUp.tsx`:
+    - Add "Confirmation Code" input field
+    - Make code required for signup
+    - Validate code before submitting:
+        - Code exists in database
+        - Code is not already used
+        - Code belongs to organization (if multi-org)
+        - Code is not expired (if expiration implemented)
+2. Create function to validate code:
+    - Query database for code
+    - Check if code is valid and unused
+    - Return validation result
+3. On successful signup:
+    - Mark code as used
+    - Link code to new user profile
+    - Assign user to code's organization
+4. Show error messages for invalid codes
+5. Test: Try signup with valid code, invalid code, used code
+
+**Testing:**
+
+-   Valid code allows signup
+-   Invalid code shows error
+-   Used code shows error
+-   Code is marked as used after signup
+-   User is assigned to code's organization
+
+**Deliverable:** Code validation during signup working.
+
+---
+
+### Milestone 7.4: Simple Code Generation & Sharing
+
+**Goal:** Coordinators can generate codes, copy them, and share via email.
+
+**Tasks:**
+
+1. Update `src/pages/coordinators/ConfirmationCodes.tsx`:
+    - Simple list showing: code, created date, status (active/used)
+    - "Generate New Code" button
+    - When code is generated:
+        - Display code prominently
+        - "Copy Code" button (copies to clipboard)
+        - "Email Code" button (opens email client with code in body and signup URL)
+    - Show list of previously generated codes (simple display, no complex filtering)
+2. Implement code copying:
+    - Copy code to clipboard when button clicked
+    - Show confirmation message when copied
+3. Implement email sharing:
+    - Generate mailto link with code in email body
+    - Include signup URL with code as parameter (e.g., `https://app.vercel.app/signup?code=ABC123`)
+    - Open default email client
+4. Test: Generate code, copy code, email code
+
+**Testing:**
+
+-   Can generate new codes
+-   Can copy code to clipboard
+-   Can email code via mailto link
+-   Codes display correctly in list
+
+**Deliverable:** Simple code generation and sharing working.
+
+---
+
+## Phase 8: Quality of Life Features
+
+**Goal:** Add filtering, search, and timestamp display to improve usability and tracking.
+
+---
+
+### Milestone 8.1: Animal Filtering & Search
+
+**Goal:** Allow users to filter and search animals by various criteria.
+
+**Tasks:**
+
+1. Create `src/components/animals/AnimalFilters.tsx`:
+    - Filter by status (dropdown/multi-select)
+    - Filter by priority (high priority toggle)
+    - Filter by sex (dropdown)
+    - Clear filters button
+    - Show active filter count
+2. Update `src/pages/animals/AnimalsList.tsx`:
+    - Add filter state management
+    - Apply filters to Supabase query
+    - Display filtered results
+    - Show "No results" when filters match nothing
+3. Add search functionality:
+    - Search input field
+    - Search by name (case-insensitive)
+    - Search by characteristics
+    - Combine search with filters
+4. Test: Apply filters, verify results update, clear filters, search works
+
+**Testing:**
+
+-   Filters work correctly
+-   Search works correctly
+-   Filters and search can be combined
+-   Results update in real-time
+-   Empty states show correctly
+
+**Deliverable:** Animal filtering and search working.
+
+---
+
+### Milestone 8.2: Timestamp Display & History
+
+**Goal:** Display timestamps on messages and data edits to show when information changed.
+
+**Tasks:**
+
+1. Ensure all relevant tables have `created_at` and `updated_at` timestamps:
+    - Verify `animals` table has both timestamps
+    - Verify `messages` table has `created_at`
+    - Verify `animal_groups` table has both timestamps
+    - Add `updated_at` triggers if missing
+2. Display timestamps in UI:
+    - Show `created_at` timestamp on all messages
+    - Show `created_at` and `updated_at` on animal detail page
+    - Format timestamps in readable format (e.g., "2 hours ago", "Jan 15, 2024")
+3. Create timestamp display component:
+    - `src/components/ui/Timestamp.tsx` for consistent timestamp formatting
+    - Handle relative time (e.g., "just now", "5 minutes ago")
+    - Handle absolute time for older items
+4. Add to animal detail page:
+    - Show "Created: [timestamp]"
+    - Show "Last updated: [timestamp]" if different from created
+5. Add to message display:
+    - Show timestamp with each message
+    - Format consistently across all messages
+6. Test: Verify timestamps display correctly and update when data changes
+
+**Testing:**
+
+-   Timestamps display on all messages
+-   Timestamps display on animal records
+-   Timestamps update when data is edited
+-   Timestamp formatting is readable and consistent
+
+**Deliverable:** Timestamp display working throughout app.
+
+**Note:** This milestone focuses on displaying existing timestamps. A separate activity logging system (tracking who did what) may be added later based on customer feedback - see QUESTIONS_FOR_RESCUE.md.
+
+---
+
+### Milestone 8.3: Photo Uploads for Animals
+
+**Goal:** Allow coordinators and fosters to upload photos for animals.
+
+**Tasks:**
+
+1. Set up Supabase Storage:
+    - Create storage bucket for animal photos
+    - Configure bucket policies for organization isolation
+    - Set up RLS policies: users can upload/view photos in their organization
+2. Add `photos` JSONB column to `animals` table (if not already added):
+    - Structure: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "..."}, ...]`
+    - Store array of photo objects with metadata
+3. Create photo upload component:
+    - `src/components/animals/PhotoUpload.tsx`
+    - File input for selecting photos
+    - Upload to Supabase Storage
+    - Show upload progress
+    - Handle errors gracefully
+4. Update animal detail page:
+    - Display photo gallery
+    - Show uploaded photos with timestamps
+    - Allow coordinators to upload new photos
+    - Allow fosters to upload photos for assigned animals
+5. Update animal creation form:
+    - Optional photo upload during creation
+    - Store photos in `photos` JSONB array
+6. Test: Upload photos, verify they appear, verify organization isolation
+
+**Testing:**
+
+-   Can upload photos to Supabase Storage
+-   Photos are linked to correct animal and organization
+-   Photos display correctly in gallery
+-   Upload progress and errors are handled
+-   RLS policies prevent cross-organization access
+
+**Deliverable:** Photo upload functionality working.
+
+---
+
+## Phase 9: UX Polish & Navigation
+
+**Goal:** Improve user experience with polished design, better navigation, and refined interactions based on Figma designs.
+
+---
+
+### Milestone 9.1: Navigation Structure
+
+**Goal:** Create consistent, mobile-friendly navigation throughout the app.
+
+**Tasks:**
+
+1. Create `src/components/Navigation.tsx`:
+    - Bottom navigation bar for mobile (fixed at bottom)
+    - Sidebar navigation for desktop (collapsible)
+    - Show active route highlighting
+    - Include icons for each route
+2. Navigation links:
+    - Dashboard (all users)
+    - Animals (all users)
+    - Messages (all users)
+    - Settings (all users)
+    - Coordinator-only: Create Animal, Confirmation Codes
+3. Use React Router's `useLocation` to highlight active route
+4. Make navigation responsive:
+    - Mobile: Bottom nav (always visible)
+    - Desktop: Sidebar (collapsible)
+5. Add navigation to main app layout
+6. Test: Navigate between pages, verify active state, test on mobile and desktop
+
+**Testing:**
+
+-   Navigation works on mobile and desktop
+-   Active route is highlighted
+-   Coordinator-only links only show for coordinators
+-   Navigation is always accessible
+
+**Deliverable:** Responsive navigation structure working.
+
+---
+
+### Milestone 9.2: Figma Design Implementation
+
+**Goal:** Implement polished UI designs from Figma, improving visual consistency and user experience.
+
+**Tasks:**
+
+1. Review Figma designs for key screens:
+    - Dashboard
+    - Animals list
+    - Animal detail
+    - Messages/conversations
+    - Forms
+2. Update component styling to match designs:
+    - Colors, spacing, typography
+    - Button styles, input styles
+    - Card layouts, list layouts
+    - Icons and imagery
+3. Create or update design system:
+    - Color palette
+    - Typography scale
+    - Spacing system
+    - Component variants
+4. Update existing components:
+    - FormContainer, Input, Button, etc.
+    - Animal cards, message bubbles
+    - Navigation components
+5. Ensure mobile-first responsive design
+6. Test: Compare UI to Figma designs, verify consistency
+
+**Testing:**
+
+-   UI matches Figma designs
+-   Components are consistent
+-   Mobile and desktop layouts work
+-   Design system is applied consistently
+
+**Deliverable:** Figma designs implemented.
+
+---
+
+### Milestone 9.3: Loading States & Empty States
+
+**Goal:** Improve perceived performance and user guidance with better loading and empty states.
+
+**Tasks:**
+
+1. Review all pages for loading states:
+    - Add spinners/skeletons where data is fetching
+    - Ensure loading states are consistent
+    - Remove any blank screens during loading
+2. Review all pages for empty states:
+    - Animals list: "No animals yet"
+    - Messages: "No messages yet"
+    - Activity: "No activity yet"
+    - Make empty states helpful and actionable
+3. Create reusable empty state component
+4. Add loading skeletons for better UX:
+    - Skeleton for animal cards
+    - Skeleton for message list
+    - Skeleton for activity timeline
+5. Test: Verify all loading and empty states work correctly
+
+**Testing:**
+
+-   Loading states appear during data fetch
+-   Empty states are helpful and clear
+-   Skeletons improve perceived performance
+-   No blank screens
+
+**Deliverable:** Improved loading and empty states.
+
+---
+
+### Milestone 9.4: Error Handling Improvements
+
+**Goal:** Provide better error messages and recovery options throughout the app.
+
+**Tasks:**
+
+1. Review error handling across all pages:
+    - Network errors
+    - Permission errors
+    - Validation errors
+    - Not found errors
+2. Ensure consistent error message format
+3. Add retry mechanisms for failed requests:
+    - "Try Again" buttons
+    - Automatic retry for transient errors
+4. Add error boundaries for React errors:
+    - Catch component errors
+    - Show user-friendly error page
+    - Provide recovery options
+5. Improve form validation errors:
+    - Show inline errors
+    - Highlight invalid fields
+    - Provide helpful error messages
+6. Test: Trigger various errors, verify handling works
+
+**Testing:**
+
+-   Errors are caught and displayed nicely
+-   Retry mechanisms work
+-   Error boundaries prevent crashes
+-   Form errors are helpful
+
+**Deliverable:** Robust error handling throughout app.
+
+---
+
+### Milestone 9.5: Quick Actions & Shortcuts
+
+**Goal:** Add convenient shortcuts and quick actions to improve workflow efficiency.
+
+**Tasks:**
+
+1. Add quick actions to Dashboard:
+    - "Create Animal" button (coordinators)
+    - "View Animals" button
+    - "View Messages" button
+    - Recent activity shortcuts
+2. Add context actions:
+    - Quick status change on animal cards
+    - Quick reply in message list
+    - Quick filters in animals list
+3. Add keyboard shortcuts (desktop):
+    - `/` to focus search
+    - `n` for new animal (coordinators)
+    - `m` for messages
+4. Add swipe actions (mobile):
+    - Swipe to mark message as read
+    - Swipe to change animal status (coordinators)
+5. Test: Verify quick actions work, shortcuts work, swipe actions work
+
+**Testing:**
+
+-   Quick actions are accessible
+-   Keyboard shortcuts work
+-   Swipe actions work on mobile
+-   Actions perform correctly
+
+**Deliverable:** Quick actions and shortcuts working.
+
+---
+
+## Phase 10: Expo Wrapping (For Reliable iOS Notifications)
+
+**Goal:** Wrap PWA in Expo to enable App Store distribution and reliable iOS push notifications via APNs.
+
+---
+
+### Milestone 10.1: Initialize Expo Project
+
+**Goal:** Create Expo app that wraps the existing PWA.
+
+**Tasks:**
+
+1. Install Expo CLI: `bunx create-expo-app@latest`
+2. Create new Expo app: `bunx create-expo-app@latest foster-mobile --template blank-typescript`
+3. Install dependencies:
+    - `expo-web-browser` for WebView
+    - `expo-linking` for deep linking
+4. Create WebView wrapper:
+    - Load deployed PWA URL in WebView
+    - Handle navigation within WebView
+    - Handle deep links from PWA
+5. Configure app.json:
+    - Set app name, bundle identifier
+    - Configure icons and splash screen
+    - Set up deep linking
+6. Test: Run Expo app, verify PWA loads in WebView
+
+**Testing:**
+
+-   Expo app runs successfully
+-   PWA loads in WebView
+-   Navigation works within WebView
+-   Deep linking works
+
+**Deliverable:** Expo wrapper created and working.
+
+---
+
+### Milestone 10.2: Expo Push Notifications
+
+**Goal:** Replace FCM with Expo Push Notifications for reliable iOS support.
+
+**Tasks:**
+
+1. Install Expo Notifications: `bun add expo-notifications`
+2. Configure push notifications:
+    - Set up APNs (iOS) and FCM (Android) credentials
+    - Configure app.json for push notifications
+    - Request notification permissions
+3. Update push token storage:
+    - Get Expo push token instead of FCM token
+    - Store token with platform identifier ('ios' or 'android')
+    - Update token when it changes
+4. Update notification sending:
+    - Use Expo Push API instead of FCM
+    - Send to Expo push tokens
+    - Handle platform-specific formatting
+5. Test: Send notification, verify it appears on iOS and Android
+
+**Testing:**
+
+-   Push notifications work on iOS
+-   Push notifications work on Android
+-   Tokens are stored correctly
+-   Notifications appear when app is closed
+
+**Deliverable:** Expo push notifications working on iOS and Android.
+
+---
+
+### Milestone 10.3: Build & Publish
+
+**Goal:** Build and publish app to App Store and Play Store.
+
+**Tasks:**
+
+1. Set up Expo EAS Build:
+    - Install EAS CLI
+    - Configure `eas.json`
+    - Set up build profiles
+2. Configure app details:
+    - Update app.json with app information
+    - Set up app icons and splash screens
+    - Configure app store listings
+3. Build for iOS:
+    - Create iOS build with EAS
+    - Test build on physical device
+    - Submit to App Store (requires Apple Developer account)
+4. Build for Android:
+    - Create Android build with EAS
+    - Test build on physical device
+    - Submit to Play Store (requires Google Play Developer account)
+5. Test: Verify app installs and works from stores
+
+**Testing:**
+
+-   App builds successfully
+-   App installs from App Store
+-   App installs from Play Store
+-   All features work in native app
+
+**Deliverable:** App published to App Store and Play Store.
+
+---
+
+## Notes
+
+-   **Start Small:** Don't try to build everything at once. Complete each milestone fully before moving on.
+-   **Test on Real Phones:** The PWA approach means you can test on actual devices immediately—use this advantage!
+-   **Customer Feedback Throughout:** Gather feedback from rescue team regularly as you build features. Don't wait for a dedicated feedback phase—incorporate feedback continuously to ensure the app meets their needs.
+-   **Push Notifications are Critical:** Messaging and notifications are core to the communication-focused app.
+-   **PWA First, Native Later:** Get the PWA working perfectly before considering Expo wrapping. Many users are fine with "Add to Home Screen."
+-   **Use Bun:** All commands use `bun` instead of `npm` for faster installs and runs.
+-   **Test Frequently:** Run your app after every small change to catch errors early.
+-   **Use Supabase Docs:** The Supabase documentation is excellent—refer to it often.
+-   **Ask for Help:** If stuck on a milestone for more than a few hours, step back and break it down further.
+-   **Version Control:** Commit after each milestone so you can roll back if needed.
+-   **Deployment:** See Phase 3.5 for dedicated deployment milestone. Recommended after Phase 3 (PWA Setup) is complete, so you can test PWA installation on real devices.
+-   **React Router Benefits:** Pure SPA setup is simpler than Next.js for internal tools. Easy to share components with Expo later since it's pure React.
+
+---
+
+## Success Criteria for MVP
 
 **Goal:** When user signs up, create profile record.
 
@@ -1089,219 +2018,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.2: Role-Based UI
-
-**Goal:** Show different UI based on user role.
-
-**Tasks:**
-
-1. Fetch user profile to get role:
-    ```typescript
-    const { data } = await supabase
-    	.from("profiles")
-    	.select("role")
-    	.eq("id", user.id)
-    	.single();
-    ```
-2. Conditionally show "Create Animal" button only for coordinators
-3. Update navigation to show coordinator-only pages
-4. Use role in layout to conditionally render menu items
-
-**Testing:** Fosters don't see create animal button, coordinators do. Works on phone.
-
-**Deliverable:** Role-based UI working.
-
----
-
-## Phase 6: Navigation & Polish
-
-### Milestone 6.1: Navigation Structure
-
-**Goal:** Set up mobile-friendly navigation.
-
-**Tasks:**
-
-1. Create bottom navigation bar for mobile (hamburger menu for desktop)
-2. Add links using React Router's `Link` component:
-    ```typescript
-    import { Link, useLocation } from "react-router-dom";
-    ```
-3. Add links to:
-    - Dashboard (`/dashboard`)
-    - Animals (`/animals`)
-    - Profile (`/profile`)
-    - (Coordinator only: Create Animal `/animals/new`)
-4. Use `useLocation` to highlight active route
-5. Make navigation responsive (bottom nav on mobile, sidebar on desktop)
-6. Create `src/components/Navigation.tsx` and include in layout
-
-**Testing:** Can navigate between pages smoothly. Navigation works on phone.
-
-**Deliverable:** Responsive navigation working.
-
----
-
-### Milestone 6.2: Mobile-First Styling
-
-**Goal:** Make app look polished on phones.
-
-**Tasks:**
-
-1. Use Tailwind CSS (already installed) with mobile-first approach
-2. Style all screens with:
-    - Large touch targets (min 44x44px)
-    - Readable fonts
-    - Good contrast
-    - Consistent spacing
-3. Add loading states and error messages
-4. Test on real phone devices
-
-**Testing:** App looks professional on phone and desktop.
-
-**Deliverable:** Polished, mobile-first UI.
-
----
-
-## Phase 7: Data Validation & Error Handling
-
-### Milestone 7.1: Form Validation
-
-**Goal:** Validate inputs before submitting.
-
-**Tasks:**
-
-1. Add validation to create animal form:
-    - Name required, min 2 characters
-    - Species required
-    - Status must be valid enum value
-2. Show error messages inline
-3. Prevent submission if invalid
-4. Use a validation library like `zod` for type-safe validation
-
-**Testing:** Can't submit invalid forms, see helpful error messages.
-
-**Deliverable:** Form validation working.
-
----
-
-### Milestone 7.2: Error Handling
-
-**Goal:** Handle API errors gracefully.
-
-**Tasks:**
-
-1. Create error boundary component
-2. Show user-friendly error messages for:
-    - Network errors
-    - Permission errors
-    - Validation errors
-3. Add retry mechanisms for failed requests
-4. Show toast notifications for errors
-
-**Testing:** Errors are caught and displayed nicely, app doesn't crash.
-
-**Deliverable:** Robust error handling.
-
----
-
-## Phase 8: Testing Setup
-
-### Milestone 8.1: Unit Tests for Utilities
-
-**Goal:** Set up testing framework and write first tests.
-
-**Tasks:**
-
-1. Install testing dependencies:
-    ```bash
-    bun add -d vitest @testing-library/react @testing-library/jest-dom
-    ```
-2. Create `vitest.config.ts`
-3. Write tests for:
-    - Type validation functions
-    - Date formatting utilities
-    - Status mapping functions
-4. Run tests: `bun test`
-
-**Testing:** Tests pass, can see coverage report.
-
-**Deliverable:** Testing framework set up with sample tests.
-
----
-
-### Milestone 8.2: Integration Tests for API Calls
-
-**Goal:** Test Supabase interactions.
-
-**Tasks:**
-
-1. Create test database or use Supabase test mode
-2. Write tests for:
-    - Creating an animal
-    - Fetching animals list
-    - Updating animal status
-3. Mock Supabase client for unit tests, use real client for integration tests
-
-**Testing:** Integration tests verify database operations work correctly.
-
-**Deliverable:** API integration tests passing.
-
----
-
-### Milestone 8.3: E2E Test (One Critical Flow)
-
-**Goal:** Test complete user flow end-to-end.
-
-**Tasks:**
-
-1. Install Playwright:
-    ```bash
-    bun add -d @playwright/test
-    ```
-2. Write one E2E test:
-    - Login as coordinator
-    - Create an animal
-    - Verify it appears in list
-    - View details
-3. Run E2E test: `bunx playwright test`
-
-**Testing:** E2E test passes, demonstrates full flow works.
-
-**Deliverable:** One working E2E test.
-
----
-
-## Phase 9: Real-Time Updates
-
-### Milestone 9.1: Real-Time Animal List
-
-**Goal:** See new animals appear automatically.
-
-**Tasks:**
-
-1. Use Supabase real-time subscriptions:
-    ```typescript
-    supabase
-    	.channel("animals")
-    	.on(
-    		"postgres_changes",
-    		{ event: "INSERT", schema: "public", table: "animals" },
-    		(payload) => {
-    			// Add new animal to list
-    		}
-    	)
-    	.subscribe();
-    ```
-2. Update animals list when new animal is created
-3. Test: Create animal on one device, see it appear on another
-
-**Testing:** Changes in one client appear in other clients automatically.
-
-**Deliverable:** Real-time updates working.
-
----
-
-## Success Criteria for MVP Scaffold
+## Success Criteria for MVP
 
 At the end of these milestones, you should have:
 
@@ -1317,6 +2034,12 @@ At the end of these milestones, you should have:
 -   Auth state is managed and persisted
 -   Routes are protected
 
+✅ **Multi-Tenant Foundation**
+
+-   Organizations table and multi-tenancy support
+-   Data isolation between organizations
+-   All queries filter by organization
+
 ✅ **Basic Animal Management**
 
 -   Coordinators can create animals
@@ -1324,91 +2047,37 @@ At the end of these milestones, you should have:
 -   Everyone can view animal details
 -   Data persists in Supabase database
 
+✅ **Messaging System (CRITICAL)**
+
+-   Fosters can message coordinators via household chat
+-   Coordinators can see all household conversations
+-   Coordinator group chat for admin communication
+-   Real-time message updates
+
 ✅ **Push Notifications (CRITICAL)**
 
 -   Users receive push notifications on phone
--   Notifications work out-of-the-box
+-   Notifications for messages and important updates
+-   In-app notifications for missed messages
 -   Token management and preferences working
 
-✅ **Role-Based Access**
+✅ **Foster Access Control**
 
--   Different UI for coordinators vs fosters
--   Database policies enforce permissions
+-   Confirmation code system for approved fosters
+-   Coordinators can generate and manage codes
+-   Code validation during signup
 
-✅ **Testing**
+✅ **Quality of Life Features**
 
--   Unit tests for utilities
--   Integration tests for API calls
--   At least one E2E test
+-   Animal filtering and search
+-   Activity logging and timeline display
 
-✅ **Polished UI**
+✅ **Polished UI & Navigation**
 
--   App is styled and navigable on phone
--   Forms validate input
--   Errors are handled gracefully
-
-✅ **Real-Time (Optional)**
-
--   Changes sync across clients
-
----
-
-## Phase 10: Expo Wrapping (Optional - For App Stores)
-
-**Note:** This phase is optional. The PWA works great on phones via browser. Only do this if you want to publish to App Store/Play Store.
-
-### Milestone 10.1: Initialize Expo Project
-
-**Goal:** Create Expo wrapper around existing web app.
-
-**Tasks:**
-
-1. Create Expo app:
-    ```bash
-    bunx create-expo-app@latest foster-mobile --template blank-typescript
-    ```
-2. Install `expo-web-browser` and `expo-linking`
-3. Use `WebView` component to load your deployed PWA
-4. Or better: Share components between Next.js and Expo using a monorepo
-
-**Testing:** Expo app loads web app in WebView.
-
-**Deliverable:** Expo wrapper created.
-
----
-
-### Milestone 10.2: Native Features (Camera, Push)
-
-**Goal:** Add native features that PWA can't do.
-
-**Tasks:**
-
-1. Install Expo Camera: `bun add expo-camera`
-2. Install Expo Notifications: `bun add expo-notifications`
-3. Replace PWA camera with native camera
-4. Replace FCM with Expo Push Notifications (works on iOS + Android)
-5. Test on physical devices
-
-**Testing:** Camera works, push notifications work on iOS and Android.
-
-**Deliverable:** Native features integrated.
-
----
-
-### Milestone 10.3: Build & Publish
-
-**Goal:** Publish to App Store and Play Store.
-
-**Tasks:**
-
-1. Set up Expo EAS Build
-2. Configure app.json with app details
-3. Build for iOS and Android: `bunx eas build`
-4. Submit to stores (requires developer accounts)
-
-**Testing:** App installs from App Store/Play Store.
-
-**Deliverable:** App published to stores.
+-   Consistent navigation structure
+-   Figma designs implemented
+-   Improved loading and empty states
+-   Better error handling
 
 ---
 
@@ -1424,19 +2093,3 @@ Once this scaffold is complete, you can add MVP features incrementally:
 6. **Update Timeline** — Add updates table, display history
 
 Each of these can be added one milestone at a time, following the same pattern: database schema → API/RLS → Web UI → Testing → Push notifications integration.
-
----
-
-## Notes
-
--   **Start Small:** Don't try to build everything at once. Complete each milestone fully before moving on.
--   **Test on Real Phones:** The PWA approach means you can test on actual devices immediately—use this advantage!
--   **Push Notifications are Critical:** Phase 4 is not optional—notifications are core to the communication-focused app.
--   **PWA First, Native Later:** Get the PWA working perfectly before considering Expo wrapping. Many users are fine with "Add to Home Screen."
--   **Use Bun:** All commands use `bun` instead of `npm` for faster installs and runs.
--   **Test Frequently:** Run your app after every small change to catch errors early.
--   **Use Supabase Docs:** The Supabase documentation is excellent—refer to it often.
--   **Ask for Help:** If stuck on a milestone for more than a few hours, step back and break it down further.
--   **Version Control:** Commit after each milestone so you can roll back if needed.
--   **Deployment:** See Phase 3.5 for dedicated deployment milestone. Recommended after Phase 3 (PWA Setup) is complete, so you can test PWA installation on real devices.
--   **React Router Benefits:** Pure SPA setup is simpler than Next.js for internal tools. Easy to share components with Expo later since it's pure React.

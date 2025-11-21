@@ -273,9 +273,15 @@
 -   **Imports:** CSV template for migrating existing spreadsheets.
 -   **Bulk Intake Automation (Post-MVP):** Pipeline for uploading semi-structured rescue manifests (spreadsheets, PDFs, email dumps) and converting them into animal profiles using AI-assisted extraction.
 -   **Exports:** PDF or CSV report for animal summaries and task compliance.
+-   **Data Export Failsafe (Post-MVP):** Ability to export critical data (animals, fosters, assignments, messages) to CSV/Google Sheets format for emergency access if app goes down.
 -   **Audit Trail:** Store immutable event history for compliance and debugging.
 -   **Media Handling:** Limit upload sizes; auto-generate thumbnails; ensure secure signed URLs.
 -   **Petstablished Compatibility:** App designed to work alongside Petstablished. Application process remains in Petstablished; app handles day-to-day coordination. Future integration will enable data sync (see Stretch Roadmap).
+-   **Coordinator Fostering Edge Case:** Coordinators may also foster animals. System should handle this by:
+    -   Allowing coordinators to have ui for both roles.
+    -   Coordinators can see their own foster assignments in addition to all animals.
+    -   Coordinators can update animals they're fostering (same permissions as regular fosters for their assigned animals).
+    -   UI should show coordinator-specific features alongside foster features when coordinator is also fostering.
 
 ### Stretch Roadmap (Post-MVP)
 
@@ -289,11 +295,24 @@
     -   Data transfer and synchronization between app and Petstablished.
     -   Bidirectional updates (animal records, foster assignments, medical records).
     -   Keeps detailed records in Petstablished while using app for day-to-day coordination.
+-   **Message Read Receipts:**
+    -   Show which users have read each message.
+    -   Display "Read" indicators in message bubbles.
+    -   Real-time updates when messages are read.
+-   **Activity Logging System:**
+    -   Track who performed what actions (e.g., "John updated Fluffy's status", "Sarah assigned Mittens to Jane").
+    -   Display activity timeline on animal detail pages.
+    -   Show activity feed on coordinator dashboard.
+    -   Note: This is separate from timestamp display (which shows when data changed, not who changed it).
 -   Adoption workflow (applications, approvals, contracts).
 -   Public-facing adoptable animal listings with shareable profiles and social media integrations.
 -   Advanced analytics (foster success metrics, medical trends).
 -   QR codes on kennels leading to read-only animal snapshots.
 -   Automated document generation (adoption agreements, medical summaries).
+-   **Data Export Failsafe:**
+    -   Ability to export critical data (animals, fosters, assignments) to CSV/Google Sheets format.
+    -   Emergency data access if app goes down.
+    -   Regular automated backups to external storage.
 
 ### 11. Open Questions
 
