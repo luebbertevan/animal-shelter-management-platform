@@ -16,7 +16,7 @@ import {
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
 	const { user } = useAuth();
-	const { isCoordinator } = useUserProfile();
+	const { isCoordinator, profile } = useUserProfile();
 
 	const {
 		data: animal,
@@ -24,10 +24,14 @@ export default function AnimalDetail() {
 		isError,
 		error,
 	} = useQuery<Animal, Error>({
-		queryKey: ["animals", user?.id, id], // Include user ID in cache key
+		queryKey: ["animals", user?.id, profile?.organization_id, id], // Include user ID, org ID, and animal ID in cache key
 		queryFn: async () => {
 			if (!id) {
 				throw new Error("Animal ID is required");
+			}
+
+			if (!profile?.organization_id) {
+				throw new Error("Organization ID not available");
 			}
 
 			try {
@@ -36,6 +40,7 @@ export default function AnimalDetail() {
 					.from("animals")
 					.select("*")
 					.eq("id", id)
+					.eq("organization_id", profile.organization_id) // Filter by organization
 					.single();
 
 				if (fetchError) {
@@ -77,7 +82,7 @@ export default function AnimalDetail() {
 				);
 			}
 		},
-		enabled: !!id && !!user, // Only run query if id and user exist
+		enabled: !!id && !!user && !!profile?.organization_id, // Only run query if id, user, and org ID exist
 	});
 
 	if (isLoading) {
