@@ -1439,15 +1439,21 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - `expires_at` (TIMESTAMPTZ, nullable) - optional expiration
 2. Enable RLS on confirmation_codes table
 3. Create RLS policies:
-    - Anyone can view unused codes (for validation during signup)
     - Coordinators can view codes in their organization
     - Coordinators can create codes in their organization
     - Coordinators can revoke codes in their organization (mark as used or delete)
-4. Add indexes:
+4. Create PostgreSQL function for code validation (security):
+    - Function: `public.validate_confirmation_code(code TEXT, email TEXT)`
+    - Returns: JSON with `valid` (boolean), `organization_id`, `role` (if valid)
+    - Only checks if specific code exists, is unused, matches email, and is not expired
+    - Does NOT expose other codes or allow listing
+    - Mark function as `SECURITY DEFINER` to bypass RLS for validation
+    - This allows signup validation without exposing all codes
+5. Add indexes:
     - Index on `code` for fast lookup during signup
     - Index on `email` for lookup by email
     - Index on `organization_id` for filtering
-5. Test: Create test code, verify it's stored correctly
+6. Test: Create test code, verify it's stored correctly
 
 **Testing:**
 
@@ -1522,9 +1528,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Code is not expired (if expiration implemented)
     - Show clear error messages for invalid codes
 2. Create function to validate code:
-    - Query database for code
-    - Check if code is valid, unused, and email matches
-    - Return validation result with organization_id and role
+    - Call PostgreSQL function `public.validate_confirmation_code(code, email)`
+    - Function returns validation result with organization_id and role (if valid)
+    - This is more secure than querying the table directly (doesn't expose other codes)
 3. On successful signup:
     - Create user account with Supabase auth
     - Create profile with:
@@ -1712,6 +1718,61 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   RLS policies prevent cross-organization access
 
 **Deliverable:** Photo upload functionality working.
+
+---
+
+### Milestone 8.4: User Deactivation & Reactivation
+
+**Goal:** Allow coordinators to deactivate and reactivate user accounts (fosters) while preserving all historical data.
+
+**Tasks:**
+
+1. Add `deactivated_at` field to `profiles` table:
+    - Migration: Add `deactivated_at TIMESTAMPTZ` column (nullable)
+    - When `deactivated_at` is NULL, user is active
+    - When `deactivated_at` has a timestamp, user is deactivated
+2. Update RLS policies:
+    - Deactivated users cannot log in (check `deactivated_at IS NULL` in auth policies)
+    - Coordinators can view all profiles in their organization (including deactivated)
+    - Coordinators can update `deactivated_at` for fosters in their organization
+    - Coordinators cannot deactivate other coordinators (or require special permission)
+3. Update `ProtectedRoute` component:
+    - Check if user is deactivated before allowing access
+    - Redirect to login with message if deactivated
+4. Create user management page:
+    - `src/pages/coordinators/UserManagement.tsx`
+    - Display list of all users (fosters and coordinators) in organization
+    - Show: name, email, role, status (active/deactivated), deactivated date
+    - Filter by role or status
+    - For each foster:
+        - "Deactivate" button (if active)
+        - "Reactivate" button (if deactivated)
+        - Show confirmation dialog before deactivating
+5. Handle animal assignments on deactivation:
+    - When foster is deactivated, show warning about current animal assignments
+    - Option 1: Automatically unassign all animals from deactivated foster
+    - Option 2: Require coordinator to manually reassign animals before deactivation
+    - **Recommendation:** Option 2 (require manual reassignment) to prevent accidental data loss
+6. Update queries to exclude deactivated users where appropriate:
+    - Active fosters list (for assignments)
+    - Available fosters filter
+    - But include deactivated users in historical views (messages, past assignments)
+7. Add route `/coordinators/users` (coordinator-only)
+8. Add navigation link for coordinators
+9. Test: Deactivate foster, verify they cannot log in, reactivate foster, verify they can log in again
+
+**Testing:**
+
+-   Can deactivate fosters in organization
+-   Deactivated users cannot log in
+-   Deactivated users are excluded from active foster lists
+-   Historical data (messages, assignments) is preserved
+-   Can reactivate deactivated users
+-   Reactivated users can log in again
+-   Animal assignments are handled correctly
+-   Coordinators cannot deactivate other coordinators (or special permission required)
+
+**Deliverable:** User deactivation and reactivation working with data preservation.
 
 ---
 
