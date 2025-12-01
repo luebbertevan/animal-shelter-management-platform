@@ -1061,17 +1061,17 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 5.1: Messages & Conversations Schema
 
-**Goal:** Create database schema for messaging system supporting household chats and coordinator group chat.
+**Goal:** Create database schema for messaging system supporting foster chats and coordinator group chat.
 
 **Tasks:**
 
 1. Create `public.conversations` table:
     - `id` (UUID primary key)
     - `organization_id` (UUID, references organizations)
-    - `type` (TEXT: 'household' or 'coordinator_group', CHECK constraint)
-    - `foster_profile_id` (UUID, nullable, for household chats - references profiles)
+    - `type` (TEXT: 'foster_chat' or 'coordinator_group', CHECK constraint)
+    - `foster_profile_id` (UUID, nullable, for foster chats - references profiles)
     - `created_at`, `updated_at`
-    - Constraint: `foster_profile_id` must be set for 'household' type, NULL for 'coordinator_group'
+    - Constraint: `foster_profile_id` must be set for 'foster_chat' type, NULL for 'coordinator_group'
     - Note: Future type 'organization_group' for org-wide chat (all org members)
 2. Create `public.messages` table:
     - `id` (UUID primary key)
@@ -1090,8 +1090,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Note: Messages are not deleted (only soft-deleted if needed), so no CASCADE needed
 4. Enable RLS on all three tables
 5. Create RLS policies for conversations:
-    - Fosters can view their household conversation: `foster_profile_id = auth.uid()`
-    - Coordinators can view all household conversations in their organization: `organization_id` matches AND `type = 'household'`
+    - Fosters can view their foster chat: `foster_profile_id = auth.uid()`
+    - Coordinators can view all foster chats in their organization: `organization_id` matches AND `type = 'foster_chat'`
     - Coordinators can view coordinator group chat: `organization_id` matches AND `type = 'coordinator_group'` AND user role is 'coordinator'
 6. Create RLS policies for messages:
     - Users can view messages in conversations they have access to (via conversation RLS)
@@ -1109,7 +1109,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Constraints prevent invalid conversation types
 -   RLS policies prevent unauthorized access
 -   Can create test conversations and messages
--   Foster can only see their household conversation
+-   Foster can only see their foster chat
 -   Coordinator can see all conversations in their organization
 -   Message-animal links can be created and queried
 
@@ -1119,22 +1119,22 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 5.2: Create Conversation on User Signup
 
-**Goal:** Automatically create household conversation when foster signs up.
+**Goal:** Automatically create foster chat when foster signs up.
 
 **Tasks:**
 
 1. Update profile creation trigger (or create new trigger):
-    - When foster profile is created, create household conversation
+    - When foster profile is created, create foster chat
     - Link conversation to foster's profile and organization
-    - Set conversation type to 'household'
+    - Set conversation type to 'foster_chat'
 2. Test: Sign up as foster, verify conversation is created
-3. Handle edge case: What if coordinator signs up? (No household conversation needed)
+3. Handle edge case: What if coordinator signs up? (No foster chat needed)
 
 **Testing:**
 
--   New foster signup creates household conversation
+-   New foster signup creates foster chat
 -   Conversation is linked to correct organization
--   Coordinator signup does not create household conversation
+-   Coordinator signup does not create foster chat
 
 **Deliverable:** Automatic conversation creation working.
 
@@ -1320,12 +1320,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 5.7: Conversation List for Fosters
 
-**Goal:** Fosters can see and access their household conversation.
+**Goal:** Fosters can see and access their foster chat.
 
 **Tasks:**
 
 1. Create `src/pages/messaging/ConversationsList.tsx`:
-    - Fetch user's household conversation
+    - Fetch user's foster chat
     - Display conversation in list format
     - Show last message preview and timestamp
     - Link to conversation detail page
@@ -1336,7 +1336,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Testing:**
 
--   Foster sees their household conversation
+-   Foster sees their foster chat
 -   Last message and timestamp are correct
 -   Can click to open conversation
 -   Empty state if no conversation exists
@@ -1347,15 +1347,15 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 5.8: Conversation List for Coordinators
 
-**Goal:** Coordinators can see all household conversations and coordinator group chat.
+**Goal:** Coordinators can see all foster chats and coordinator group chat.
 
 **Tasks:**
 
 1. Update `src/pages/messaging/ConversationsList.tsx`:
-    - Fetch all household conversations in organization
+    - Fetch all foster chats in organization
     - Fetch coordinator group chat
     - Display all conversations in list
-    - Show foster name for household conversations
+    - Show foster name for foster chats
     - Show "Coordinator Chat" for group chat
     - Show last message preview and unread counts
 2. Add filtering/search (optional, can be Phase 8):
@@ -1365,7 +1365,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Testing:**
 
--   Coordinator sees all household conversations
+-   Coordinator sees all foster chats
 -   Coordinator sees coordinator group chat
 -   Can navigate to any conversation
 -   List updates when new messages arrive
@@ -2438,8 +2438,8 @@ At the end of these milestones, you should have:
 
 ✅ **Messaging System (CRITICAL)**
 
--   Fosters can message coordinators via household chat
--   Coordinators can see all household conversations
+-   Fosters can message coordinators via foster chat
+-   Coordinators can see all foster chats
 -   Coordinator group chat for admin communication
 -   Real-time message updates
 
