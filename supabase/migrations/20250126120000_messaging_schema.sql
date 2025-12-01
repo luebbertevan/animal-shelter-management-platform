@@ -10,7 +10,7 @@ CREATE TABLE public.conversations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   type TEXT NOT NULL CHECK (type IN ('foster_chat', 'coordinator_group')),
-  foster_profile_id UUID NULLABLE REFERENCES public.profiles(id) ON DELETE CASCADE,
+  foster_profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   -- Constraint: foster_profile_id must be set for 'foster_chat' type, NULL for 'coordinator_group'
@@ -30,7 +30,7 @@ CREATE TABLE public.messages (
   sender_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  edited_at TIMESTAMPTZ NULLABLE
+  edited_at TIMESTAMPTZ
 );
 
 -- ============================================
@@ -40,8 +40,8 @@ CREATE TABLE public.messages (
 CREATE TABLE public.message_animal_links (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   message_id UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
-  animal_id UUID NULLABLE REFERENCES public.animals(id) ON DELETE CASCADE,
-  group_id UUID NULLABLE REFERENCES public.animal_groups(id) ON DELETE CASCADE,
+  animal_id UUID REFERENCES public.animals(id) ON DELETE CASCADE,
+  group_id UUID REFERENCES public.animal_groups(id) ON DELETE CASCADE,
   -- Constraint: Exactly one of animal_id or group_id must be set
   CONSTRAINT exactly_one_link CHECK (
     (animal_id IS NOT NULL AND group_id IS NULL) OR
