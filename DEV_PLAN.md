@@ -1184,6 +1184,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - All coordinators in org can access group chat
     - No manual linking needed - RLS handles access control
 
+**Implementation:**
+
+-   Created `handle_new_organization()` trigger function with `SET search_path = public` for security
+-   Created trigger `on_organization_created` that fires AFTER INSERT on `public.organizations`
+-   Automatically creates coordinator_group conversation with `foster_profile_id = NULL`
+-   Created optional `ensure_coordinator_group_chat(org_id UUID)` safety function for edge cases
+
 **Flow Summary:**
 
 -   New organization created → trigger automatically creates coordinator_group conversation
