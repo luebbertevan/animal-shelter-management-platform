@@ -1208,38 +1208,74 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.4: Chat UI - Message List Component
+### Milestone 5.4a: Basic Message List (MVP)
 
-**Goal:** Create reusable message list component that displays messages in chronological order.
+**Goal:** Get messages displaying on screen - minimal viable version to verify data fetching works.
 
 **Tasks:**
 
 1. Create `src/components/messaging/MessageList.tsx`:
     - Accept `conversationId` as prop
     - Fetch messages for conversation using React Query
-    - Display messages in chronological order (oldest first)
-    - Show sender name, message content, timestamp
-    - Style for mobile-first design
-    - Handle loading and error states
-2. Create `src/components/messaging/MessageBubble.tsx`:
-    - Display individual message
-    - Show different styling for own messages vs others
-    - Display timestamp in readable format
-3. Add scroll-to-bottom functionality when new messages arrive
-4. Test: Display messages correctly, handle empty state
+    - Display messages in simple list format (just text, no MessageBubble component yet)
+    - Show messages in chronological order (oldest first)
+    - Show basic message content (can include sender name and timestamp as plain text for now)
+    - Basic styling (just enough to see messages clearly)
+    - Mobile-first design
+2. Create minimal `src/pages/messaging/ConversationDetail.tsx` page (scaffold):
+    - Accept `conversationId` from URL params
+    - Fetch conversation details (basic - just to get conversation info)
+    - Display conversation header (foster name or "Coordinator Chat" - can be simple text)
+    - Include MessageList component
+    - Basic layout (no MessageInput yet - that comes in M 5.5b)
+3. Create route `/messages/:conversationId`
+4. Add basic back button or navigation
 
 **Testing:**
 
--   Messages display in correct order
--   Sender names and timestamps are correct
--   Empty state shows when no messages
--   Loading and error states work
+-   Can navigate to conversation page via URL
+-   Messages appear on screen
+-   Messages are in correct chronological order
+-   Can see message content
+-   Basic styling is readable
 
-**Deliverable:** Message list component working.
+**Deliverable:** Basic message list showing messages on a page (no polish yet, but functional and testable).
 
 ---
 
-### Milestone 5.5: Chat UI - Message Input Component with Tagging
+### Milestone 5.4b: MessageBubble & Polish
+
+**Goal:** Make message list look polished and handle all edge cases.
+
+**Tasks:**
+
+1. Create `src/components/messaging/MessageBubble.tsx`:
+    - Display individual message
+    - Show different styling for own messages vs others (visual distinction)
+    - Display timestamp in readable format (e.g., "2 hours ago", "Jan 15, 2024")
+2. Update `src/components/messaging/MessageList.tsx`:
+    - Replace simple list with MessageBubble components
+    - Add loading state (spinner or skeleton while fetching)
+    - Add error state (error message with retry option)
+    - Add empty state (friendly message when no messages exist)
+    - Add scroll-to-bottom functionality when new messages arrive
+    - Improve mobile-first styling
+
+**Testing:**
+
+-   Messages look polished with proper styling
+-   Own messages vs others are visually distinct
+-   Timestamps are readable and formatted correctly
+-   Loading state shows while fetching
+-   Error state shows on failure with retry option
+-   Empty state shows when no messages exist
+-   Scroll-to-bottom works when new messages arrive
+
+**Deliverable:** Polished message list with all states handled and proper styling.
+
+---
+
+### Milestone 5.5a: Chat UI - Message Input Component with Tagging
 
 **Goal:** Allow users to type and send messages in conversations, with ability to tag/link animals or groups.
 
@@ -1266,8 +1302,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Show linked animals/groups as clickable chips/badges
     - Link to animal detail page or group detail page
     - Style tags distinctively from message content
-5. Integrate with MessageList to show new message immediately
-6. Test: Send message, verify it appears in list, verify it's saved to database, verify tags are linked
+5. Test: Send message, verify it's saved to database, verify tags are linked
 
 **Testing:**
 
@@ -1275,40 +1310,37 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Can tag animals/groups in messages
 -   Tags appear in message display
 -   Tagged animals/groups link to detail pages
--   Message appears immediately in list
 -   Message and tags are saved to database
 -   Error handling works for failed sends
 
-**Deliverable:** Message input, sending, and tagging working.
+**Deliverable:** Message input, sending, and tagging working (component ready to use).
 
 ---
 
-### Milestone 5.5a: Basic Conversation Detail Page
+### Milestone 5.5b: Add MessageInput to Conversation Detail Page
 
-**Goal:** Create basic conversation detail page to test messaging in UI before adding real-time.
+**Goal:** Add message sending capability to the existing conversation detail page.
 
 **Tasks:**
 
-1. Create `src/pages/messaging/ConversationDetail.tsx`:
-    - Accept `conversationId` from URL params
-    - Fetch conversation details
-    - Display conversation header (foster name or "Coordinator Chat")
-    - Include MessageList component
-    - Include MessageInput component
-    - Handle loading and error states
-2. Create route `/messages/:conversationId`
-3. Add back button to return to conversations list
-4. Test: Can view conversation, send messages, see messages appear (no real-time yet)
+1. Update `src/pages/messaging/ConversationDetail.tsx`:
+    - Add MessageInput component (from M 5.5a)
+    - Integrate MessageList and MessageInput:
+        - After sending message, refetch messages to show new message in list
+        - Message appears in list after successful send (manual refetch, no real-time yet)
+    - Improve conversation header display
+    - Handle loading and error states for the full page
+2. Test: Can view conversation, send messages, see messages appear (no real-time yet)
 
 **Testing:**
 
 -   Conversation loads correctly
 -   Messages display properly
 -   Can send new messages
--   Messages appear after refresh or manual refetch
+-   Messages appear in list after sending (via refetch)
 -   Navigation works
 
-**Deliverable:** Basic conversation detail page working (without real-time).
+**Deliverable:** Complete conversation detail page with message sending (without real-time).
 
 ---
 
