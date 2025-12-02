@@ -4,12 +4,23 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
 import Button from "../components/ui/Button";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 export default function Dashboard() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { user } = useAuth();
-	const { profile } = useUserProfile();
+	const { user, loading: isLoadingAuth } = useAuth();
+	const { profile, isLoading: isLoadingProfile } = useUserProfile();
+
+	// Wait for both auth and profile to load before showing content
+	// This prevents partial rendering and ensures everything appears at once
+	if (isLoadingAuth || isLoadingProfile) {
+		return (
+			<div className="min-h-screen flex items-center justify-center">
+				<LoadingSpinner />
+			</div>
+		);
+	}
 
 	const handleLogout = async () => {
 		const { error } = await supabase.auth.signOut();

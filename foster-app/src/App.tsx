@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import AnimalsList from "./pages/animals/AnimalsList";
 import AnimalDetail from "./pages/animals/AnimalDetail";
 import NewAnimal from "./pages/animals/NewAnimal";
+import ConversationDetail from "./pages/messaging/ConversationDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -42,6 +43,14 @@ function App() {
 					element={
 						<ProtectedRoute>
 							<AnimalDetail />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/messages/:conversationId"
+					element={
+						<ProtectedRoute>
+							<ConversationDetail />
 						</ProtectedRoute>
 					}
 				/>

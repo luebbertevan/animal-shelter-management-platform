@@ -7,11 +7,14 @@ import FormContainer from "../components/ui/FormContainer";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
 import ErrorMessage from "../components/ui/ErrorMessage";
+import Toggle from "../components/ui/Toggle";
 
 export default function SignUp() {
+	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [passwordConfirm, setPasswordConfirm] = useState("");
+	const [isCoordinator, setIsCoordinator] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const navigate = useNavigate();
@@ -41,6 +44,12 @@ export default function SignUp() {
 			const { data, error: signUpError } = await supabase.auth.signUp({
 				email: email.trim(),
 				password: password,
+				options: {
+					data: {
+						full_name: name.trim() || null,
+						role: isCoordinator ? "coordinator" : "foster",
+					},
+				},
 			});
 
 			if (signUpError) {
@@ -89,6 +98,16 @@ export default function SignUp() {
 		>
 			<form onSubmit={handleSignUp} className="space-y-4">
 				<Input
+					label="Name"
+					type="text"
+					value={name}
+					onChange={(e) => setName(e.target.value)}
+					required
+					disabled={loading}
+					placeholder="Enter your name"
+				/>
+
+				<Input
 					label="Email"
 					type="email"
 					value={email}
@@ -117,6 +136,13 @@ export default function SignUp() {
 					required
 					disabled={loading}
 					placeholder="Confirm your password"
+				/>
+
+				<Toggle
+					label="Coordinator"
+					checked={isCoordinator}
+					onChange={setIsCoordinator}
+					disabled={loading}
 				/>
 
 				{error && <ErrorMessage>{error}</ErrorMessage>}

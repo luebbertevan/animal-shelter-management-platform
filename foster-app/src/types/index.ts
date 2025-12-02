@@ -173,3 +173,24 @@ export interface Coordinator extends BaseUser {
 
 // Union type for when you need to handle either role
 export type User = Foster | Coordinator;
+
+// Messaging types
+export type ConversationType = "foster_chat" | "coordinator_group";
+
+export interface Conversation {
+	id: string;
+	organization_id: string;
+	type: ConversationType;
+	foster_profile_id?: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface Message {
+	id: string;
+	conversation_id: string;
+	sender_id: string;
+	content: string;
+	created_at: string;
+	edited_at?: string;
+}
