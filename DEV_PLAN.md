@@ -1123,20 +1123,34 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Update profile creation trigger (or create new trigger):
-    - When foster profile is created, create foster chat
+1. Update existing `handle_new_user()` trigger function:
+    - Function already exists (created in M 4.2)
+    - Add logic to create foster chat after profile creation
+    - Check if `role = 'foster'` before creating conversation
     - Link conversation to foster's profile and organization
     - Set conversation type to 'foster_chat'
-2. Test: Sign up as foster, verify conversation is created
-3. Handle edge case: What if coordinator signs up? (No foster chat needed)
+2. Handle role assignment:
+    - Currently: Everyone signs up as 'foster' (default)
+    - Phase 8: Confirmation codes will determine role
+    - Solution: Check role from created profile - only fosters get conversations
+3. Test: Sign up as foster, verify conversation is created
+4. Handle edge case: Coordinator signup (no foster chat needed - handled by role check)
+
+**Implementation:**
+
+-   Updated `handle_new_user()` function to create foster chat after profile creation
+-   Uses `RETURNING id, role` to get created profile's role
+-   Only creates conversation if `role = 'foster'`
+-   Works now (everyone is foster) and in Phase 8 (codes determine role)
 
 **Testing:**
 
 -   New foster signup creates foster chat
 -   Conversation is linked to correct organization
--   Coordinator signup does not create foster chat
+-   Conversation is linked to foster's profile
+-   Coordinator signup does not create foster chat (when Phase 8 is implemented)
 
-**Deliverable:** Automatic conversation creation working.
+**Deliverable:** Automatic conversation creation working for fosters.
 
 ---
 
