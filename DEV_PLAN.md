@@ -1156,7 +1156,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 5.3: Coordinator Group Chat Setup
 
-**Goal:** Create and manage coordinator group chat for each organization, automatically created for new and existing organizations.
+**Goal:** Create and manage coordinator group chat for each organization, automatically created for new organizations.
 
 **Tasks:**
 
@@ -1164,14 +1164,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Fires when organization is inserted
     - Automatically creates coordinator_group conversation for new organization
     - Sets `organization_id`, `type = 'coordinator_group'`, `foster_profile_id = NULL`
-2. Create function `ensure_coordinator_group_chat(org_id UUID)`:
+2. Create function `ensure_coordinator_group_chat(org_id UUID)` (optional safety function):
     - Check if coordinator group chat exists for organization
     - If not, create it
     - Returns conversation ID
-    - Used for manual creation if needed
-3. Create migration to create coordinator group chat for existing organizations:
-    - Run `ensure_coordinator_group_chat()` for each existing organization
-    - Only create if doesn't already exist
+    - **Purpose:** Safety net for edge cases:
+        - If trigger fails for any reason
+        - If coordinator group chat is accidentally deleted and needs recreation
+        - For data recovery/maintenance scenarios
+    - **Note:** Not required for normal operation (trigger handles automatic creation)
+3. Handle existing organizations:
+    - Existing organizations can be deleted manually if needed
+    - New organizations will automatically get coordinator group chat via trigger
 4. Test automatic creation:
     - Create new organization via Supabase dashboard
     - Verify coordinator group chat is automatically created
@@ -1189,9 +1193,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Testing:**
 
 -   New organization creation automatically creates coordinator group chat
--   Coordinator group chat exists for each organization (including existing ones)
 -   All coordinators in org can access group chat via RLS
 -   New coordinators automatically have access when they join org
+-   `ensure_coordinator_group_chat()` function works if manually called (for edge cases)
 
 **Deliverable:** Coordinator group chat system working with automatic creation.
 
