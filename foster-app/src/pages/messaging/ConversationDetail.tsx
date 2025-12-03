@@ -105,12 +105,22 @@ export default function ConversationDetail() {
 		}
 	};
 
+	// Determine back button navigation based on user role
+	const handleBack = () => {
+		if (profile?.role === "foster") {
+			navigate("/dashboard");
+		} else {
+			// Coordinators will navigate to conversation list (M 5.7)
+			navigate(-1);
+		}
+	};
+
 	return (
 		<div className="h-screen flex flex-col bg-gray-50">
 			{/* Header */}
 			<div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4 shadow-sm flex-shrink-0">
 				<Button
-					onClick={() => navigate(-1)}
+					onClick={handleBack}
 					variant="outline"
 					className="w-auto"
 				>

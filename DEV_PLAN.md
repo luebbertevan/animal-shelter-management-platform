@@ -1368,7 +1368,106 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.5c: Add Tagging Feature to Messages
+### Milestone 5.6: Direct Navigation to Foster Chat
+
+**Goal:** Fosters can access their foster chat directly from the dashboard.
+
+**Tasks:**
+
+1. Add "Chat" button on Dashboard page:
+    - Fetch foster's conversation ID (foster chat for their profile)
+    - Add "Chat" button that links directly to `/messages/:conversationId`
+    - No preview needed (just a button)
+    - Style appropriately for mobile-first design
+2. Update `ConversationDetail.tsx` back button behavior:
+    - For fosters: Back button navigates to Dashboard (`/dashboard`)
+    - For coordinators: Back button behavior unchanged (will be updated in M 5.7)
+    - Check user role to determine navigation target
+3. Test: Foster can click "Chat" button, opens conversation, back button returns to dashboard
+
+**Testing:**
+
+-   "Chat" button appears on Dashboard for fosters
+-   Button links directly to foster's conversation
+-   Conversation loads correctly
+-   Back button navigates to Dashboard (for fosters)
+-   Works if foster has no conversation (handle gracefully)
+
+**Deliverable:** Direct navigation to foster chat from dashboard with proper back button behavior.
+
+---
+
+### Milestone 5.7: Conversation List for Coordinators
+
+**Goal:** Coordinators can see all foster chats and coordinator group chat in a list view.
+
+**Tasks:**
+
+1. Create `src/pages/messaging/ConversationsList.tsx`:
+    - Fetch all foster chats in organization
+    - Fetch coordinator group chat
+    - Display all conversations in list format
+    - Show foster name for foster chats
+    - Show "Coordinator Chat" for group chat
+    - Show last message preview and timestamp
+    - Link to conversation detail page
+2. Create route `/messages` for conversations list
+3. Add navigation to messages:
+    - Add "Messages" link/button on Dashboard page (for coordinators)
+    - Link navigates to `/messages` route
+    - Style appropriately for mobile-first design
+4. Update `ConversationDetail.tsx` back button behavior:
+    - For coordinators: Back button navigates to conversation list (`/messages`)
+    - For fosters: Back button already navigates to Dashboard (from M 5.6)
+5. Style for mobile-first design
+6. Test: Coordinator sees all conversations, can navigate to any, back button returns to list
+
+**Testing:**
+
+-   Coordinator sees all foster chats in list
+-   Coordinator sees coordinator group chat in list
+-   Last message and timestamp are correct for each conversation
+-   Can click to open any conversation
+-   Back button navigates to conversation list (for coordinators)
+-   Dashboard has navigation link to messages page
+-   Empty state if no conversations exist
+
+**Deliverable:** Coordinator conversation list working with proper navigation flow.
+
+---
+
+### Milestone 5.8: Real-Time Message Updates
+
+**Goal:** Add real-time updates to existing conversation detail page so messages appear instantly.
+
+**Tasks:**
+
+1. Set up Supabase Realtime subscription for messages:
+    - Subscribe to new messages in conversation
+    - Update message list when new message arrives
+    - Handle connection errors gracefully
+2. Update MessageList component to use Realtime:
+    - Subscribe when component mounts
+    - Unsubscribe when component unmounts
+    - Append new messages to list
+    - Scroll to bottom when new message arrives
+3. Update ConversationDetail to handle real-time subscriptions
+4. Test: Open conversation on two devices, send message from one, verify it appears on other
+5. Handle edge cases: Multiple tabs, connection loss, reconnection
+
+**Testing:**
+
+-   Message sent on Device A appears instantly on Device B
+-   No page refresh needed
+-   Works when offline then reconnects
+-   Multiple conversations update independently
+-   Tags in real-time messages display correctly
+
+**Deliverable:** Real-time messaging working on conversation detail page.
+
+---
+
+### Milestone 5.9: Add Tagging Feature to Messages
 
 **Goal:** Add ability to tag/link animals or groups in messages.
 
@@ -1404,99 +1503,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.6: Real-Time Message Updates
-
-**Goal:** Add real-time updates to existing conversation detail page so messages appear instantly.
-
-**Tasks:**
-
-1. Set up Supabase Realtime subscription for messages:
-    - Subscribe to new messages in conversation
-    - Update message list when new message arrives
-    - Handle connection errors gracefully
-2. Update MessageList component to use Realtime:
-    - Subscribe when component mounts
-    - Unsubscribe when component unmounts
-    - Append new messages to list
-    - Scroll to bottom when new message arrives
-3. Update ConversationDetail to handle real-time subscriptions
-4. Test: Open conversation on two devices, send message from one, verify it appears on other
-5. Handle edge cases: Multiple tabs, connection loss, reconnection
-
-**Testing:**
-
--   Message sent on Device A appears instantly on Device B
--   No page refresh needed
--   Works when offline then reconnects
--   Multiple conversations update independently
--   Tags in real-time messages display correctly
-
-**Deliverable:** Real-time messaging working on conversation detail page.
-
----
-
-### Milestone 5.7: Conversation List for Fosters
-
-**Goal:** Fosters can see and access their foster chat.
-
-**Tasks:**
-
-1. Create `src/pages/messaging/ConversationsList.tsx`:
-    - Fetch user's foster chat
-    - Display conversation in list format
-    - Show last message preview and timestamp
-    - Link to conversation detail page
-2. Create route `/messages` for conversations list
-3. Add navigation to messages:
-    - Add "Messages" link/button on Dashboard page
-    - Link navigates to `/messages` route
-    - Style appropriately for mobile-first design
-4. Style for mobile-first design
-5. Test: Foster can see their conversation, can navigate to it from dashboard
-
-**Testing:**
-
--   Foster sees their foster chat
--   Last message and timestamp are correct
--   Can click to open conversation
--   Empty state if no conversation exists
--   Dashboard has navigation link to messages page
-
-**Deliverable:** Foster conversation list working with dashboard navigation.
-
----
-
-### Milestone 5.8: Conversation List for Coordinators
-
-**Goal:** Coordinators can see all foster chats and coordinator group chat.
-
-**Tasks:**
-
-1. Update `src/pages/messaging/ConversationsList.tsx`:
-    - Fetch all foster chats in organization
-    - Fetch coordinator group chat
-    - Display all conversations in list
-    - Show foster name for foster chats
-    - Show "Coordinator Chat" for group chat
-    - Show last message preview and unread counts
-2. Add filtering/search (optional, can be Phase 8):
-    - Filter by foster name
-    - Search message content
-3. Test: Coordinator sees all conversations, can navigate to any
-
-**Testing:**
-
--   Coordinator sees all foster chats
--   Coordinator sees coordinator group chat
--   Can navigate to any conversation
--   List updates when new messages arrive
--   Dashboard navigation link works for coordinators
-
-**Deliverable:** Coordinator conversation list working.
-
----
-
-### Milestone 5.9: Polish Conversation Detail Page
+### Milestone 5.10: Polish Conversation Detail Page
 
 **Goal:** Refine and polish conversation detail page based on testing, add any missing features.
 
