@@ -29,13 +29,13 @@ export default function MessageBubble({
 			<div
 				className={`rounded-lg p-3 max-w-[85%] sm:max-w-[80%] shadow-sm ${
 					isOwnMessage
-						? "bg-blue-500 text-white text-right"
+						? "bg-gray-700 text-white text-right"
 						: "bg-white border border-gray-200 text-left"
 				}`}
 			>
 				<div
 					className={`text-xs sm:text-sm mb-1.5 ${
-						isOwnMessage ? "text-blue-100" : "text-gray-500"
+						isOwnMessage ? "text-gray-300" : "text-gray-500"
 					}`}
 				>
 					{isOwnMessage ? "You" : message.sender_name} • {timestamp}
