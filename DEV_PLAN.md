@@ -1243,77 +1243,101 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.4b: MessageBubble & Polish
+### Milestone 5.4b: Extract MessageBubble Component
 
-**Goal:** Make message list look polished and handle all edge cases.
+**Goal:** Extract message rendering into a reusable component for better code organization.
 
 **Tasks:**
 
 1. Create `src/components/messaging/MessageBubble.tsx`:
     - Display individual message
+    - Accept message data and `isOwnMessage` as props
     - Show different styling for own messages vs others (visual distinction)
     - Display timestamp in readable format (e.g., "2 hours ago", "Jan 15, 2024")
 2. Update `src/components/messaging/MessageList.tsx`:
-    - Replace simple list with MessageBubble components
-    - Add loading state (spinner or skeleton while fetching)
-    - Add error state (error message with retry option)
-    - Add empty state (friendly message when no messages exist)
-    - Add scroll-to-bottom functionality when new messages arrive
-    - Improve mobile-first styling
+    - Replace inline message rendering with MessageBubble components
+    - Pass necessary props to MessageBubble
+    - Keep existing loading, error, and empty states (already implemented)
 
 **Testing:**
 
--   Messages look polished with proper styling
+-   Messages still display correctly after extraction
 -   Own messages vs others are visually distinct
 -   Timestamps are readable and formatted correctly
--   Loading state shows while fetching
--   Error state shows on failure with retry option
--   Empty state shows when no messages exist
--   Scroll-to-bottom works when new messages arrive
+-   All existing functionality works (loading, error, empty states)
 
-**Deliverable:** Polished message list with all states handled and proper styling.
+**Deliverable:** MessageBubble component extracted and working in MessageList.
 
 ---
 
-### Milestone 5.5a: Chat UI - Message Input Component with Tagging
+### Milestone 5.4c: Scroll-to-bottom & Polish
 
-**Goal:** Allow users to type and send messages in conversations, with ability to tag/link animals or groups.
+**Goal:** Add scroll behavior and improve states/styling.
+
+**Tasks:**
+
+1. Add scroll-to-bottom functionality to `MessageList.tsx`:
+    - Use `useRef` and `useEffect` to scroll to bottom when messages load
+    - Scroll to bottom when new messages arrive
+    - Handle edge cases (user scrolling up, etc.)
+2. Improve existing states (optional polish):
+    - Replace "Loading messages..." with `LoadingSpinner` component
+    - Add retry button to error state
+    - Improve empty state message styling
+3. Improve mobile-first styling:
+    - Refine spacing, colors, bubble shapes
+    - Ensure touch-friendly tap targets
+    - Optimize for mobile viewing
+
+**Testing:**
+
+-   Scroll-to-bottom works on initial load
+-   Scroll-to-bottom works when new messages arrive
+-   Loading state uses spinner component
+-   Error state has retry option
+-   Empty state is friendly and clear
+-   Mobile styling is polished
+
+**Deliverable:** Polished message list with scroll-to-bottom and improved states.
+
+---
+
+### Milestone 5.5a: Basic MessageInput Component
+
+**Goal:** Create message input component that allows users to type and send messages (without tagging).
 
 **Tasks:**
 
 1. Create `src/components/messaging/MessageInput.tsx`:
     - Text input field for message content
     - Send button (or Enter key to send)
+    - **Send button disabled when input field is empty**
     - Disable input while sending
     - Clear input after successful send
     - Handle validation (non-empty message)
-2. Add tagging UI to MessageInput:
-    - Autocomplete/selector for animals and groups
-    - Allow multiple tags per message
-    - Display selected tags as chips before sending
-    - Fetch animals/groups from organization for autocomplete
-3. Create function to send message:
+2. Create function to send message:
     - Insert message into `messages` table
     - Link to conversation_id
     - Set sender_id to current user
-    - If tags selected, insert into `message_animal_links` table
     - Handle errors with user-friendly messages
-4. Update MessageBubble component to display tags:
-    - Show linked animals/groups as clickable chips/badges
-    - Link to animal detail page or group detail page
-    - Style tags distinctively from message content
-5. Test: Send message, verify it's saved to database, verify tags are linked
+    - Return success/error status
+3. Accept `conversationId` and `onMessageSent` callback as props:
+    - `conversationId`: Required to link message to conversation
+    - `onMessageSent`: Callback to notify parent when message is sent (for refetching)
 
 **Testing:**
 
--   Can type and send messages
--   Can tag animals/groups in messages
--   Tags appear in message display
--   Tagged animals/groups link to detail pages
--   Message and tags are saved to database
+-   Can type messages in input field
+-   Send button is disabled when input is empty
+-   Send button is enabled when input has text
+-   Can send message with button or Enter key
+-   Input is disabled while sending
+-   Input clears after successful send
+-   Validation prevents sending empty messages
 -   Error handling works for failed sends
+-   Message is saved to database correctly
 
-**Deliverable:** Message input, sending, and tagging working (component ready to use).
+**Deliverable:** Basic MessageInput component ready to use (without tagging).
 
 ---
 
@@ -1324,7 +1348,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Tasks:**
 
 1. Update `src/pages/messaging/ConversationDetail.tsx`:
-    - Add MessageInput component (from M 5.5a)
+    - Add MessageInput component (from M 5.5a - basic version without tagging)
     - Integrate MessageList and MessageInput:
         - After sending message, refetch messages to show new message in list
         - Message appears in list after successful send (manual refetch, no real-time yet)
@@ -1341,6 +1365,42 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Navigation works
 
 **Deliverable:** Complete conversation detail page with message sending (without real-time).
+
+---
+
+### Milestone 5.5c: Add Tagging Feature to Messages
+
+**Goal:** Add ability to tag/link animals or groups in messages.
+
+**Tasks:**
+
+1. Add tagging UI to `MessageInput.tsx`:
+    - Autocomplete/selector for animals and groups
+    - Allow multiple tags per message
+    - Display selected tags as chips before sending
+    - Fetch animals/groups from organization for autocomplete
+2. Update send message function:
+    - If tags selected, insert into `message_animal_links` table
+    - Link tags to message_id after message is created
+    - Handle errors for tag insertion
+3. Update `MessageBubble.tsx` component to display tags:
+    - Fetch message_animal_links for each message
+    - Show linked animals/groups as clickable chips/badges
+    - Link to animal detail page or group detail page
+    - Style tags distinctively from message content
+4. Test: Send message with tags, verify tags are linked in database, verify tags display correctly
+
+**Testing:**
+
+-   Can select animals/groups to tag in messages
+-   Selected tags appear as chips before sending
+-   Can tag multiple animals/groups per message
+-   Tags are saved to `message_animal_links` table
+-   Tags appear in MessageBubble display
+-   Tagged animals/groups link to detail pages
+-   Error handling works for failed tag insertion
+
+**Deliverable:** Tagging feature working - users can tag animals/groups in messages and tags display correctly.
 
 ---
 
@@ -1387,9 +1447,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Show last message preview and timestamp
     - Link to conversation detail page
 2. Create route `/messages` for conversations list
-3. Add navigation link to messages page
+3. Add navigation to messages:
+    - Add "Messages" link/button on Dashboard page
+    - Link navigates to `/messages` route
+    - Style appropriately for mobile-first design
 4. Style for mobile-first design
-5. Test: Foster can see their conversation, can navigate to it
+5. Test: Foster can see their conversation, can navigate to it from dashboard
 
 **Testing:**
 
@@ -1397,8 +1460,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Last message and timestamp are correct
 -   Can click to open conversation
 -   Empty state if no conversation exists
+-   Dashboard has navigation link to messages page
 
-**Deliverable:** Foster conversation list working.
+**Deliverable:** Foster conversation list working with dashboard navigation.
 
 ---
 
@@ -1426,6 +1490,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Coordinator sees coordinator group chat
 -   Can navigate to any conversation
 -   List updates when new messages arrive
+-   Dashboard navigation link works for coordinators
 
 **Deliverable:** Coordinator conversation list working.
 
