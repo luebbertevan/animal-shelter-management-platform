@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import type { Conversation } from "../../types";
 import MessageList from "../../components/messaging/MessageList";
+import MessageInput from "../../components/messaging/MessageInput";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Button from "../../components/ui/Button";
 import { getErrorMessage } from "../../lib/errorUtils";
@@ -35,6 +36,7 @@ export default function ConversationDetail() {
 	const { conversationId } = useParams<{ conversationId: string }>();
 	const navigate = useNavigate();
 	const { profile } = useUserProfile();
+	const queryClient = useQueryClient();
 
 	const {
 		data: conversation,
@@ -94,10 +96,19 @@ export default function ConversationDetail() {
 			? "Coordinator Chat"
 			: "Foster Chat";
 
+	// Handle message sent - refetch messages to show new message in list
+	const handleMessageSent = () => {
+		if (conversationId) {
+			queryClient.invalidateQueries({
+				queryKey: ["messages", conversationId],
+			});
+		}
+	};
+
 	return (
-		<div className="min-h-screen flex flex-col">
+		<div className="h-screen flex flex-col bg-gray-50">
 			{/* Header */}
-			<div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4">
+			<div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4 shadow-sm flex-shrink-0">
 				<Button
 					onClick={() => navigate(-1)}
 					variant="outline"
@@ -105,7 +116,9 @@ export default function ConversationDetail() {
 				>
 					← Back
 				</Button>
-				<h1 className="text-xl font-semibold">{headerText}</h1>
+				<h1 className="text-xl font-semibold text-gray-800">
+					{headerText}
+				</h1>
 			</div>
 
 			{/* Message List */}
@@ -113,7 +126,13 @@ export default function ConversationDetail() {
 				<MessageList conversationId={conversation.id} />
 			</div>
 
-			{/* MessageInput will be added in M 5.5b */}
+			{/* Message Input */}
+			{conversationId && (
+				<MessageInput
+					conversationId={conversationId}
+					onMessageSent={handleMessageSent}
+				/>
+			)}
 		</div>
 	);
 }

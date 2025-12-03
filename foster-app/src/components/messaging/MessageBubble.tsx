@@ -29,8 +29,8 @@ export default function MessageBubble({
 			<div
 				className={`rounded-lg p-3 max-w-[85%] sm:max-w-[80%] shadow-sm ${
 					isOwnMessage
-						? "bg-gray-700 text-white text-right"
-						: "bg-white border border-gray-200 text-left"
+						? "bg-gray-700 text-white"
+						: "bg-white border border-gray-200"
 				}`}
 			>
 				<div

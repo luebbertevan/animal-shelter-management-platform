@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* Hide scrollbar for textarea */
+.hide-scrollbar::-webkit-scrollbar {
+	display: none;
+}

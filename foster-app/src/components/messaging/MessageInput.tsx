@@ -97,7 +97,7 @@ export default function MessageInput({
 					{error}
 				</div>
 			)}
-			<form onSubmit={handleSubmit} className="flex gap-2">
+			<form onSubmit={handleSubmit} className="flex gap-2 items-end">
 				<textarea
 					ref={textareaRef}
 					value={message}
@@ -105,16 +105,18 @@ export default function MessageInput({
 					onKeyDown={handleKeyDown}
 					disabled={sending}
 					rows={1}
-					className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-y-auto"
+					className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-y-auto bg-white hide-scrollbar"
 					style={{
 						minHeight: "40px",
 						maxHeight: "120px",
+						scrollbarWidth: "none",
+						msOverflowStyle: "none",
 					}}
 				/>
 				<Button
 					type="submit"
 					disabled={isDisabled}
-					className="w-auto px-6"
+					className="w-auto! shrink-0 px-4 py-2"
 				>
 					{sending ? "Sending..." : "Send"}
 				</Button>
