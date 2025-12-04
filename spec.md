@@ -303,6 +303,12 @@
     -   Show which users have read each message.
     -   Display "Read" indicators in message bubbles.
     -   Real-time updates when messages are read.
+-   **Conversation List Message Previews:**
+    -   Add last message preview and timestamp to conversation list for better context.
+    -   Implement efficiently using PostgreSQL window functions (e.g., `DISTINCT ON` or `ROW_NUMBER() OVER`) or a database view that joins conversations with the most recent message per conversation.
+    -   This approach fetches only one message per conversation (instead of all messages) for optimal performance at scale.
+    -   Example implementation: Create a database view `conversations_with_last_message` that uses `DISTINCT ON (conversation_id)` or `ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY created_at DESC)` to get only the most recent message per conversation, then query the view from the frontend instead of fetching all messages.
+    -   This reduces network transfer and processing time significantly (e.g., 100 conversations would fetch 100 messages instead of 10,000+).
 -   **Activity Logging System:**
     -   Track who performed what actions (e.g., "John updated Fluffy's status", "Sarah assigned Mittens to Jane").
     -   Display activity timeline on animal detail pages.

@@ -1409,7 +1409,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Display all conversations in list format
     - Show foster name for foster chats
     - Show "Coordinator Chat" for group chat
-    - Show last message preview and timestamp
     - Link to conversation detail page
 2. Create route `/messages` for conversations list
 3. Add navigation to messages:
@@ -1426,7 +1425,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 -   Coordinator sees all foster chats in list
 -   Coordinator sees coordinator group chat in list
--   Last message and timestamp are correct for each conversation
 -   Can click to open any conversation
 -   Back button navigates to conversation list (for coordinators)
 -   Dashboard has navigation link to messages page
@@ -2276,28 +2274,35 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. Review Figma designs for key screens:
+1. **Set up Figma workflow:**
+    - Purchase Figma subscription (if needed)
+    - Set up Figma MCP (Model Context Protocol) for integration
+    - Sample color palette from Co Kitty Coalition website
+    - Create color palette in Figma based on organization's brand colors (replacing current pink theme)
+2. Review Figma designs for key screens:
     - Dashboard
     - Animals list
     - Animal detail
     - Messages/conversations
     - Forms
-2. Update component styling to match designs:
-    - Colors, spacing, typography
+3. Update component styling to match designs:
+    - Colors (using Co Kitty Coalition color palette from website)
+    - Spacing, typography
     - Button styles, input styles
     - Card layouts, list layouts
     - Icons and imagery
-3. Create or update design system:
-    - Color palette
+4. Create or update design system:
+    - Color palette (from Co Kitty Coalition website)
     - Typography scale
     - Spacing system
     - Component variants
-4. Update existing components:
+5. Update existing components:
     - FormContainer, Input, Button, etc.
     - Animal cards, message bubbles
     - Navigation components
-5. Ensure mobile-first responsive design
-6. Test: Compare UI to Figma designs, verify consistency
+6. Ensure mobile-first responsive design
+7. Test: Compare UI to Figma designs, verify consistency
+8. **Post-milestone:** Schedule meeting with UX designer contact to gather feedback on design implementation
 
 **Testing:**
 
@@ -2306,7 +2311,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Mobile and desktop layouts work
 -   Design system is applied consistently
 
-**Deliverable:** Figma designs implemented.
+**Deliverable:** Figma designs implemented with Co Kitty Coalition color palette.
+
+**Notes:**
+
+-   Color palette should be sampled from Co Kitty Coalition website and replace current pink theme
+-   Figma MCP setup and subscription needed before starting design work
+-   UX designer feedback meeting scheduled after milestone completion
 
 ---
 

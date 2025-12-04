@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import type { Message } from "../../types";
 import { getErrorMessage } from "../../lib/errorUtils";
+import { extractFullName } from "../../lib/supabaseUtils";
 import MessageBubble from "./MessageBubble";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import Button from "../ui/Button";
@@ -54,19 +55,15 @@ async function fetchMessages(conversationId: string) {
 	// Cast the data to our known type since Supabase doesn't infer JOIN types
 	const messagesWithProfile = (data || []) as unknown as MessageWithProfile[];
 
-	return messagesWithProfile.map((msg) => {
-		const senderName = msg.profiles?.full_name ?? "";
-
-		return {
-			id: msg.id,
-			conversation_id: msg.conversation_id,
-			sender_id: msg.sender_id,
-			content: msg.content,
-			created_at: msg.created_at,
-			edited_at: msg.edited_at,
-			sender_name: senderName,
-		};
-	}) as (Message & { sender_name: string })[];
+	return messagesWithProfile.map((msg) => ({
+		id: msg.id,
+		conversation_id: msg.conversation_id,
+		sender_id: msg.sender_id,
+		content: msg.content,
+		created_at: msg.created_at,
+		edited_at: msg.edited_at,
+		sender_name: extractFullName(msg.profiles) ?? "",
+	})) as (Message & { sender_name: string })[];
 }
 
 export default function MessageList({ conversationId }: MessageListProps) {

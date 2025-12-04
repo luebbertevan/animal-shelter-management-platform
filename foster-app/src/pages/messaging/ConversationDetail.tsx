@@ -8,6 +8,7 @@ import MessageInput from "../../components/messaging/MessageInput";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Button from "../../components/ui/Button";
 import { getErrorMessage } from "../../lib/errorUtils";
+import { extractFullName } from "../../lib/supabaseUtils";
 
 async function fetchConversation(
 	conversationId: string,
@@ -15,7 +16,12 @@ async function fetchConversation(
 ) {
 	const { data, error } = await supabase
 		.from("conversations")
-		.select("*")
+		.select(
+			`
+			*,
+			profiles!conversations_foster_profile_id_fkey(full_name)
+		`
+		)
 		.eq("id", conversationId)
 		.eq("organization_id", organizationId)
 		.single();
@@ -29,7 +35,13 @@ async function fetchConversation(
 		);
 	}
 
-	return data as Conversation;
+	// Extract foster name from joined data
+	const fosterName = extractFullName(data.profiles);
+
+	return {
+		...data,
+		foster_name: fosterName,
+	} as Conversation & { foster_name?: string };
 }
 
 export default function ConversationDetail() {
@@ -43,7 +55,7 @@ export default function ConversationDetail() {
 		isLoading,
 		isError,
 		error,
-	} = useQuery<Conversation, Error>({
+	} = useQuery<Conversation & { foster_name?: string }, Error>({
 		queryKey: ["conversation", conversationId, profile?.organization_id],
 		queryFn: async () => {
 			if (!conversationId) {
@@ -90,11 +102,23 @@ export default function ConversationDetail() {
 		);
 	}
 
-	// Determine conversation header text
-	const headerText =
-		conversation.type === "coordinator_group"
-			? "Coordinator Chat"
-			: "Foster Chat";
+	// Determine conversation header text based on user role
+	const getHeaderText = () => {
+		// For fosters, show nothing
+		if (profile?.role === "foster") {
+			return "";
+		}
+
+		// For coordinators
+		if (conversation.type === "coordinator_group") {
+			return "Coordinator Chat";
+		}
+
+		// For coordinators viewing foster chat, show foster's name
+		return conversation.foster_name || "Foster Chat";
+	};
+
+	const headerText = getHeaderText();
 
 	// Handle message sent - refetch messages to show new message in list
 	const handleMessageSent = () => {
@@ -110,8 +134,8 @@ export default function ConversationDetail() {
 		if (profile?.role === "foster") {
 			navigate("/dashboard");
 		} else {
-			// Coordinators will navigate to conversation list (M 5.7)
-			navigate(-1);
+			// Coordinators navigate to conversation list
+			navigate("/chats");
 		}
 	};
 
@@ -126,9 +150,11 @@ export default function ConversationDetail() {
 				>
 					← Back
 				</Button>
-				<h1 className="text-xl font-semibold text-gray-800">
-					{headerText}
-				</h1>
+				{headerText && (
+					<h1 className="text-xl font-semibold text-gray-800">
+						{headerText}
+					</h1>
+				)}
 			</div>
 
 			{/* Message List */}

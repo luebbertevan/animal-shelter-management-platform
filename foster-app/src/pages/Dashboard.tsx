@@ -36,7 +36,12 @@ export default function Dashboard() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const { user, loading: isLoadingAuth } = useAuth();
-	const { profile, isLoading: isLoadingProfile, isFoster } = useUserProfile();
+	const {
+		profile,
+		isLoading: isLoadingProfile,
+		isFoster,
+		isCoordinator,
+	} = useUserProfile();
 
 	// Fetch foster's conversation ID if user is a foster
 	const { data: conversationId } = useQuery<string | null>({
@@ -108,6 +113,11 @@ export default function Dashboard() {
 								className="block"
 							>
 								<Button>Chat</Button>
+							</Link>
+						)}
+						{isCoordinator && (
+							<Link to="/chats" className="block">
+								<Button>Chats</Button>
 							</Link>
 						)}
 						<Link to="/animals" className="block">
