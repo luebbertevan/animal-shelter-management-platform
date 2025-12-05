@@ -1463,6 +1463,20 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Deliverable:** Real-time messaging working on conversation detail page.
 
+**Message Pagination:**
+
+-   Currently loads all messages for a conversation, which may cause performance issues as conversations grow large (especially coordinator group chats)
+-   **Enhancement:** Implement pagination to load only the last 100 messages initially, with a "Load Older Messages" button to fetch the next 100 messages
+-   **Implementation approach:**
+    -   Update `fetchMessages` to accept optional `beforeDate` parameter and limit to 100 messages
+    -   Use `.order("created_at", { ascending: false }).limit(100)` for initial load (newest first, then reverse for display)
+    -   Track oldest message date to determine where to load from
+    -   Add "Load Older Messages" button that fetches messages where `created_at < oldestMessageDate`
+    -   Prepend older messages to the array (not append)
+    -   The existing index `idx_messages_conversation_created` makes this efficient - database uses index to find sorted messages without reading all rows
+    -   Keep the sort in Realtime handler as a safety net when appending new messages
+-   **Note:** The sort operation itself is not a performance concern (very fast even with 1000+ messages), but rendering 1000+ DOM elements is. Pagination solves the rendering bottleneck.
+
 ---
 
 ### Milestone 5.9: Photo Sharing in Messages
@@ -2545,7 +2559,15 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Skeleton for animal cards
     - Skeleton for message list
     - Skeleton for activity timeline
-5. Test: Verify all loading and empty states work correctly
+5. Add offline/online status indicator:
+    - Detect when user is offline using `navigator.onLine` and `online`/`offline` events
+    - Display visual indicator (banner, badge, or icon) when offline
+    - Show clear message that app is in offline mode (service worker is serving cached content)
+    - Important: Prevents confusion when service worker makes app appear functional while offline
+    - Display indicator in header or as a banner at top of page
+    - Update indicator when connection is restored
+    - Style distinctly (e.g., yellow/orange banner) to draw attention
+6. Test: Verify all loading and empty states work correctly, verify offline indicator appears when network is disconnected
 
 **Testing:**
 
@@ -2553,8 +2575,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Empty states are helpful and clear
 -   Skeletons improve perceived performance
 -   No blank screens
+-   Offline indicator appears when network is disconnected
+-   Offline indicator disappears when connection is restored
+-   Indicator is clearly visible and informative
 
-**Deliverable:** Improved loading and empty states.
+**Deliverable:** Improved loading and empty states, plus offline status indicator to prevent user confusion when service worker is serving cached content.
 
 ---
 
