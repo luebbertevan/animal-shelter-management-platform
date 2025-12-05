@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useUserProfile } from "../../hooks/useUserProfile";
@@ -49,6 +50,7 @@ export default function ConversationDetail() {
 	const navigate = useNavigate();
 	const { profile } = useUserProfile();
 	const queryClient = useQueryClient();
+	const scrollableContainerRef = useRef<HTMLDivElement>(null);
 
 	const {
 		data: conversation,
@@ -158,8 +160,14 @@ export default function ConversationDetail() {
 			</div>
 
 			{/* Message List */}
-			<div className="flex-1 overflow-y-auto min-h-0">
-				<MessageList conversationId={conversation.id} />
+			<div
+				ref={scrollableContainerRef}
+				className="flex-1 overflow-y-auto min-h-0"
+			>
+				<MessageList
+					conversationId={conversation.id}
+					scrollableContainerRef={scrollableContainerRef}
+				/>
 			</div>
 
 			{/* Message Input */}
