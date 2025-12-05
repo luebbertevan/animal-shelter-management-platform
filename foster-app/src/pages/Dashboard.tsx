@@ -1,15 +1,69 @@
 import { useNavigate, Link } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../hooks/useUserProfile";
 import Button from "../components/ui/Button";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
+import { getErrorMessage } from "../lib/errorUtils";
+
+async function fetchFosterConversation(userId: string, organizationId: string) {
+	const { data, error } = await supabase
+		.from("conversations")
+		.select("id")
+		.eq("type", "foster_chat")
+		.eq("foster_profile_id", userId)
+		.eq("organization_id", organizationId)
+		.single();
+
+	if (error) {
+		// If no conversation found, for edge cases, return null
+		if (error.code === "PGRST116") {
+			return null;
+		}
+		throw new Error(
+			getErrorMessage(
+				error,
+				"Failed to load conversation. Please try again."
+			)
+		);
+	}
+
+	return data?.id || null;
+}
 
 export default function Dashboard() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { user } = useAuth();
-	const { profile } = useUserProfile();
+	const { user, loading: isLoadingAuth } = useAuth();
+	const {
+		profile,
+		isLoading: isLoadingProfile,
+		isFoster,
+		isCoordinator,
+	} = useUserProfile();
+
+	// Fetch foster's conversation ID if user is a foster
+	const { data: conversationId } = useQuery<string | null>({
+		queryKey: ["fosterConversation", user?.id, profile?.organization_id],
+		queryFn: async () => {
+			if (!user?.id || !profile?.organization_id || !isFoster) {
+				return null;
+			}
+			return fetchFosterConversation(user.id, profile.organization_id);
+		},
+		enabled: !!user?.id && !!profile?.organization_id && isFoster,
+	});
+
+	// Wait for both auth and profile to load before showing content
+	// This prevents partial rendering and ensures everything appears at once
+	if (isLoadingAuth || isLoadingProfile) {
+		return (
+			<div className="min-h-screen flex items-center justify-center">
+				<LoadingSpinner />
+			</div>
+		);
+	}
 
 	const handleLogout = async () => {
 		const { error } = await supabase.auth.signOut();
@@ -53,6 +107,19 @@ export default function Dashboard() {
 						Quick Actions
 					</h2>
 					<div className="space-y-4">
+						{isFoster && conversationId && (
+							<Link
+								to={`/chat/${conversationId}`}
+								className="block"
+							>
+								<Button>Chat</Button>
+							</Link>
+						)}
+						{isCoordinator && (
+							<Link to="/chats" className="block">
+								<Button>Chats</Button>
+							</Link>
+						)}
 						<Link to="/animals" className="block">
 							<Button>View Animals</Button>
 						</Link>

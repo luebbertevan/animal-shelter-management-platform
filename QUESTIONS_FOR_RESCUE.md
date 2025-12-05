@@ -1,5 +1,33 @@
 # Questions for Rescue Team — Data & Workflow Clarification
 
+## ⚠️ PRIORITY: Review Google Sheets Tables
+
+**This should be done FIRST before answering other questions.**
+
+1. **Table Review Session:**
+    - We need to go through all Google Sheets tables with the coordinator to determine:
+        - Which tables are necessary to include in the app
+        - Which tables are rarely used or can be excluded
+        - Which fields within each table are actually being used vs. left blank
+    - This will answer many questions about what data to track and will help prioritize features
+    - **Action:** Schedule a session to review each table and determine what's essential for MVP
+
+---
+
+## ⚠️ Important: Push Notifications Limitations
+
+**This is a critical technical consideration that affects app functionality.**
+
+2. **Push Notifications:**
+    - **Important Note:** For push notifications to work perfectly (especially on iOS), the app needs to be a true native mobile app. As a Progressive Web App (PWA), notifications may have limitations:
+        - iOS Safari has limited notification support
+        - Notifications may not work when the app is closed
+        - Full notification functionality requires wrapping the PWA in a native app (Expo/React Native)
+    - **Question:** Are push notifications critical for the app's usability, or can the app function without perfect notification delivery?
+    - If notifications are critical, we may need to prioritize native app development earlier in the roadmap
+
+---
+
 ## Animal Status & Transfers
 
 1. **Animal Status:**
@@ -26,6 +54,7 @@
     - How do you typically handle age when you don't have a date of birth?
     - Do you estimate in weeks/months/years, or just "kitten" vs "adult"?
     - Should "senior" be a separate category from "adult"?
+    - Do you want to dynamically change the from "kitton" to "adult" to "senior" and what are the benchmarks for that? This could be tricky if the dob birth is not known but there could be a max time rollover from when the field was entered
 
 ## Medical & Behavioral Information
 
@@ -52,7 +81,7 @@
 
 9. **Missing Information:**
     - When viewing an animal profile, is it helpful to see a list of what information is still missing? (e.g., "needs: vaccines, photos, behavioral assessment")
-    - Or is it obvious from the empty fields and we don't need to highlight it separately?
+    - Or is it obvious from the empty fields and we don't need to highlight/filter it separately?
 
 ## Placement Requests
 
@@ -80,13 +109,11 @@
 
 14. **What information needs to sync with Petstablished?**
 
-    -   Which fields should be synced? (e.g., name, breed, status, photos)
-    -   When should sync happen? (automatically on update, or manual trigger)
-    -   What information changes require updating Petstablished? (e.g., status changes, new photos, medical updates)
+    -   Which are the fields that are in petstablished (e.g., name, breed, status, photos)
 
-15. **Petstablished Workflow:**
-    -   Do you add animals to Petstablished at the same time you add them to this system, or later?
-    -   When you update information in this app, do you always need to update Petstablished too, or only for certain fields?
+    -   What information changes require updating Petstablished? (e.g., status changes, new photos, medical updates)
+    -   Would it be helpful to have a view that shows the fields in petstablished
+    -   What about a toggle to show when those fields are out of date indicates when petstablished is out synce and shows the data needing changed.
 
 ## Photos
 
@@ -127,10 +154,337 @@
     -   What do coordinators need to see immediately when viewing an animal?
     -   What can be hidden or shown at the bottom if it's missing?
 
-## Activity Logging & Tracking
+## Data Display & Field Visibility
 
-23. **Activity Logging:**
+44. **Blank Field Display:**
+
+    -   When viewing an animal detail page, should we:
+        -   Show all fields and label blank ones as "Not set" or "N/A"?
+        -   Only show fields that have data and hide blank fields entirely?
+    -   Which approach is more useful for your workflow?
+
+45. **Field Visibility for Fosters:**
+
+    -   What fields/data should be visible to fosters when they view animals?
+    -   Are there fields that should always be hidden from fosters? (e.g., internal notes, sensitive medical info, adoption fees, donor information)
+    -   Should fosters see their own assigned animals' full records, or limited information?
+    -   Should fosters see other animals' information, or only their assigned animals?
+
+46. **Data Flexibility:**
+
+    -   Some fields might need to be flexible in format. For example:
+        -   A date field might need to include a note (e.g., "2024-01-15 (estimated)" or "2024-01-15 - vet confirmed")
+        -   A dropdown field might need to allow custom text entries
+    -   Which fields need this flexibility? (dates, dropdowns, etc.)
+    -   Would it be acceptable to have separate "notes" fields for these, or do you need the flexibility within the field itself?
+
+47. **Dropdowns with Custom Entries:**
+    -   For fields that commonly have repeated values, would it be helpful to have dropdowns that:
+        -   Show previously entered values for quick selection
+        -   Allow adding new custom entries that are saved for future use
+        -   Allow removing entries that are no longer needed
+    -   Which fields would benefit from this? (e.g., payment methods, medication names, primary breed, source/location, tags)
+    -   How should we handle entries that are no longer used? (hide them, allow deletion, mark as inactive)
+
+## Activity Logging & Recordkeeping
+
+23. **Activity Logging & Change Tracking:**
+
     -   Do you need to track who performed what actions? (e.g., "John updated Fluffy's status", "Sarah assigned Mittens to Jane")
     -   Or is it enough to just show timestamps of when things changed? (e.g., "Updated 2 hours ago")
     -   Would an activity timeline showing who did what be useful, or is it unnecessary complexity?
-    -   What actions are most important to track? (status changes, assignments, message sending, etc.)
+
+24. **What Changes to Track:**
+
+    -   What actions/changes are most important to track? (e.g., status changes, assignments, medical updates, adoption completion)
+    -   Do you need to track ALL changes to all fields, or only specific important fields?
+    -   Is tracking the "last edited" change sufficient, or do you need full history of all changes?
+    -   Which fields require change tracking? (e.g., status, medical records, assignments, adoption info)
+
+25. **Change Tracking Display:**
+    -   How should change tracking be displayed? (e.g., "Last updated by John on Jan 15, 2024", activity timeline, change log)
+    -   Where should this information appear? (on detail pages, in a separate history view, both)
+    -   Do you need to see what the previous value was, or just that it changed?
+
+## Medications & Medical Tracking
+
+26. **Medication Information:**
+
+    -   What information do you need to track for each medication? (e.g., medication name, dose, pharmacy, frequency, start date, end date)
+    -   Do medications need additional notes/instructions?
+    -   Are there multiple medications per animal that need to be tracked simultaneously?
+    -   Do you need to track medication history (past medications, not just current ones)?
+
+27. **Weight Tracking:**
+
+    -   How often do you track animal weight? (e.g., weekly, monthly, per vet visit)
+    -   Should weight be displayed as a timeline showing weight changes over time?
+    -   Is weight tracking critical for day-to-day operations, or mainly for historical records?
+
+28. **Medical Records:**
+    -   Do you need to track which veterinarian provided care?
+    -   Do vet visits need additional notes?
+    -   Are there other medical records beyond medications and vaccines that need tracking?
+
+## Foster Information (Additional Fields)
+
+29. **Foster Contact Information:**
+
+    -   What contact information is essential? (phone number, address, location/city)
+    -   Should phone number be required during sign-up, or can it be added later?
+    -   How do you want address/location stored? (full address, city/state, or just city?)
+
+30. **Foster Status & History:**
+
+    -   How do you determine if someone is a "repeat foster"? (count of animals fostered, count of groups fostered, or both?)
+    -   Is "repeat foster" status automatically calculated, or manually set?
+    -   Do you need to track foster history (all past assignments) or just current status?
+
+31. **Foster Onboarding:**
+    -   Do you need to track if a foster has signed a contract? (yes/no, date signed)
+    -   Do you need to track home inspection? (date completed, who performed it)
+    -   Are these required before a foster can be assigned animals, or just tracked for record-keeping?
+
+## Adoption Data
+
+32. **Adoption Status:**
+
+    -   Do you need to track if an animal is "posted online" for adoption? (yes/no toggle)
+    -   What does "posted online" mean? (Petstablished, social media, website, or all of the above?)
+    -   Is there an "Instagram" toggle/field? What does this track?
+
+33. **Approved Adopters:**
+
+    -   Do you need a separate list/table of approved adopters?
+    -   What information is essential for each approved adopter? (name, phone number, email, date added)
+    -   Can multiple adopters be approved for the same animal? (waitlist functionality)
+    -   How do you track the order/priority of approved adopters? (first approved, second approved, etc.)
+
+34. **Adoption Completion:**
+
+    -   What information needs to be tracked when an adoption is completed?
+    -   Do you need to track adoption date and time, or just date?
+    -   Do you need to track adoption fee? (amount, whether paid, payment method)
+    -   Do you need to track where the animal was adopted from? (location, event, etc.)
+    -   Do you need to track if records were sent to the adopter? (yes/no, date sent)
+    -   Is there a "moved to café" status? What does this mean?
+
+35. **Adoption Display:**
+    -   Do you need to view adoptions grouped by month? (e.g., "Total adoptions in January")
+    -   Is monthly adoption reporting important for your workflow?
+
+## Vaccines
+
+36. **Vaccine Tracking:**
+
+    -   Do you need to track all vaccines for each animal, or just whether they're up to date?
+    -   What information is needed per vaccine? (vaccine type, date given, due date, who administered)
+    -   Do vaccines need additional notes?
+    -   Do you need to track vaccine history (past vaccines) or just current/upcoming?
+
+37. **Vaccine Due Dates:**
+    -   Is tracking upcoming due dates critical for day-to-day operations?
+    -   Do you need reminders/notifications for vaccines that are due?
+
+## Donations
+
+38. **Donation Tracking:**
+    -   Do you need to track donations in the system?
+    -   What information is essential? (donor name, amount, what it's for, contact information)
+    -   For contact information, are you tracking both email AND payment method (PayPal, Venmo, Zelle, Chewy)?
+    -   Should email and payment method be separate fields, or combined?
+    -   Do you need donation history/reports?
+
+## Volunteers
+
+39. **Volunteer Tracking:**
+    -   Do you need to track volunteers separately from fosters?
+    -   What information is essential? (name, title/role, what they do)
+    -   Is volunteer tracking critical for day-to-day operations, or mainly for record-keeping?
+
+## Inventory Tracking
+
+40. **Inventory Management:**
+    -   Do you need to track inventory/supplies in the system? (e.g., food, medications, supplies, equipment)
+    -   What types of items do you track? (e.g., cat food, litter, medications, cleaning supplies, medical equipment)
+    -   What information is essential for each inventory item? (name, quantity, location, expiration date, supplier, cost)
+    -   Is inventory tracking critical for day-to-day operations, or mainly for record-keeping?
+    -   Do you need to track inventory usage/consumption, or just current quantities?
+    -   Do you need low-stock alerts/notifications?
+    -   Would it be helpful to tag inventory items in messages? (e.g., "We need more @cat-food" or "Running low on @litter")
+
+## Field Customization & Organization Settings
+
+41. **Customizable Fields:**
+
+    -   Should organizations be able to toggle which fields they want to use? (e.g., some orgs might not track "Instagram" field)
+    -   Is this a priority feature, or can we start with a standard set of fields?
+    -   Would field customization be a stretch goal/post-MVP feature?
+    -   Should organizations be able to control which fields are visible to fosters? (see also question 45)
+
+42. **Unused Fields:**
+    -   In your current tracking system, are there fields/tabs that are mostly blank or unused?
+    -   Are there fields you track but rarely use? (e.g., "logins", "prescription details")
+    -   Should we exclude rarely-used fields from MVP, or include them for completeness?
+
+## Additional Notes
+
+43. **Notes Fields:**
+    -   Which entities need "additional notes" fields? (medications, vaccines, vets, fosters, animals, adoptions, etc.)
+    -   Are notes critical for all of these, or only some?
+    -   Should notes be searchable?
+
+---
+
+# Technical Design Decisions
+
+## Database Schema & Relationships
+
+### Medications
+
+**Questions:**
+
+-   Should medications be stored in a separate `medications` table, or as JSONB array in `animals` table?
+-   What fields are required for each medication? (name, dose, frequency, start_date, end_date, notes, weight_at_time?)
+-   Do we need to track medication history (past medications) or just current medications?
+-   Should weight be tracked separately in a `weight_history` table with timeline, or just as part of medication records?
+
+**Design Options:**
+
+-   **Option 1:** Separate `medications` table with foreign key to `animals`
+-   **Option 2:** JSONB array in `animals.medications` field
+-   **Option 3:** Hybrid: current medications in JSONB, history in separate table
+
+### Foster Information
+
+**Questions:**
+
+-   Should additional foster fields (phone, address, contract_signed, home_inspection_date, home_inspection_by) be added to existing `profiles` table or separate `foster_details` table?
+-   How to calculate "repeat foster" status? (query count of assignments, or store as boolean/flag?)
+-   Should foster history be tracked in a separate `foster_assignments` table with start/end dates?
+
+**Design Options:**
+
+-   Add fields directly to `profiles` table (simpler, but mixes user auth data with foster-specific data)
+-   Create `foster_profiles` table with foreign key to `profiles` (better separation, but more complex)
+
+### Adoption Data
+
+**Questions:**
+
+-   Should adoption data be stored in `animals` table (adoption_date, adoption_fee_paid, etc.) or separate `adoptions` table?
+-   Should `approved_adopters` be a separate table with foreign key to `animals`?
+-   How to handle waitlist/priority order for approved adopters? (sequence number, created_at timestamp, or separate priority field?)
+-   How to track "location adopted from"? (separate field, or part of adoption record?)
+
+**Design Options:**
+
+-   **Option 1:** Add adoption fields to `animals` table (simpler, but mixes adoption data with animal data)
+-   **Option 2:** Separate `adoptions` table (better for tracking multiple adoption attempts, history)
+-   **Option 3:** Separate `approved_adopters` table + adoption fields in `animals` (tracks both approved list and completed adoption)
+
+### Vaccines
+
+**Questions:**
+
+-   Should vaccines be stored in separate `vaccines` table or JSONB array in `animals` table?
+-   Do we need to track vaccine history (past vaccines) or just current/upcoming?
+-   How to track due dates? (calculated field based on last vaccine date + interval, or stored explicitly?)
+
+**Design Options:**
+
+-   **Option 1:** Separate `vaccines` table with foreign key to `animals` (better for querying due dates, history)
+-   **Option 2:** JSONB array in `animals.vaccines` (simpler, but harder to query)
+
+### Donations
+
+**Questions:**
+
+-   Should donations be a separate `donations` table?
+-   Should contact information be split into separate fields (email, payment_method) or combined?
+-   Do donations need to be linked to specific animals, or just tracked generally?
+
+**Design Options:**
+
+-   Separate `donations` table with optional `animal_id` foreign key (allows both general and animal-specific donations)
+
+### Volunteers
+
+**Questions:**
+
+-   Should volunteers be stored in `profiles` table with a `role` field, or separate `volunteers` table?
+-   Do volunteers need accounts/login, or just contact information?
+
+**Design Options:**
+
+-   If volunteers need accounts: add to `profiles` with `role = 'volunteer'`
+-   If just contact info: separate `volunteers` table
+
+## Data Display & UI
+
+### Table/Spreadsheet View
+
+**Questions:**
+
+-   Should we implement a data table component (like react-table or similar) for viewing many animals at once?
+-   Which fields should be visible by default in table view? (see also question 22)
+-   Should table columns be customizable/hideable by users?
+-   Do we need sorting and filtering in table view?
+
+**Design Options:**
+
+-   Use a data table library (react-table, ag-grid, etc.) for performance with large datasets
+-   Implement custom table with pagination for mobile-friendly experience
+
+### Field Visibility & Customization
+
+**Questions:**
+
+-   Should field visibility be controlled at organization level (all fosters in org see same fields) or per-field basis?
+-   How to store organization-level field preferences? (JSONB field in `organizations` table, or separate `organization_field_settings` table?)
+-   Should field customization be a feature flag or always available?
+-   How to store dropdown custom entries? (separate table per field type, or JSONB array in organization settings?)
+
+**Design Options:**
+
+-   **Option 1:** JSONB field in `organizations` table: `field_visibility: { "instagram": false, "adoption_fee": true }`
+-   **Option 2:** Separate `organization_field_settings` table (more normalized, but more complex)
+-   **Option 3:** Role-based visibility (simpler, but less flexible)
+-   **For dropdown entries:** Separate `field_options` table with `field_name` and `organization_id` for custom entries
+
+## Timeline & History Tracking
+
+**Questions:**
+
+-   Should weight tracking be a timeline (separate `weight_history` table with dates) or just current weight?
+-   Should medication history be tracked (past medications) or just current?
+-   Should vaccine history be tracked (past vaccines) or just current/upcoming?
+-   Do we need a general `animal_history` or `activity_log` table to track all changes? (see also questions 23-25)
+-   What level of detail is needed for change tracking? (who changed, when changed, what changed from/to, or just "last updated by X on Y date"?)
+
+**Design Options:**
+
+-   Timeline approach: Separate history tables for weight, medications, vaccines (better for reporting, but more complex)
+-   Current-state approach: Only track current values (simpler, but loses history)
+-   Hybrid: Track current state + last change info (who, when) without full history
+
+## Data Types & Validation
+
+**Questions:**
+
+-   For dates with times (adoption_date), should we use `TIMESTAMPTZ` or separate `DATE` and `TIME` fields?
+-   For phone numbers, should we store as TEXT or validate format?
+-   For addresses, should we store as single TEXT field or separate fields (street, city, state, zip)?
+-   For payment methods, should we use ENUM type or TEXT with validation?
+-   For fields that need flexibility (dates with notes, dropdowns with custom entries), should we:
+    -   Use separate fields (e.g., `adoption_date` + `adoption_date_notes`)?
+    -   Use TEXT fields that allow free-form input?
+    -   Use JSONB to store structured data with optional notes?
+
+## Performance & Scalability
+
+**Questions:**
+
+-   If we implement table views with many rows, do we need pagination, virtual scrolling, or both?
+-   Should we implement database indexes for frequently queried fields (adoption_date, vaccine_due_date, etc.)?
+-   For monthly adoption reports, should we pre-calculate aggregates or calculate on-demand?

@@ -1,1 +1,21 @@
 @import "tailwindcss";
+
+/* Hide scrollbar for textarea */
+.hide-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
+/* Mobile viewport height fix - use dynamic viewport height when available */
+@supports (height: 100dvh) {
+	.mobile-viewport {
+		height: 100dvh;
+	}
+}
+
+@supports not (height: 100dvh) {
+	.mobile-viewport {
+		height: 100vh;
+		/* Fallback for older browsers */
+		height: -webkit-fill-available;
+	}
+}
