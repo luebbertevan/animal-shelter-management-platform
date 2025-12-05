@@ -1080,7 +1080,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - `content` (TEXT, required)
     - `created_at` (TIMESTAMPTZ)
     - `edited_at` (TIMESTAMPTZ, nullable) - for future edit support
-3. Create `public.message_animal_links` table (for tagging animals/groups in messages):
+3. Create `public.message_links` table (for tagging animals, groups, and fosters in messages):
     - `id` (UUID primary key)
     - `message_id` (UUID, references messages)
     - `animal_id` (UUID, nullable, references animals)
@@ -1096,12 +1096,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 6. Create RLS policies for messages:
     - Users can view messages in conversations they have access to (via conversation RLS)
     - Users can create messages in conversations they have access to (via conversation RLS)
-7. Create RLS policies for message_animal_links:
+7. Create RLS policies for message_links:
     - Users can view links for messages they can access (via message RLS)
 8. Add indexes:
     - `conversations`: `organization_id`, `type`, `foster_profile_id`
     - `messages`: `conversation_id`, `(conversation_id, created_at DESC)` for efficient message fetching
-    - `message_animal_links`: `message_id`, `animal_id`, `group_id`
+    - `message_links`: `message_id`, `animal_id`, `group_id`, `foster_profile_id`
 
 **Testing:**
 
@@ -1465,43 +1465,247 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9: Add Tagging Feature to Messages
+### Milestone 5.9: Photo Sharing in Messages
 
-**Goal:** Add ability to tag/link animals or groups in messages.
+**Goal:** Allow users to send and receive photos in chat messages, with proper storage and display.
 
 **Tasks:**
 
-1. Add tagging UI to `MessageInput.tsx`:
-    - Autocomplete/selector for animals and groups
-    - Allow multiple tags per message
-    - Display selected tags as chips before sending
-    - Fetch animals/groups from organization for autocomplete
-2. Update send message function:
-    - If tags selected, insert into `message_animal_links` table
-    - Link tags to message_id after message is created
-    - Handle errors for tag insertion
-3. Update `MessageBubble.tsx` component to display tags:
-    - Fetch message_animal_links for each message
-    - Show linked animals/groups as clickable chips/badges
-    - Link to animal detail page or group detail page
-    - Style tags distinctively from message content
-4. Test: Send message with tags, verify tags are linked in database, verify tags display correctly
+1. **Set up Supabase Storage for message photos:**
+
+    - Create storage bucket `message-photos` (or similar name)
+    - Configure bucket policies for organization isolation:
+        - Users can upload photos to their organization's folder
+        - Users can view photos from conversations they have access to
+    - Set up RLS policies: users can only access photos from their organization's conversations
+    - Configure file size limits (e.g., max 5MB per photo)
+    - Configure allowed file types (e.g., jpg, jpeg, png, webp)
+
+2. **Update database schema:**
+
+    - Add `photo_urls` JSONB column to `messages` table (nullable):
+        - Structure: `["url1", "url2", ...]` - array of photo URLs
+        - Store full Supabase Storage URLs
+    - Alternative: Create separate `message_photos` table if more metadata needed (uploader, timestamp per photo)
+    - For MVP: JSONB array is simpler and sufficient
+
+3. **Add photo upload UI to MessageInput:**
+
+    - Add photo/attachment button (camera/gallery icon)
+    - File input (hidden, triggered by button)
+    - Allow selecting multiple photos
+    - Show preview thumbnails of selected photos before sending
+    - Allow removing photos from selection
+    - Show upload progress for each photo
+    - Disable send button while uploading
+
+4. **Implement photo upload:**
+
+    - Upload photos to Supabase Storage:
+        - Path structure: `{organization_id}/{conversation_id}/{timestamp}_{filename}` or `{organization_id}/{uuid}_{filename}`
+        - Upload photos before creating message (since we need URLs for message creation)
+        - Use UUID or timestamp to ensure unique filenames
+    - Handle upload errors gracefully
+    - Get public URLs for uploaded photos
+    - Store URLs in `photo_urls` array when creating message
+
+5. **Update message sending:**
+
+    - If photos selected, upload photos first
+    - Wait for all uploads to complete
+    - Create message with `photo_urls` array
+    - Handle partial failures (some photos fail to upload)
+
+6. **Display photos in MessageBubble:**
+
+    - Check if message has `photo_urls` array
+    - Display photos in grid layout (1-2 columns on mobile, more on desktop)
+    - Show photo thumbnails (clickable to view full size)
+    - Add lightbox/modal for full-size photo viewing
+    - Show loading state while photos load
+    - Handle broken/missing images gracefully
+
+7. **Update real-time subscriptions:**
+
+    - Ensure photo messages appear in real-time
+    - Photos should load automatically when message arrives
+
+8. **Test:**
+    - Can select and upload photos
+    - Photos appear in message bubbles
+    - Photos appear in real-time on other devices
+    - Can view full-size photos
+    - Organization isolation works (users can't see other org's photos)
+    - Error handling works (failed uploads, network issues)
 
 **Testing:**
 
--   Can select animals/groups to tag in messages
--   Selected tags appear as chips before sending
--   Can tag multiple animals/groups per message
--   Tags are saved to `message_animal_links` table
--   Tags appear in MessageBubble display
--   Tagged animals/groups link to detail pages
--   Error handling works for failed tag insertion
+-   Can select multiple photos from device
+-   Photos upload successfully to Supabase Storage
+-   Photos appear in message bubbles with correct layout
+-   Can click photos to view full size
+-   Photos appear in real-time on other devices
+-   Organization isolation prevents cross-org photo access
+-   Upload progress is shown
+-   Error handling works for failed uploads
+-   File size limits are enforced
+-   Only allowed file types are accepted
 
-**Deliverable:** Tagging feature working - users can tag animals/groups in messages and tags display correctly.
+**Deliverable:** Photo sharing working in messages. Users can send and receive photos with proper storage, display, and real-time updates.
 
 ---
 
-### Milestone 5.10: Polish Conversation Detail Page
+### Milestone 5.10a: Update Database Schema for Foster Tagging
+
+**Goal:** Extend `message_links` table to support tagging fosters in addition to animals and groups, and rename table to reflect its broader purpose.
+
+**Tasks:**
+
+1. Create migration to rename and update table:
+    - Rename `message_animal_links` to `message_links` (more accurate name since it supports multiple entity types)
+    - Add `foster_profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE` column (nullable)
+    - Update constraint `exactly_one_link` to allow exactly one of:
+        - `animal_id` (not null, others null)
+        - `group_id` (not null, others null)
+        - `foster_profile_id` (not null, others null)
+    - Add index on `foster_profile_id` for query performance
+    - Rename indexes to match new table name:
+        - `idx_message_animal_links_message_id` → `idx_message_links_message_id`
+        - `idx_message_animal_links_animal_id` → `idx_message_links_animal_id`
+        - `idx_message_animal_links_group_id` → `idx_message_links_group_id`
+        - Add new: `idx_message_links_foster_profile_id`
+2. Update RLS policies for `message_links`:
+    - Ensure users can view/create links for fosters in their organization
+    - Policy should allow tagging any foster profile in user's organization
+3. Test schema changes:
+    - Can insert link with `animal_id` only
+    - Can insert link with `group_id` only
+    - Can insert link with `foster_profile_id` only
+    - Cannot insert link with multiple IDs set
+    - Cannot insert link with no IDs set
+    - RLS policies prevent unauthorized access
+
+**Testing:**
+
+-   Migration runs successfully
+-   Can create message-animal links (existing functionality still works)
+-   Can create message-group links (existing functionality still works)
+-   Can create message-foster links (new functionality)
+-   Constraint prevents invalid combinations
+-   RLS policies work correctly
+
+**Deliverable:** Database schema updated to support tagging animals, groups, and fosters. All three entity types can be linked to messages.
+
+---
+
+### Milestone 5.10b: Backend Support for Foster Tagging
+
+**Goal:** Update backend queries and functions to handle foster tags in addition to animal and group tags.
+
+**Tasks:**
+
+1. Update message fetching queries:
+    - Modify queries that fetch `message_links` to include `foster_profile_id`
+    - Join with `profiles` table to get foster name when `foster_profile_id` is set
+    - Return foster information along with animal/group information
+2. Create helper functions/types:
+    - Type for message link result (includes `animal_id`, `group_id`, `foster_profile_id`, and joined data)
+    - Helper function to determine entity type from link (animal, group, or foster)
+    - Helper function to get display name for each entity type
+3. Update message sending function:
+    - Accept array of tags (each with `type` and `id`)
+    - Insert into `message_links` with appropriate field set based on type
+    - Handle all three entity types correctly
+4. Test: Verify queries return foster tags correctly, verify tag insertion works for all types
+
+**Testing:**
+
+-   Queries return foster tags with foster names
+-   Can insert tags for animals, groups, and fosters
+-   Helper functions correctly identify entity types
+-   Display names are correct for all entity types
+
+**Deliverable:** Backend fully supports fetching and creating tags for animals, groups, and fosters.
+
+---
+
+### Milestone 5.10c: Tag Selection UI in MessageInput
+
+**Goal:** Add UI to select and display tags (animals, groups, fosters) before sending a message.
+
+**Tasks:**
+
+1. Add tag selection UI to `MessageInput.tsx`:
+    - Add button/icon to open tag selector (e.g., "@" button or "Tag" button)
+    - Create tag selector component/modal:
+        - Search/autocomplete input
+        - Tabs or filter buttons for entity types (Animals, Groups, Fosters)
+        - List of selectable entities with names
+        - Allow selecting multiple entities
+    - Fetch entities from organization:
+        - Animals: fetch from `animals` table (filtered by organization)
+        - Groups: fetch from `animal_groups` table (filtered by organization)
+        - Fosters: fetch from `profiles` table (filtered by organization, role='foster')
+    - Display selected tags as chips above input field:
+        - Show entity name and type indicator (e.g., "Fluffy (Animal)", "John (Foster)", "Litter of 4 (Group)")
+        - Allow removing tags (X button on chip)
+        - Style chips distinctively
+2. Update message sending:
+    - Collect selected tags before sending
+    - Pass tags to send message function (from M 5.10b)
+    - Clear selected tags after successful send
+3. Test: Can open tag selector, search/filter entities, select multiple tags, remove tags, tags appear as chips
+
+**Testing:**
+
+-   Tag selector opens and closes correctly
+-   Can search/filter animals, groups, and fosters
+-   Can select multiple entities of different types
+-   Selected tags appear as chips with type indicators
+-   Can remove tags before sending
+-   Tags are passed to send function correctly
+
+**Deliverable:** Tag selection UI working in MessageInput. Users can select animals, groups, and fosters to tag in messages.
+
+---
+
+### Milestone 5.10d: Display Tags in MessageBubble
+
+**Goal:** Display tags as clickable chips in message bubbles with proper navigation.
+
+**Tasks:**
+
+1. Update `MessageList.tsx` to fetch tags:
+    - Include `message_links` in message query (already done for animals/groups)
+    - Join with `profiles` table to get foster names for foster tags
+    - Transform tag data to include entity type and display name
+2. Update `MessageBubble.tsx` to display tags:
+    - Accept tags array as prop (from MessageList)
+    - Display tags as clickable chips/badges below message content
+    - Show entity type indicator on each tag (e.g., "Animal", "Group", "Foster")
+    - Style tags distinctively from message content
+    - Use different colors/styles for different entity types (optional enhancement)
+3. Add navigation for tags:
+    - Animals → link to `/animals/:id` (animal detail page)
+    - Groups → link to `/groups/:id` (group detail page - to be created in Phase 6)
+    - Fosters → show name only (no profile page yet, or link to future profile page)
+4. Test: Tags display correctly, tags are clickable, navigation works, styling is clear
+
+**Testing:**
+
+-   Tags appear in message bubbles for all entity types
+-   Tags show correct names and type indicators
+-   Animal tags link to animal detail pages
+-   Group tags link to group detail pages (when available)
+-   Foster tags display foster names
+-   Tags are visually distinct from message content
+-   Works for messages with multiple tags of different types
+
+**Deliverable:** Tags display correctly in message bubbles with proper styling and navigation. Complete tagging feature working end-to-end.
+
+---
+
+### Milestone 5.11: Polish Conversation Detail Page
 
 **Goal:** Refine and polish conversation detail page based on testing, add any missing features.
 

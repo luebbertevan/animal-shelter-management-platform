@@ -302,23 +302,34 @@
     -   What information is essential? (name, title/role, what they do)
     -   Is volunteer tracking critical for day-to-day operations, or mainly for record-keeping?
 
+## Inventory Tracking
+
+40. **Inventory Management:**
+    -   Do you need to track inventory/supplies in the system? (e.g., food, medications, supplies, equipment)
+    -   What types of items do you track? (e.g., cat food, litter, medications, cleaning supplies, medical equipment)
+    -   What information is essential for each inventory item? (name, quantity, location, expiration date, supplier, cost)
+    -   Is inventory tracking critical for day-to-day operations, or mainly for record-keeping?
+    -   Do you need to track inventory usage/consumption, or just current quantities?
+    -   Do you need low-stock alerts/notifications?
+    -   Would it be helpful to tag inventory items in messages? (e.g., "We need more @cat-food" or "Running low on @litter")
+
 ## Field Customization & Organization Settings
 
-40. **Customizable Fields:**
+41. **Customizable Fields:**
 
     -   Should organizations be able to toggle which fields they want to use? (e.g., some orgs might not track "Instagram" field)
     -   Is this a priority feature, or can we start with a standard set of fields?
     -   Would field customization be a stretch goal/post-MVP feature?
     -   Should organizations be able to control which fields are visible to fosters? (see also question 45)
 
-41. **Unused Fields:**
+42. **Unused Fields:**
     -   In your current tracking system, are there fields/tabs that are mostly blank or unused?
     -   Are there fields you track but rarely use? (e.g., "logins", "prescription details")
     -   Should we exclude rarely-used fields from MVP, or include them for completeness?
 
 ## Additional Notes
 
-42. **Notes Fields:**
+43. **Notes Fields:**
     -   Which entities need "additional notes" fields? (medications, vaccines, vets, fosters, animals, adoptions, etc.)
     -   Are notes critical for all of these, or only some?
     -   Should notes be searchable?

@@ -140,7 +140,7 @@ export default function ConversationDetail() {
 	};
 
 	return (
-		<div className="h-screen flex flex-col bg-gray-50">
+		<div className="mobile-viewport flex flex-col bg-gray-50 overflow-hidden">
 			{/* Header */}
 			<div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4 shadow-sm flex-shrink-0">
 				<Button
@@ -158,16 +158,18 @@ export default function ConversationDetail() {
 			</div>
 
 			{/* Message List */}
-			<div className="flex-1 overflow-y-auto">
+			<div className="flex-1 overflow-y-auto min-h-0">
 				<MessageList conversationId={conversation.id} />
 			</div>
 
 			{/* Message Input */}
 			{conversationId && (
-				<MessageInput
-					conversationId={conversationId}
-					onMessageSent={handleMessageSent}
-				/>
+				<div className="flex-shrink-0">
+					<MessageInput
+						conversationId={conversationId}
+						onMessageSent={handleMessageSent}
+					/>
+				</div>
 			)}
 		</div>
 	);
