@@ -1450,8 +1450,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Append new messages to list
     - Scroll to bottom when new message arrives
 3. Update ConversationDetail to handle real-time subscriptions
-4. Test: Open conversation on two devices, send message from one, verify it appears on other
-5. Handle edge cases: Multiple tabs, connection loss, reconnection
+4. **Implement message pagination (REQUIRED):**
+    - Load only the last 100 messages initially, with a "Load Older Messages" button to fetch the next 100 messages
+    - Update `fetchMessages` to accept optional `beforeDate` parameter and limit to 100 messages
+    - Use `.order("created_at", { ascending: false }).limit(100)` for initial load (newest first, then reverse for display)
+    - Track oldest message date to determine where to load from
+    - Add "Load Older Messages" button that fetches messages where `created_at < oldestMessageDate`
+    - Prepend older messages to the array (not append)
+    - The existing index `idx_messages_conversation_created` makes this efficient
+    - Keep the sort in Realtime handler as a safety net when appending new messages
+    - **Critical:** Conversations will quickly grow to 100+ messages. Pagination must be implemented before launch to prevent performance issues.
+5. Test: Open conversation on two devices, send message from one, verify it appears on other
+6. Handle edge cases: Multiple tabs, connection loss, reconnection
 
 **Testing:**
 
@@ -1463,20 +1473,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Deliverable:** Real-time messaging working on conversation detail page.
 
-**Message Pagination:**
-
--   Currently loads all messages for a conversation, which may cause performance issues as conversations grow large (especially coordinator group chats)
--   **Enhancement:** Implement pagination to load only the last 100 messages initially, with a "Load Older Messages" button to fetch the next 100 messages
--   **Implementation approach:**
-    -   Update `fetchMessages` to accept optional `beforeDate` parameter and limit to 100 messages
-    -   Use `.order("created_at", { ascending: false }).limit(100)` for initial load (newest first, then reverse for display)
-    -   Track oldest message date to determine where to load from
-    -   Add "Load Older Messages" button that fetches messages where `created_at < oldestMessageDate`
-    -   Prepend older messages to the array (not append)
-    -   The existing index `idx_messages_conversation_created` makes this efficient - database uses index to find sorted messages without reading all rows
-    -   Keep the sort in Realtime handler as a safety net when appending new messages
--   **Note:** The sort operation itself is not a performance concern (very fast even with 1000+ messages), but rendering 1000+ DOM elements is. Pagination solves the rendering bottleneck.
-
 ---
 
 ### Milestone 5.9: Photo Sharing in Messages
@@ -1487,13 +1483,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 1. **Set up Supabase Storage for message photos:**
 
-    - Create storage bucket `message-photos` (or similar name)
+    - Create storage bucket `photos` (unified bucket for all photos - messages, animals, groups)
     - Configure bucket policies for organization isolation:
         - Users can upload photos to their organization's folder
         - Users can view photos from conversations they have access to
     - Set up RLS policies: users can only access photos from their organization's conversations
-    - Configure file size limits (e.g., max 5MB per photo)
+    - Configure file size limits: **max 8MB per photo** (accommodates most smartphone photos while preventing abuse)
     - Configure allowed file types (e.g., jpg, jpeg, png, webp)
+    - Path structure: `{organization_id}/messages/{conversation_id}/{timestamp}_{filename}`
 
 2. **Update database schema:**
 
@@ -1507,11 +1504,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
     - Add photo/attachment button (camera/gallery icon)
     - File input (hidden, triggered by button)
-    - Allow selecting multiple photos
+    - Allow selecting multiple photos (max 10 photos per message to prevent bulk abuse)
     - Show preview thumbnails of selected photos before sending
     - Allow removing photos from selection
     - Show upload progress for each photo
     - Disable send button while uploading
+    - Client-side validation: Check file size (max 8MB) and file type before upload
 
 4. **Implement photo upload:**
 
@@ -1566,6 +1564,15 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Only allowed file types are accepted
 
 **Deliverable:** Photo sharing working in messages. Users can send and receive photos with proper storage, display, and real-time updates.
+
+**Photo Retention Policy (Post-MVP):**
+
+-   **Per-user limit:** 1,000 photos per user across all conversations (prevents abuse while allowing dedicated fosters to share many photos)
+-   **Cleanup logic:** When a user exceeds 1,000 photos, delete oldest photos uploaded by that user
+-   **Implementation:** Track total photo count per user, check on upload, delete oldest photos if limit exceeded
+-   **Rationale:** Most fosters send ~50 photos/year, dedicated fosters may send 200-500/year. 1,000 photos is generous for active users but prevents blatant abuse (10,000+ photos)
+-   **Storage impact:** With 200 users × 1,000 photos max = 600GB theoretical max, but realistic usage is much lower (most users under 500 photos). Estimated actual storage: 100-200GB for message photos, keeping costs around $25-30/month for 5+ years
+-   **Note:** Animal/group photos are kept forever (documentation), only message photos have retention limits
 
 ---
 
@@ -2349,44 +2356,95 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 9.3: Photo Uploads for Animals
+### Milestone 9.3: Photo Uploads for Animals and Groups
 
-**Goal:** Allow coordinators and fosters to upload photos for animals.
+**Goal:** Allow coordinators and fosters to upload photos for animals and groups, with proper permission controls.
 
 **Tasks:**
 
-1. Set up Supabase Storage:
-    - Create storage bucket for animal photos
+1. **Set up Supabase Storage:**
+    - Use unified storage bucket `photos` (same bucket as message photos, organized by path structure)
     - Configure bucket policies for organization isolation
     - Set up RLS policies: users can upload/view photos in their organization
-2. Add `photos` JSONB column to `animals` table (if not already added):
-    - Structure: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "..."}, ...]`
-    - Store array of photo objects with metadata
-3. Create photo upload component:
-    - `src/components/animals/PhotoUpload.tsx`
+    - Path structure: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}` or `{organization_id}/groups/{group_id}/{timestamp}_{filename}`
+    - Configure file size limits: **max 8MB per photo** (same as message photos)
+    - Configure allowed file types (e.g., jpg, jpeg, png, webp)
+2. **Update database schema:**
+    - Add `photos` JSONB column to `animals` table (if not already added):
+        - Structure: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "...", "caption": "..."}, ...]`
+        - Store array of photo objects with metadata (url, uploaded_at, uploaded_by, optional caption)
+    - Add `photos` JSONB column to `animal_groups` table:
+        - Same structure as animals: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "...", "caption": "..."}, ...]`
+        - Store array of photo objects with metadata
+3. **Create reusable photo upload component:**
+    - `src/components/shared/PhotoUpload.tsx` (generic, reusable)
     - File input for selecting photos
     - Upload to Supabase Storage
     - Show upload progress
     - Handle errors gracefully
-4. Update animal detail page:
-    - Display photo gallery
-    - Show uploaded photos with timestamps
-    - Allow coordinators to upload new photos
-    - Allow fosters to upload photos for assigned animals
-5. Update animal creation form:
-    - Optional photo upload during creation
+    - Accept props: `bucketName`, `pathPrefix`, `onUploadComplete`, `maxPhotos` (optional)
+4. **Create reusable photo gallery component:**
+    - `src/components/shared/PhotoGallery.tsx` (generic, reusable)
+    - Display photo grid with thumbnails
+    - Show photo metadata (uploaded_at, uploaded_by name)
+    - Lightbox/modal for full-size viewing
+    - Handle loading states and broken images
+    - Accept props: `photos` (array), `onDelete` (optional, for permission-based deletion)
+5. **Update animal detail page:**
+    - Display photo gallery using `PhotoGallery` component
+    - Show uploaded photos with timestamps and uploader names
+    - **Permissions:**
+        - Coordinators: can upload new photos, can delete any photo
+        - Fosters: can upload photos for assigned animals, can only delete their own photos
+    - Add photo upload UI using `PhotoUpload` component
+    - Show delete button on photos (only for users with permission)
+6. **Update group detail page:**
+    - Display photo gallery using `PhotoGallery` component
+    - Show uploaded photos with timestamps and uploader names
+    - **Permissions:**
+        - Coordinators: can upload new photos, can delete any photo
+        - Fosters: can upload photos for assigned groups, can only delete their own photos
+    - Add photo upload UI using `PhotoUpload` component
+    - Show delete button on photos (only for users with permission)
+7. **Update animal creation form:**
+    - Optional photo upload during creation (coordinators only)
     - Store photos in `photos` JSONB array
-6. Test: Upload photos, verify they appear, verify organization isolation
+8. **Update group creation form:**
+    - Optional photo upload during creation (coordinators only)
+    - Store photos in `photos` JSONB array
+9. **Implement permission logic:**
+    - Check user role (coordinator vs foster)
+    - For fosters: check if animal/group is assigned to them
+    - For photo deletion: check if `uploaded_by` matches current user (for fosters)
+    - Coordinators can always delete any photo
+10. **Test:**
+    - Upload photos for animals and groups
+    - Verify photos appear in galleries
+    - Verify organization isolation
+    - Test permission controls (fosters can only delete their own photos)
+    - Test coordinators can delete any photo
+    - Verify upload progress and error handling
 
 **Testing:**
 
--   Can upload photos to Supabase Storage
--   Photos are linked to correct animal and organization
--   Photos display correctly in gallery
+-   Can upload photos to Supabase Storage for animals
+-   Can upload photos to Supabase Storage for groups
+-   Photos are linked to correct animal/group and organization
+-   Photos display correctly in galleries with metadata
+-   Coordinators can upload and delete any photos
+-   Fosters can upload photos for assigned animals/groups
+-   Fosters can only delete their own photos (not others' photos)
 -   Upload progress and errors are handled
 -   RLS policies prevent cross-organization access
+-   Photo deletion works correctly with permission checks
 
-**Deliverable:** Photo upload functionality working.
+**Deliverable:** Photo upload functionality working for animals and groups with proper permission controls.
+
+**Photo Retention Policy:**
+
+-   **Animal/Group photos:** Kept forever (no limit) - these are documentation photos that should be preserved long-term
+-   **Message photos:** See M 5.9 for per-user retention limits (1,000 photos per user)
+-   **Storage impact:** With 500 animals/year × 5 photos = 2,500 photos/year, storage grows to ~37.5GB by year 5. Combined with message photos (100-200GB), total storage stays within Pro tier limits (100GB) or slightly over, keeping costs at $25-30/month for 5+ years
 
 ---
 
@@ -2654,13 +2712,263 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 11: Expo Wrapping (For Reliable iOS Notifications)
+## Phase 11: Landing Page & Marketing Site
+
+**Goal:** Create a professional, impressive landing page to attract rescue organizations, showcase the app, and provide information for portfolio visitors.
+
+---
+
+### Milestone 11.1: Landing Page Structure & Navigation
+
+**Goal:** Set up the landing page route structure and navigation to existing app functionality.
+
+**Tasks:**
+
+1. Create landing page route:
+    - Add public route `/` (landing page) - not protected by authentication
+    - Update routing so landing page is accessible without login
+    - Ensure `/login` and `/signup` routes remain accessible
+2. Create `src/pages/Landing.tsx` component:
+    - Basic page structure with sections (will be filled in subsequent milestones)
+    - Navigation header with links to Login and Sign Up
+    - Footer with links and information
+3. Update `App.tsx` routing:
+    - Landing page (`/`) is public (not wrapped in ProtectedRoute)
+    - Login and signup routes remain public
+    - All other routes remain protected
+4. Add navigation from landing page:
+    - "Login" button/link in header
+    - "Sign Up" button/link in header (or CTA button)
+    - Links navigate to `/login` and `/signup` routes
+5. Test: Can access landing page without login, can navigate to login/signup, protected routes still require auth
+
+**Testing:**
+
+-   Landing page loads at `/` without requiring authentication
+-   Login and Sign Up links work correctly
+-   Protected routes still require authentication
+-   Navigation is clear and professional
+
+**Deliverable:** Landing page structure with navigation to app functionality.
+
+---
+
+### Milestone 11.2: App Description & Partner Showcase
+
+**Goal:** Display compelling app information and showcase partners/testimonials (e.g., Co Kitty Coalition).
+
+**Tasks:**
+
+1. Create hero section:
+    - Eye-catching headline about the app's purpose
+    - Subheadline explaining value proposition
+    - Call-to-action buttons (Sign Up, Learn More, etc.)
+    - Professional, modern design
+2. Create app features section:
+    - Key features of the platform (messaging, animal management, etc.)
+    - Benefits for rescue organizations
+    - Visual elements (icons, illustrations, or screenshots)
+3. Create partner showcase section:
+    - Display partner organizations (e.g., Co Kitty Coalition logo/name)
+    - Testimonials/quotes from partners about the app
+    - "Trusted by" or "Used by" messaging
+    - Professional presentation of social proof
+4. Create "How It Works" section:
+    - Step-by-step explanation of the app
+    - Visual flow or simple graphics
+    - Clear, easy-to-understand language
+5. Style for professional appearance:
+    - Modern, clean design
+    - Mobile-responsive layout
+    - Consistent with app's design system (if available)
+
+**Testing:**
+
+-   Hero section is compelling and clear
+-   Features are well-presented and understandable
+-   Partner showcase looks professional
+-   Testimonials/quotes are displayed attractively
+-   Mobile and desktop layouts work well
+
+**Deliverable:** App description and partner showcase sections complete.
+
+---
+
+### Milestone 11.3: App Demo & Advertising
+
+**Goal:** Showcase the app with demos, screenshots, or interactive elements to demonstrate value.
+
+**Tasks:**
+
+1. Create demo/screenshots section:
+    - Screenshots of key app features (dashboard, messaging, animal management)
+    - Image carousel or gallery for multiple screenshots
+    - Captions explaining what each screenshot shows
+    - High-quality, professional screenshots
+2. Add interactive demo (optional):
+    - Embedded video demo (if available)
+    - Or interactive prototype/walkthrough
+    - Or animated GIFs showing app flow
+3. Create "Key Benefits" section:
+    - Highlight main value propositions
+    - Compare to current solutions (spreadsheets, text chains)
+    - Show time savings, efficiency gains
+    - Use data/statistics if available
+4. Add "Request Demo" or "Schedule a Call" CTA:
+    - Button to contact for personalized demo
+    - Links to contact form or email
+5. Style for visual appeal:
+    - Professional screenshot presentation
+    - Clear, readable captions
+    - Engaging layout
+
+**Testing:**
+
+-   Screenshots are high-quality and clear
+-   Demo section is engaging
+-   Benefits are clearly communicated
+-   CTAs are prominent and functional
+-   Mobile layout works well
+
+**Deliverable:** App demo and advertising sections complete with screenshots and compelling messaging.
+
+---
+
+### Milestone 11.4: Contact & Personal Story
+
+**Goal:** Provide contact information and share personal story to build trust and connection.
+
+**Tasks:**
+
+1. Create "About the Developer" section:
+    - Personal story and background
+    - Why you built this app
+    - Your connection to animal rescue
+    - Professional but personal tone
+2. Create contact section:
+    - Contact form for rescue organizations interested in using the app
+    - Email address for inquiries
+    - Clear call-to-action for organizations to reach out
+    - Form fields: organization name, email, message, etc.
+3. Implement contact form functionality:
+    - Form submission handler
+    - Send emails (via email service or Supabase Edge Function)
+    - Success/error messaging
+    - Validation and spam protection (optional)
+4. Add "For Rescue Organizations" section:
+    - Information about how to get started
+    - What to expect when signing up
+    - How the app can help their organization
+5. Style for professional yet approachable appearance:
+    - Personal but not overly casual
+    - Clear contact information
+    - Easy-to-use contact form
+
+**Testing:**
+
+-   Personal story is engaging and builds trust
+-   Contact form works correctly
+-   Form submissions are received
+-   Success/error messages display properly
+-   Contact information is clear and accessible
+
+**Deliverable:** Contact section and personal story complete with working contact form.
+
+---
+
+### Milestone 11.5: Donation Section
+
+**Goal:** Provide a way for visitors to support the project through donations.
+
+**Tasks:**
+
+1. Create donation section:
+    - Explanation of how donations support the project
+    - What donations are used for (development, hosting, etc.)
+    - Clear, transparent messaging
+2. Add donation options:
+    - Payment links (PayPal, Venmo, etc.)
+    - Or embedded donation form
+    - Multiple payment methods if possible
+3. Add "Why Donate" information:
+    - Impact of donations
+    - How donations help rescue organizations
+    - Optional: Show donation goals or impact metrics
+4. Style for trust and transparency:
+    - Professional payment presentation
+    - Clear donation amounts (if applicable)
+    - Secure payment messaging
+5. Test donation flow:
+    - Verify payment links work
+    - Test on mobile and desktop
+    - Ensure secure payment handling
+
+**Testing:**
+
+-   Donation section is clear and compelling
+-   Payment links/forms work correctly
+-   Multiple payment methods are available
+-   Mobile and desktop donation flows work
+-   Secure payment messaging is present
+
+**Deliverable:** Donation section complete with working payment options.
+
+---
+
+### Milestone 11.6: Landing Page Polish & Figma Design
+
+**Goal:** Refine landing page design using Figma, ensuring professional, impressive appearance.
+
+**Tasks:**
+
+1. **Set up Figma design:**
+    - Create landing page designs in Figma
+    - Design all sections (hero, features, demo, contact, donate)
+    - Ensure cohesive visual design
+    - Use color palette from app (Co Kitty Coalition colors if available)
+2. Review Figma designs:
+    - Hero section layout and typography
+    - Feature sections and spacing
+    - Partner showcase presentation
+    - Demo/screenshot presentation
+    - Contact form design
+    - Donation section design
+3. Update component styling to match Figma:
+    - Colors, spacing, typography from designs
+    - Button styles, form styles
+    - Section layouts and spacing
+    - Responsive breakpoints
+4. Create or update design system:
+    - Landing page specific components
+    - Reusable sections/components
+    - Typography scale for marketing content
+    - Color usage for landing page
+5. Ensure mobile-first responsive design:
+    - All sections work on mobile
+    - Navigation is mobile-friendly
+    - Forms are usable on mobile
+    - Images/screenshots scale properly
+6. Test: Compare landing page to Figma designs, verify consistency, test on multiple devices
+
+**Testing:**
+
+-   Landing page matches Figma designs
+-   Components are consistent
+-   Mobile and desktop layouts work
+-   Design system is applied consistently
+-   Professional, impressive appearance
+
+**Deliverable:** Polished landing page matching Figma designs, ready for production.
+
+---
+
+## Phase 12: Expo Wrapping (For Reliable iOS Notifications)
 
 **Goal:** Wrap PWA in Expo to enable App Store distribution and reliable iOS push notifications via APNs.
 
 ---
 
-### Milestone 11.1: Initialize Expo Project
+### Milestone 12.1: Initialize Expo Project
 
 **Goal:** Create Expo app that wraps the existing PWA.
 
@@ -2692,7 +3000,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.2: Expo Push Notifications
+### Milestone 12.2: Expo Push Notifications
 
 **Goal:** Replace FCM with Expo Push Notifications for reliable iOS support.
 
@@ -2724,7 +3032,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.3: Build & Publish
+### Milestone 12.3: Build & Publish
 
 **Goal:** Build and publish app to App Store and Play Store.
 
