@@ -323,6 +323,17 @@
     -   Ability to export critical data (animals, fosters, assignments) to CSV/Google Sheets format.
     -   Emergency data access if app goes down.
     -   Regular automated backups to external storage.
+-   **Video Support in Messages:**
+    -   Allow users to upload and share videos in chat messages (in addition to photos).
+    -   Considerations: Much larger file sizes (10-100MB vs 1-5MB for photos), longer upload/download times, higher storage costs, need for video player UI (play/pause, scrubbing, fullscreen).
+    -   Implementation: Set reasonable file size limits (e.g., 50MB max), support common formats (MP4, MOV), show upload progress, use video thumbnails for previews, consider client-side compression before upload.
+    -   Monitor storage costs closely as videos consume significantly more space than photos.
+-   **Message Reactions:**
+    -   Allow users to react to messages with emoji (thumbs up, heart, etc.).
+    -   Display reactions on message bubbles.
+    -   Show who reacted with each emoji (on hover/long-press).
+    -   Allow users to add/remove their own reactions.
+    -   Real-time updates when reactions are added/removed.
 
 ### 11. Open Questions
 
