@@ -2349,44 +2349,87 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 9.3: Photo Uploads for Animals
+### Milestone 9.3: Photo Uploads for Animals and Groups
 
-**Goal:** Allow coordinators and fosters to upload photos for animals.
+**Goal:** Allow coordinators and fosters to upload photos for animals and groups, with proper permission controls.
 
 **Tasks:**
 
-1. Set up Supabase Storage:
-    - Create storage bucket for animal photos
+1. **Set up Supabase Storage:**
+    - Create storage bucket `animal-photos` for animal and group photos
     - Configure bucket policies for organization isolation
     - Set up RLS policies: users can upload/view photos in their organization
-2. Add `photos` JSONB column to `animals` table (if not already added):
-    - Structure: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "..."}, ...]`
-    - Store array of photo objects with metadata
-3. Create photo upload component:
-    - `src/components/animals/PhotoUpload.tsx`
+    - Path structure: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}` or `{organization_id}/groups/{group_id}/{timestamp}_{filename}`
+2. **Update database schema:**
+    - Add `photos` JSONB column to `animals` table (if not already added):
+        - Structure: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "...", "caption": "..."}, ...]`
+        - Store array of photo objects with metadata (url, uploaded_at, uploaded_by, optional caption)
+    - Add `photos` JSONB column to `animal_groups` table:
+        - Same structure as animals: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "...", "caption": "..."}, ...]`
+        - Store array of photo objects with metadata
+3. **Create reusable photo upload component:**
+    - `src/components/shared/PhotoUpload.tsx` (generic, reusable)
     - File input for selecting photos
     - Upload to Supabase Storage
     - Show upload progress
     - Handle errors gracefully
-4. Update animal detail page:
-    - Display photo gallery
-    - Show uploaded photos with timestamps
-    - Allow coordinators to upload new photos
-    - Allow fosters to upload photos for assigned animals
-5. Update animal creation form:
-    - Optional photo upload during creation
+    - Accept props: `bucketName`, `pathPrefix`, `onUploadComplete`, `maxPhotos` (optional)
+4. **Create reusable photo gallery component:**
+    - `src/components/shared/PhotoGallery.tsx` (generic, reusable)
+    - Display photo grid with thumbnails
+    - Show photo metadata (uploaded_at, uploaded_by name)
+    - Lightbox/modal for full-size viewing
+    - Handle loading states and broken images
+    - Accept props: `photos` (array), `onDelete` (optional, for permission-based deletion)
+5. **Update animal detail page:**
+    - Display photo gallery using `PhotoGallery` component
+    - Show uploaded photos with timestamps and uploader names
+    - **Permissions:**
+        - Coordinators: can upload new photos, can delete any photo
+        - Fosters: can upload photos for assigned animals, can only delete their own photos
+    - Add photo upload UI using `PhotoUpload` component
+    - Show delete button on photos (only for users with permission)
+6. **Update group detail page:**
+    - Display photo gallery using `PhotoGallery` component
+    - Show uploaded photos with timestamps and uploader names
+    - **Permissions:**
+        - Coordinators: can upload new photos, can delete any photo
+        - Fosters: can upload photos for assigned groups, can only delete their own photos
+    - Add photo upload UI using `PhotoUpload` component
+    - Show delete button on photos (only for users with permission)
+7. **Update animal creation form:**
+    - Optional photo upload during creation (coordinators only)
     - Store photos in `photos` JSONB array
-6. Test: Upload photos, verify they appear, verify organization isolation
+8. **Update group creation form:**
+    - Optional photo upload during creation (coordinators only)
+    - Store photos in `photos` JSONB array
+9. **Implement permission logic:**
+    - Check user role (coordinator vs foster)
+    - For fosters: check if animal/group is assigned to them
+    - For photo deletion: check if `uploaded_by` matches current user (for fosters)
+    - Coordinators can always delete any photo
+10. **Test:**
+    - Upload photos for animals and groups
+    - Verify photos appear in galleries
+    - Verify organization isolation
+    - Test permission controls (fosters can only delete their own photos)
+    - Test coordinators can delete any photo
+    - Verify upload progress and error handling
 
 **Testing:**
 
--   Can upload photos to Supabase Storage
--   Photos are linked to correct animal and organization
--   Photos display correctly in gallery
+-   Can upload photos to Supabase Storage for animals
+-   Can upload photos to Supabase Storage for groups
+-   Photos are linked to correct animal/group and organization
+-   Photos display correctly in galleries with metadata
+-   Coordinators can upload and delete any photos
+-   Fosters can upload photos for assigned animals/groups
+-   Fosters can only delete their own photos (not others' photos)
 -   Upload progress and errors are handled
 -   RLS policies prevent cross-organization access
+-   Photo deletion works correctly with permission checks
 
-**Deliverable:** Photo upload functionality working.
+**Deliverable:** Photo upload functionality working for animals and groups with proper permission controls.
 
 ---
 
