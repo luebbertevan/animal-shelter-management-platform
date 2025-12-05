@@ -1450,8 +1450,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Append new messages to list
     - Scroll to bottom when new message arrives
 3. Update ConversationDetail to handle real-time subscriptions
-4. Test: Open conversation on two devices, send message from one, verify it appears on other
-5. Handle edge cases: Multiple tabs, connection loss, reconnection
+4. **Implement message pagination (REQUIRED):**
+    - Load only the last 100 messages initially, with a "Load Older Messages" button to fetch the next 100 messages
+    - Update `fetchMessages` to accept optional `beforeDate` parameter and limit to 100 messages
+    - Use `.order("created_at", { ascending: false }).limit(100)` for initial load (newest first, then reverse for display)
+    - Track oldest message date to determine where to load from
+    - Add "Load Older Messages" button that fetches messages where `created_at < oldestMessageDate`
+    - Prepend older messages to the array (not append)
+    - The existing index `idx_messages_conversation_created` makes this efficient
+    - Keep the sort in Realtime handler as a safety net when appending new messages
+    - **Critical:** Conversations will quickly grow to 100+ messages. Pagination must be implemented before launch to prevent performance issues.
+5. Test: Open conversation on two devices, send message from one, verify it appears on other
+6. Handle edge cases: Multiple tabs, connection loss, reconnection
 
 **Testing:**
 
@@ -1463,20 +1473,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Deliverable:** Real-time messaging working on conversation detail page.
 
-**Message Pagination:**
-
--   Currently loads all messages for a conversation, which may cause performance issues as conversations grow large (especially coordinator group chats)
--   **Enhancement:** Implement pagination to load only the last 100 messages initially, with a "Load Older Messages" button to fetch the next 100 messages
--   **Implementation approach:**
-    -   Update `fetchMessages` to accept optional `beforeDate` parameter and limit to 100 messages
-    -   Use `.order("created_at", { ascending: false }).limit(100)` for initial load (newest first, then reverse for display)
-    -   Track oldest message date to determine where to load from
-    -   Add "Load Older Messages" button that fetches messages where `created_at < oldestMessageDate`
-    -   Prepend older messages to the array (not append)
-    -   The existing index `idx_messages_conversation_created` makes this efficient - database uses index to find sorted messages without reading all rows
-    -   Keep the sort in Realtime handler as a safety net when appending new messages
--   **Note:** The sort operation itself is not a performance concern (very fast even with 1000+ messages), but rendering 1000+ DOM elements is. Pagination solves the rendering bottleneck.
-
 ---
 
 ### Milestone 5.9: Photo Sharing in Messages
@@ -1487,13 +1483,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 1. **Set up Supabase Storage for message photos:**
 
-    - Create storage bucket `message-photos` (or similar name)
+    - Create storage bucket `photos` (unified bucket for all photos - messages, animals, groups)
     - Configure bucket policies for organization isolation:
         - Users can upload photos to their organization's folder
         - Users can view photos from conversations they have access to
     - Set up RLS policies: users can only access photos from their organization's conversations
-    - Configure file size limits (e.g., max 5MB per photo)
+    - Configure file size limits: **max 8MB per photo** (accommodates most smartphone photos while preventing abuse)
     - Configure allowed file types (e.g., jpg, jpeg, png, webp)
+    - Path structure: `{organization_id}/messages/{conversation_id}/{timestamp}_{filename}`
 
 2. **Update database schema:**
 
@@ -1507,11 +1504,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
     - Add photo/attachment button (camera/gallery icon)
     - File input (hidden, triggered by button)
-    - Allow selecting multiple photos
+    - Allow selecting multiple photos (max 10 photos per message to prevent bulk abuse)
     - Show preview thumbnails of selected photos before sending
     - Allow removing photos from selection
     - Show upload progress for each photo
     - Disable send button while uploading
+    - Client-side validation: Check file size (max 8MB) and file type before upload
 
 4. **Implement photo upload:**
 
@@ -1566,6 +1564,15 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Only allowed file types are accepted
 
 **Deliverable:** Photo sharing working in messages. Users can send and receive photos with proper storage, display, and real-time updates.
+
+**Photo Retention Policy (Post-MVP):**
+
+-   **Per-user limit:** 1,000 photos per user across all conversations (prevents abuse while allowing dedicated fosters to share many photos)
+-   **Cleanup logic:** When a user exceeds 1,000 photos, delete oldest photos uploaded by that user
+-   **Implementation:** Track total photo count per user, check on upload, delete oldest photos if limit exceeded
+-   **Rationale:** Most fosters send ~50 photos/year, dedicated fosters may send 200-500/year. 1,000 photos is generous for active users but prevents blatant abuse (10,000+ photos)
+-   **Storage impact:** With 200 users × 1,000 photos max = 600GB theoretical max, but realistic usage is much lower (most users under 500 photos). Estimated actual storage: 100-200GB for message photos, keeping costs around $25-30/month for 5+ years
+-   **Note:** Animal/group photos are kept forever (documentation), only message photos have retention limits
 
 ---
 
@@ -2356,10 +2363,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Tasks:**
 
 1. **Set up Supabase Storage:**
-    - Create storage bucket `animal-photos` for animal and group photos
+    - Use unified storage bucket `photos` (same bucket as message photos, organized by path structure)
     - Configure bucket policies for organization isolation
     - Set up RLS policies: users can upload/view photos in their organization
     - Path structure: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}` or `{organization_id}/groups/{group_id}/{timestamp}_{filename}`
+    - Configure file size limits: **max 8MB per photo** (same as message photos)
+    - Configure allowed file types (e.g., jpg, jpeg, png, webp)
 2. **Update database schema:**
     - Add `photos` JSONB column to `animals` table (if not already added):
         - Structure: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "...", "caption": "..."}, ...]`
@@ -2430,6 +2439,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Photo deletion works correctly with permission checks
 
 **Deliverable:** Photo upload functionality working for animals and groups with proper permission controls.
+
+**Photo Retention Policy:**
+
+-   **Animal/Group photos:** Kept forever (no limit) - these are documentation photos that should be preserved long-term
+-   **Message photos:** See M 5.9 for per-user retention limits (1,000 photos per user)
+-   **Storage impact:** With 500 animals/year × 5 photos = 2,500 photos/year, storage grows to ~37.5GB by year 5. Combined with message photos (100-200GB), total storage stays within Pro tier limits (100GB) or slightly over, keeping costs at $25-30/month for 5+ years
 
 ---
 
