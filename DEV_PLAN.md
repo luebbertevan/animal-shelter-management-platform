@@ -1479,6 +1479,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Goal:** Allow users to send and receive photos in chat messages, with proper storage and display.
 
+---
+
+### Milestone 5.9a: Storage & Database Setup
+
+**Goal:** Set up infrastructure for photo storage and database schema.
+
 **Tasks:**
 
 1. **Set up Supabase Storage for message photos:**
@@ -1494,76 +1500,241 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 2. **Update database schema:**
 
-    - Add `photo_urls` JSONB column to `messages` table (nullable):
+    - Create migration to add `photo_urls` JSONB column to `messages` table (nullable):
         - Structure: `["url1", "url2", ...]` - array of photo URLs
         - Store full Supabase Storage URLs
     - Alternative: Create separate `message_photos` table if more metadata needed (uploader, timestamp per photo)
     - For MVP: JSONB array is simpler and sufficient
 
-3. **Add photo upload UI to MessageInput:**
+**Testing:**
+
+-   Storage bucket exists and is accessible
+-   RLS policies prevent cross-organization photo access
+-   Database migration runs successfully
+-   `photo_urls` column exists and accepts JSONB arrays
+
+**Deliverable:** Storage bucket configured and database schema updated.
+
+---
+
+### Milestone 5.9b: Photo Upload Backend Function
+
+**Goal:** Create reusable photo upload utility function.
+
+**Tasks:**
+
+1. **Create `uploadPhoto()` utility function:**
+
+    - Location: `src/lib/photoUtils.ts` or similar
+    - Function signature: `uploadPhoto(file: File, organizationId: string, conversationId: string): Promise<string>`
+    - Upload photo to Supabase Storage:
+        - Path structure: `{organization_id}/messages/{conversation_id}/{uuid}_{filename}`
+        - Use UUID to ensure unique filenames
+        - Handle file size validation (max 8MB)
+        - Handle file type validation (jpg, jpeg, png, webp)
+    - Return public URL for uploaded photo
+    - Handle upload errors gracefully (throw descriptive errors)
+
+2. **Error handling:**
+
+    - Network errors
+    - File size too large
+    - Invalid file type
+    - Storage quota exceeded
+    - Permission errors
+
+**Testing:**
+
+-   Can upload a photo and get back a URL
+-   Function throws appropriate errors for invalid files
+-   File size limits are enforced
+-   Only allowed file types are accepted
+-   Can test function independently (via console or test file)
+
+**Deliverable:** Working `uploadPhoto()` function that can be tested independently.
+
+---
+
+### Milestone 5.9c: Photo Selection UI
+
+**Goal:** Add UI for selecting and previewing photos before sending.
+
+**Tasks:**
+
+1. **Add photo selection to MessageInput:**
 
     - Add photo/attachment button (camera/gallery icon)
     - File input (hidden, triggered by button)
     - Allow selecting multiple photos (max 10 photos per message to prevent bulk abuse)
-    - Show preview thumbnails of selected photos before sending
-    - Allow removing photos from selection
-    - Show upload progress for each photo
-    - Disable send button while uploading
-    - Client-side validation: Check file size (max 8MB) and file type before upload
+    - Client-side validation: Check file size (max 8MB) and file type before allowing selection
 
-4. **Implement photo upload:**
+2. **Photo preview UI:**
 
-    - Upload photos to Supabase Storage:
-        - Path structure: `{organization_id}/{conversation_id}/{timestamp}_{filename}` or `{organization_id}/{uuid}_{filename}`
-        - Upload photos before creating message (since we need URLs for message creation)
-        - Use UUID or timestamp to ensure unique filenames
-    - Handle upload errors gracefully
-    - Get public URLs for uploaded photos
-    - Store URLs in `photo_urls` array when creating message
+    - Show preview thumbnails of selected photos
+    - Display photo count (e.g., "3 photos selected")
+    - Allow removing photos from selection (X button on each thumbnail)
+    - Show file size for each photo
+    - Show error message if file is too large or wrong type
 
-5. **Update message sending:**
+3. **State management:**
 
-    - If photos selected, upload photos first
-    - Wait for all uploads to complete
-    - Create message with `photo_urls` array
-    - Handle partial failures (some photos fail to upload)
-
-6. **Display photos in MessageBubble:**
-
-    - Check if message has `photo_urls` array
-    - Display photos in grid layout (1-2 columns on mobile, more on desktop)
-    - Show photo thumbnails (clickable to view full size)
-    - Add lightbox/modal for full-size photo viewing
-    - Show loading state while photos load
-    - Handle broken/missing images gracefully
-
-7. **Update real-time subscriptions:**
-
-    - Ensure photo messages appear in real-time
-    - Photos should load automatically when message arrives
-
-8. **Test:**
-    - Can select and upload photos
-    - Photos appear in message bubbles
-    - Photos appear in real-time on other devices
-    - Can view full-size photos
-    - Organization isolation works (users can't see other org's photos)
-    - Error handling works (failed uploads, network issues)
+    - Track selected photos in component state
+    - Clear selection after message is sent
+    - Handle file input reset
 
 **Testing:**
 
--   Can select multiple photos from device
--   Photos upload successfully to Supabase Storage
--   Photos appear in message bubbles with correct layout
--   Can click photos to view full size
--   Photos appear in real-time on other devices
--   Organization isolation prevents cross-org photo access
--   Upload progress is shown
--   Error handling works for failed uploads
--   File size limits are enforced
--   Only allowed file types are accepted
+-   Can click photo button and select files
+-   Preview thumbnails appear for selected photos
+-   Can remove photos from selection
+-   File size validation works (rejects files > 8MB)
+-   File type validation works (rejects non-image files)
+-   Can test UI without upload working (just selection/preview)
 
-**Deliverable:** Photo sharing working in messages. Users can send and receive photos with proper storage, display, and real-time updates.
+**Deliverable:** Photo selection and preview UI working (no upload yet).
+
+---
+
+### Milestone 5.9d: Integrate Upload with Message Sending
+
+**Goal:** Connect photo selection UI to upload function and message creation.
+
+**Tasks:**
+
+1. **Update MessageInput to handle photo uploads:**
+
+    - When send button clicked and photos are selected:
+        - Upload all photos in parallel using `uploadPhoto()` function
+        - Show single "Uploading photos..." message with spinner
+        - Disable send button while uploading
+        - Wait for all uploads to complete before creating message
+    - Handle upload errors (partial success approach):
+        - Track which photos succeed and which fail
+        - If all photos succeed → send message normally, clear photos
+        - If some photos fail → send message with successful photos, keep failed photos in selection, show error message (e.g., "3 photos failed to upload")
+        - If all photos fail → don't send message, keep photos in selection, show error message
+        - Failed photos remain visible in the input area so user can retry
+    - Allow sending messages with photos only (no text content required):
+        - Update validation to allow sending if photos are selected, even if message is empty
+        - Message can have text only, photos only, or both
+
+2. **Update message creation:**
+
+    - If photos were uploaded, include `photo_urls` array in message
+    - Array should contain URLs of only successfully uploaded photos
+    - Handle case where all uploads fail (don't create message, show error, keep photos selected)
+    - Handle case where some uploads fail (send message with successful photos, keep failed photos selected)
+    - Allow message creation with empty content if photos are present
+    - Message content can be empty string if photos exist
+
+3. **Upload progress UI:**
+
+    - Show single "Uploading photos..." message with spinner during upload
+    - After upload completes:
+        - If all succeed: Clear photos, send message normally
+        - If some fail: Show error message with count (e.g., "3 photos failed to upload"), keep failed photos visible in selection
+        - If all fail: Show error message, keep all photos visible in selection
+    - Failed photos remain in the input area (user can see them and retry by clicking send again)
+
+**Testing:**
+
+-   Can select photos and send message (with or without text)
+-   Can send message with photos only (no text content)
+-   Photos upload before message is created
+-   "Uploading photos..." message shown during upload
+-   Send button is disabled during upload
+-   Message is created with `photo_urls` array containing only successful uploads
+-   All photos succeed: Message sent, photos cleared
+-   Some photos fail: Message sent with successful photos, failed photos remain in selection, error message shown (e.g., "3 photos failed to upload")
+-   All photos fail: Message not sent, all photos remain in selection, error message shown
+-   Failed photos can be retried by clicking send again
+-   Error handling works for failed uploads
+-   Can test full send flow end-to-end
+
+**Deliverable:** Full photo upload and message sending flow working.
+
+---
+
+### Milestone 5.9e: Display Photos in Messages
+
+**Goal:** Display photos in message bubbles.
+
+**Tasks:**
+
+1. **Update MessageBubble component:**
+
+    - Check if message has `photo_urls` array
+    - Display photos in grid layout:
+        - 1 column on mobile (stacked)
+        - 2 columns on larger screens
+        - Responsive grid that adapts to screen size
+    - Show photo thumbnails (optimized size for performance)
+    - Show loading state while photos load (skeleton or spinner)
+    - Handle broken/missing images gracefully (show placeholder or error icon)
+
+2. **Photo styling:**
+
+    - Photos should fit within message bubble
+    - Maintain aspect ratio
+    - Add border radius for consistency
+    - Show photo count if multiple photos
+
+3. **Real-time updates:**
+
+    - Photos should appear automatically when message arrives via real-time
+    - No additional work needed (real-time subscriptions already handle this)
+
+**Testing:**
+
+-   Photos appear in message bubbles
+-   Grid layout works on mobile and desktop
+-   Photos load correctly
+-   Broken images are handled gracefully
+-   Photos appear in real-time on other devices
+-   Can test viewing (use test URLs or already-uploaded photos)
+
+**Deliverable:** Photos display correctly in message bubbles with proper layout.
+
+---
+
+### Milestone 5.9f: Photo Viewing Polish
+
+**Goal:** Add lightbox for full-size photo viewing and polish error handling.
+
+**Tasks:**
+
+1. **Add lightbox/modal for full-size viewing:**
+
+    - Click on photo thumbnail opens lightbox
+    - Display full-size photo in modal/overlay
+    - Add close button (X or click outside to close)
+    - Support keyboard navigation (ESC to close)
+    - If multiple photos, add navigation (prev/next arrows)
+    - Show photo index (e.g., "2 of 5")
+
+2. **Enhanced error handling:**
+
+    - Better error messages for upload failures
+    - Retry functionality for failed uploads
+    - Clear indication of which photos failed
+    - Network error handling (offline detection)
+
+3. **Edge cases:**
+
+    - Handle very large photos (loading states)
+    - Handle slow network connections
+    - Handle storage quota exceeded
+    - Handle permission errors
+
+**Testing:**
+
+-   Can click photos to view full size
+-   Lightbox opens and closes correctly
+-   Navigation works for multiple photos
+-   Error messages are clear and helpful
+-   Edge cases are handled gracefully
+
+**Deliverable:** Polished photo viewing experience with lightbox and robust error handling.
 
 **Photo Retention Policy (Post-MVP):**
 
