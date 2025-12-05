@@ -4,6 +4,24 @@ import { useAuth } from "../../hooks/useAuth";
 import { getErrorMessage } from "../../lib/errorUtils";
 import Button from "../ui/Button";
 
+// Maximum number of photos per message
+const MAX_PHOTOS = 10;
+// Maximum file size: 8MB
+const MAX_FILE_SIZE = 8 * 1024 * 1024;
+// Allowed MIME types
+const ALLOWED_MIME_TYPES = [
+	"image/jpeg",
+	"image/jpg",
+	"image/png",
+	"image/webp",
+];
+
+interface SelectedPhoto {
+	file: File;
+	preview: string; // Object URL for preview
+	id: string; // Unique ID for React key
+}
+
 interface MessageInputProps {
 	conversationId: string;
 	onMessageSent: () => void;
@@ -35,7 +53,11 @@ export default function MessageInput({
 	const [message, setMessage] = useState("");
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
+	const [photoError, setPhotoError] = useState<string | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
 
 	// Auto-resize textarea based on content
 	useEffect(() => {
@@ -65,8 +87,14 @@ export default function MessageInput({
 
 		try {
 			await sendMessage(conversationId, user.id, trimmedMessage);
-			// Clear input on success
+			// Clear input and photos on success
 			setMessage("");
+			// Clean up photo preview URLs
+			selectedPhotos.forEach((photo) => {
+				URL.revokeObjectURL(photo.preview);
+			});
+			setSelectedPhotos([]);
+			selectedPhotosRef.current = [];
 			// Notify parent to refetch messages
 			onMessageSent();
 		} catch (err) {
@@ -88,7 +116,117 @@ export default function MessageInput({
 		}
 	};
 
-	const isDisabled = sending || !message.trim() || !user?.id;
+	// Validate file before adding to selection
+	const validateFile = (file: File): string | null => {
+		// Check file size
+		if (file.size > MAX_FILE_SIZE) {
+			const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+			return `File "${file.name}" is too large (${sizeMB}MB). Maximum size is 8MB.`;
+		}
+
+		// Check file type
+		if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+			return `File "${file.name}" is not a supported image type. Allowed types: jpeg, jpg, png, webp.`;
+		}
+
+		return null;
+	};
+
+	// Handle file selection
+	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const files = e.target.files;
+		if (!files || files.length === 0) return;
+
+		setPhotoError(null);
+
+		// Check if adding these files would exceed the limit
+		if (selectedPhotos.length + files.length > MAX_PHOTOS) {
+			setPhotoError(
+				`Maximum ${MAX_PHOTOS} photos per message. Please remove some photos first.`
+			);
+			// Reset file input
+			if (fileInputRef.current) {
+				fileInputRef.current.value = "";
+			}
+			return;
+		}
+
+		// Validate and add files
+		const newPhotos: SelectedPhoto[] = [];
+		const errors: string[] = [];
+
+		Array.from(files).forEach((file) => {
+			const validationError = validateFile(file);
+			if (validationError) {
+				errors.push(validationError);
+			} else {
+				// Create preview URL
+				const preview = URL.createObjectURL(file);
+				newPhotos.push({
+					file,
+					preview,
+					id: crypto.randomUUID(),
+				});
+			}
+		});
+
+		if (errors.length > 0) {
+			setPhotoError(errors.join(" "));
+		}
+
+		if (newPhotos.length > 0) {
+			setSelectedPhotos((prev) => {
+				const updated = [...prev, ...newPhotos];
+				selectedPhotosRef.current = updated;
+				return updated;
+			});
+		}
+
+		// Reset file input to allow selecting the same file again
+		if (fileInputRef.current) {
+			fileInputRef.current.value = "";
+		}
+	};
+
+	// Remove photo from selection
+	const handleRemovePhoto = (photoId: string) => {
+		setSelectedPhotos((prev) => {
+			const photo = prev.find((p) => p.id === photoId);
+			if (photo) {
+				// Revoke object URL to free memory
+				URL.revokeObjectURL(photo.preview);
+			}
+			const updated = prev.filter((p) => p.id !== photoId);
+			selectedPhotosRef.current = updated;
+			return updated;
+		});
+	};
+
+	// Clean up object URLs when component unmounts
+	useEffect(() => {
+		return () => {
+			// Clean up all object URLs on unmount using ref
+			selectedPhotosRef.current.forEach((photo) => {
+				URL.revokeObjectURL(photo.preview);
+			});
+		};
+	}, []); // Only run on unmount
+
+	// Format file size for display
+	const formatFileSize = (bytes: number): string => {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+	};
+
+	const isDisabled =
+		sending ||
+		(!message.trim() && selectedPhotos.length === 0) ||
+		!user?.id;
+
+	const handlePhotoButtonClick = () => {
+		fileInputRef.current?.click();
+	};
 
 	return (
 		<div className="bg-white border-t border-gray-200 p-4">
@@ -97,7 +235,82 @@ export default function MessageInput({
 					{error}
 				</div>
 			)}
+			{photoError && (
+				<div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
+					{photoError}
+				</div>
+			)}
+
+			{/* Photo previews */}
+			{selectedPhotos.length > 0 && (
+				<div className="mb-3">
+					<div className="flex items-center justify-between mb-2">
+						<p className="text-sm text-gray-600">
+							{selectedPhotos.length} photo
+							{selectedPhotos.length !== 1 ? "s" : ""} selected
+						</p>
+					</div>
+					<div className="flex flex-wrap gap-2">
+						{selectedPhotos.map((photo) => (
+							<div key={photo.id} className="relative group">
+								<img
+									src={photo.preview}
+									alt={photo.file.name}
+									className="w-20 h-20 object-cover rounded border border-gray-300"
+								/>
+								<button
+									type="button"
+									onClick={() => handleRemovePhoto(photo.id)}
+									className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors"
+									aria-label="Remove photo"
+								>
+									×
+								</button>
+								<div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b">
+									{formatFileSize(photo.file.size)}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
+
 			<form onSubmit={handleSubmit} className="flex gap-2 items-end">
+				{/* Hidden file input */}
+				<input
+					ref={fileInputRef}
+					type="file"
+					accept="image/jpeg,image/jpg,image/png,image/webp"
+					multiple
+					onChange={handleFileSelect}
+					className="hidden"
+				/>
+
+				{/* Photo button */}
+				<button
+					type="button"
+					onClick={handlePhotoButtonClick}
+					disabled={sending || selectedPhotos.length >= MAX_PHOTOS}
+					className="shrink-0 p-2 text-gray-600 hover:text-pink-500 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+					aria-label="Add photos"
+					title="Add photos"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						className="h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+						/>
+					</svg>
+				</button>
+
 				<textarea
 					ref={textareaRef}
 					value={message}
