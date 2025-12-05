@@ -1604,34 +1604,50 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 1. **Update MessageInput to handle photo uploads:**
 
     - When send button clicked and photos are selected:
-        - Upload all photos using `uploadPhoto()` function
-        - Show upload progress for each photo (progress bar or spinner)
+        - Upload all photos in parallel using `uploadPhoto()` function
+        - Show single "Uploading photos..." message with spinner
         - Disable send button while uploading
         - Wait for all uploads to complete before creating message
-    - Handle upload errors:
-        - If some photos fail, show error message
-        - Allow user to retry failed uploads
-        - Optionally: allow sending message with only successfully uploaded photos
+    - Handle upload errors (partial success approach):
+        - Track which photos succeed and which fail
+        - If all photos succeed → send message normally, clear photos
+        - If some photos fail → send message with successful photos, keep failed photos in selection, show error message (e.g., "3 photos failed to upload")
+        - If all photos fail → don't send message, keep photos in selection, show error message
+        - Failed photos remain visible in the input area so user can retry
+    - Allow sending messages with photos only (no text content required):
+        - Update validation to allow sending if photos are selected, even if message is empty
+        - Message can have text only, photos only, or both
 
 2. **Update message creation:**
 
     - If photos were uploaded, include `photo_urls` array in message
-    - Array should contain URLs of successfully uploaded photos
-    - Handle case where all uploads fail (don't create message, show error)
+    - Array should contain URLs of only successfully uploaded photos
+    - Handle case where all uploads fail (don't create message, show error, keep photos selected)
+    - Handle case where some uploads fail (send message with successful photos, keep failed photos selected)
+    - Allow message creation with empty content if photos are present
+    - Message content can be empty string if photos exist
 
 3. **Upload progress UI:**
 
-    - Show progress indicator for each photo
-    - Update progress as each photo uploads
-    - Show success/error state for each photo
+    - Show single "Uploading photos..." message with spinner during upload
+    - After upload completes:
+        - If all succeed: Clear photos, send message normally
+        - If some fail: Show error message with count (e.g., "3 photos failed to upload"), keep failed photos visible in selection
+        - If all fail: Show error message, keep all photos visible in selection
+    - Failed photos remain in the input area (user can see them and retry by clicking send again)
 
 **Testing:**
 
--   Can select photos and send message
+-   Can select photos and send message (with or without text)
+-   Can send message with photos only (no text content)
 -   Photos upload before message is created
--   Upload progress is shown
+-   "Uploading photos..." message shown during upload
 -   Send button is disabled during upload
--   Message is created with `photo_urls` array
+-   Message is created with `photo_urls` array containing only successful uploads
+-   All photos succeed: Message sent, photos cleared
+-   Some photos fail: Message sent with successful photos, failed photos remain in selection, error message shown (e.g., "3 photos failed to upload")
+-   All photos fail: Message not sent, all photos remain in selection, error message shown
+-   Failed photos can be retried by clicking send again
 -   Error handling works for failed uploads
 -   Can test full send flow end-to-end
 
