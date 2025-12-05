@@ -2654,13 +2654,263 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 11: Expo Wrapping (For Reliable iOS Notifications)
+## Phase 11: Landing Page & Marketing Site
+
+**Goal:** Create a professional, impressive landing page to attract rescue organizations, showcase the app, and provide information for portfolio visitors.
+
+---
+
+### Milestone 11.1: Landing Page Structure & Navigation
+
+**Goal:** Set up the landing page route structure and navigation to existing app functionality.
+
+**Tasks:**
+
+1. Create landing page route:
+    - Add public route `/` (landing page) - not protected by authentication
+    - Update routing so landing page is accessible without login
+    - Ensure `/login` and `/signup` routes remain accessible
+2. Create `src/pages/Landing.tsx` component:
+    - Basic page structure with sections (will be filled in subsequent milestones)
+    - Navigation header with links to Login and Sign Up
+    - Footer with links and information
+3. Update `App.tsx` routing:
+    - Landing page (`/`) is public (not wrapped in ProtectedRoute)
+    - Login and signup routes remain public
+    - All other routes remain protected
+4. Add navigation from landing page:
+    - "Login" button/link in header
+    - "Sign Up" button/link in header (or CTA button)
+    - Links navigate to `/login` and `/signup` routes
+5. Test: Can access landing page without login, can navigate to login/signup, protected routes still require auth
+
+**Testing:**
+
+-   Landing page loads at `/` without requiring authentication
+-   Login and Sign Up links work correctly
+-   Protected routes still require authentication
+-   Navigation is clear and professional
+
+**Deliverable:** Landing page structure with navigation to app functionality.
+
+---
+
+### Milestone 11.2: App Description & Partner Showcase
+
+**Goal:** Display compelling app information and showcase partners/testimonials (e.g., Co Kitty Coalition).
+
+**Tasks:**
+
+1. Create hero section:
+    - Eye-catching headline about the app's purpose
+    - Subheadline explaining value proposition
+    - Call-to-action buttons (Sign Up, Learn More, etc.)
+    - Professional, modern design
+2. Create app features section:
+    - Key features of the platform (messaging, animal management, etc.)
+    - Benefits for rescue organizations
+    - Visual elements (icons, illustrations, or screenshots)
+3. Create partner showcase section:
+    - Display partner organizations (e.g., Co Kitty Coalition logo/name)
+    - Testimonials/quotes from partners about the app
+    - "Trusted by" or "Used by" messaging
+    - Professional presentation of social proof
+4. Create "How It Works" section:
+    - Step-by-step explanation of the app
+    - Visual flow or simple graphics
+    - Clear, easy-to-understand language
+5. Style for professional appearance:
+    - Modern, clean design
+    - Mobile-responsive layout
+    - Consistent with app's design system (if available)
+
+**Testing:**
+
+-   Hero section is compelling and clear
+-   Features are well-presented and understandable
+-   Partner showcase looks professional
+-   Testimonials/quotes are displayed attractively
+-   Mobile and desktop layouts work well
+
+**Deliverable:** App description and partner showcase sections complete.
+
+---
+
+### Milestone 11.3: App Demo & Advertising
+
+**Goal:** Showcase the app with demos, screenshots, or interactive elements to demonstrate value.
+
+**Tasks:**
+
+1. Create demo/screenshots section:
+    - Screenshots of key app features (dashboard, messaging, animal management)
+    - Image carousel or gallery for multiple screenshots
+    - Captions explaining what each screenshot shows
+    - High-quality, professional screenshots
+2. Add interactive demo (optional):
+    - Embedded video demo (if available)
+    - Or interactive prototype/walkthrough
+    - Or animated GIFs showing app flow
+3. Create "Key Benefits" section:
+    - Highlight main value propositions
+    - Compare to current solutions (spreadsheets, text chains)
+    - Show time savings, efficiency gains
+    - Use data/statistics if available
+4. Add "Request Demo" or "Schedule a Call" CTA:
+    - Button to contact for personalized demo
+    - Links to contact form or email
+5. Style for visual appeal:
+    - Professional screenshot presentation
+    - Clear, readable captions
+    - Engaging layout
+
+**Testing:**
+
+-   Screenshots are high-quality and clear
+-   Demo section is engaging
+-   Benefits are clearly communicated
+-   CTAs are prominent and functional
+-   Mobile layout works well
+
+**Deliverable:** App demo and advertising sections complete with screenshots and compelling messaging.
+
+---
+
+### Milestone 11.4: Contact & Personal Story
+
+**Goal:** Provide contact information and share personal story to build trust and connection.
+
+**Tasks:**
+
+1. Create "About the Developer" section:
+    - Personal story and background
+    - Why you built this app
+    - Your connection to animal rescue
+    - Professional but personal tone
+2. Create contact section:
+    - Contact form for rescue organizations interested in using the app
+    - Email address for inquiries
+    - Clear call-to-action for organizations to reach out
+    - Form fields: organization name, email, message, etc.
+3. Implement contact form functionality:
+    - Form submission handler
+    - Send emails (via email service or Supabase Edge Function)
+    - Success/error messaging
+    - Validation and spam protection (optional)
+4. Add "For Rescue Organizations" section:
+    - Information about how to get started
+    - What to expect when signing up
+    - How the app can help their organization
+5. Style for professional yet approachable appearance:
+    - Personal but not overly casual
+    - Clear contact information
+    - Easy-to-use contact form
+
+**Testing:**
+
+-   Personal story is engaging and builds trust
+-   Contact form works correctly
+-   Form submissions are received
+-   Success/error messages display properly
+-   Contact information is clear and accessible
+
+**Deliverable:** Contact section and personal story complete with working contact form.
+
+---
+
+### Milestone 11.5: Donation Section
+
+**Goal:** Provide a way for visitors to support the project through donations.
+
+**Tasks:**
+
+1. Create donation section:
+    - Explanation of how donations support the project
+    - What donations are used for (development, hosting, etc.)
+    - Clear, transparent messaging
+2. Add donation options:
+    - Payment links (PayPal, Venmo, etc.)
+    - Or embedded donation form
+    - Multiple payment methods if possible
+3. Add "Why Donate" information:
+    - Impact of donations
+    - How donations help rescue organizations
+    - Optional: Show donation goals or impact metrics
+4. Style for trust and transparency:
+    - Professional payment presentation
+    - Clear donation amounts (if applicable)
+    - Secure payment messaging
+5. Test donation flow:
+    - Verify payment links work
+    - Test on mobile and desktop
+    - Ensure secure payment handling
+
+**Testing:**
+
+-   Donation section is clear and compelling
+-   Payment links/forms work correctly
+-   Multiple payment methods are available
+-   Mobile and desktop donation flows work
+-   Secure payment messaging is present
+
+**Deliverable:** Donation section complete with working payment options.
+
+---
+
+### Milestone 11.6: Landing Page Polish & Figma Design
+
+**Goal:** Refine landing page design using Figma, ensuring professional, impressive appearance.
+
+**Tasks:**
+
+1. **Set up Figma design:**
+    - Create landing page designs in Figma
+    - Design all sections (hero, features, demo, contact, donate)
+    - Ensure cohesive visual design
+    - Use color palette from app (Co Kitty Coalition colors if available)
+2. Review Figma designs:
+    - Hero section layout and typography
+    - Feature sections and spacing
+    - Partner showcase presentation
+    - Demo/screenshot presentation
+    - Contact form design
+    - Donation section design
+3. Update component styling to match Figma:
+    - Colors, spacing, typography from designs
+    - Button styles, form styles
+    - Section layouts and spacing
+    - Responsive breakpoints
+4. Create or update design system:
+    - Landing page specific components
+    - Reusable sections/components
+    - Typography scale for marketing content
+    - Color usage for landing page
+5. Ensure mobile-first responsive design:
+    - All sections work on mobile
+    - Navigation is mobile-friendly
+    - Forms are usable on mobile
+    - Images/screenshots scale properly
+6. Test: Compare landing page to Figma designs, verify consistency, test on multiple devices
+
+**Testing:**
+
+-   Landing page matches Figma designs
+-   Components are consistent
+-   Mobile and desktop layouts work
+-   Design system is applied consistently
+-   Professional, impressive appearance
+
+**Deliverable:** Polished landing page matching Figma designs, ready for production.
+
+---
+
+## Phase 12: Expo Wrapping (For Reliable iOS Notifications)
 
 **Goal:** Wrap PWA in Expo to enable App Store distribution and reliable iOS push notifications via APNs.
 
 ---
 
-### Milestone 11.1: Initialize Expo Project
+### Milestone 12.1: Initialize Expo Project
 
 **Goal:** Create Expo app that wraps the existing PWA.
 
@@ -2692,7 +2942,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.2: Expo Push Notifications
+### Milestone 12.2: Expo Push Notifications
 
 **Goal:** Replace FCM with Expo Push Notifications for reliable iOS support.
 
@@ -2724,7 +2974,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.3: Build & Publish
+### Milestone 12.3: Build & Publish
 
 **Goal:** Build and publish app to App Store and Play Store.
 
