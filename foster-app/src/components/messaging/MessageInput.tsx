@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
+import { useUserProfile } from "../../hooks/useUserProfile";
 import { getErrorMessage } from "../../lib/errorUtils";
+import { uploadPhoto } from "../../lib/photoUtils";
 import Button from "../ui/Button";
+import LoadingSpinner from "../ui/LoadingSpinner";
 
 // Maximum number of photos per message
 const MAX_PHOTOS = 10;
@@ -27,15 +30,21 @@ interface MessageInputProps {
 	onMessageSent: () => void;
 }
 
+type UploadResult =
+	| { success: true; photo: SelectedPhoto; url: string }
+	| { success: false; photo: SelectedPhoto; error: unknown };
+
 async function sendMessage(
 	conversationId: string,
 	senderId: string,
-	content: string
+	content: string,
+	photoUrls: string[] | null = null
 ): Promise<void> {
 	const { error } = await supabase.from("messages").insert({
 		conversation_id: conversationId,
 		sender_id: senderId,
-		content: content.trim(),
+		content: content.trim() || "", // Allow empty content if photos exist
+		photo_urls: photoUrls && photoUrls.length > 0 ? photoUrls : null,
 	});
 
 	if (error) {
@@ -50,8 +59,10 @@ export default function MessageInput({
 	onMessageSent,
 }: MessageInputProps) {
 	const { user } = useAuth();
+	const { profile } = useUserProfile();
 	const [message, setMessage] = useState("");
 	const [sending, setSending] = useState(false);
+	const [uploading, setUploading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
 	const [photoError, setPhotoError] = useState<string | null>(null);
@@ -70,9 +81,9 @@ export default function MessageInput({
 	const handleSubmit = async (e?: React.FormEvent) => {
 		e?.preventDefault();
 
-		// Validation: message must not be empty
+		// Validation: must have either message text or photos
 		const trimmedMessage = message.trim();
-		if (!trimmedMessage) {
+		if (!trimmedMessage && selectedPhotos.length === 0) {
 			return;
 		}
 
@@ -82,19 +93,112 @@ export default function MessageInput({
 			return;
 		}
 
+		// Validation: organization ID must be available for photo uploads
+		if (!profile?.organization_id) {
+			setError("Organization information not available.");
+			return;
+		}
+
 		setSending(true);
 		setError(null);
+		setPhotoError(null);
 
 		try {
-			await sendMessage(conversationId, user.id, trimmedMessage);
+			const photoUrls: string[] = [];
+			const failedPhotos: SelectedPhoto[] = [];
+
+			// Upload photos if any are selected
+			if (selectedPhotos.length > 0) {
+				setUploading(true);
+
+				// Upload all photos in parallel
+				const organizationId = profile.organization_id;
+				if (!organizationId) {
+					throw new Error("Organization ID not available");
+				}
+				const uploadPromises = selectedPhotos.map(
+					async (photo): Promise<UploadResult> => {
+						try {
+							const url = await uploadPhoto(
+								photo.file,
+								organizationId,
+								conversationId
+							);
+							return { success: true, photo, url };
+						} catch (err) {
+							return { success: false, photo, error: err };
+						}
+					}
+				);
+
+				const uploadResults = await Promise.all(uploadPromises);
+
+				// Separate successful and failed uploads
+				uploadResults.forEach((result) => {
+					if (result.success) {
+						photoUrls.push(result.url);
+					} else {
+						failedPhotos.push(result.photo);
+					}
+				});
+
+				setUploading(false);
+
+				// If all photos failed, don't send message
+				if (failedPhotos.length === selectedPhotos.length) {
+					setPhotoError(
+						`${failedPhotos.length} photo${
+							failedPhotos.length !== 1 ? "s" : ""
+						} failed to upload. Please try again.`
+					);
+					setSending(false);
+					return;
+				}
+
+				// If some photos failed, show error but continue
+				if (failedPhotos.length > 0) {
+					setPhotoError(
+						`${failedPhotos.length} photo${
+							failedPhotos.length !== 1 ? "s" : ""
+						} failed to upload. Message sent with ${
+							photoUrls.length
+						} photo${photoUrls.length !== 1 ? "s" : ""}.`
+					);
+					// Remove failed photos from selection
+					setSelectedPhotos((prev) => {
+						const updated = prev.filter(
+							(p) => !failedPhotos.some((fp) => fp.id === p.id)
+						);
+						selectedPhotosRef.current = updated;
+						// Clean up failed photo preview URLs
+						failedPhotos.forEach((photo) => {
+							URL.revokeObjectURL(photo.preview);
+						});
+						return updated;
+					});
+				}
+			}
+
+			// Send message with successful photo URLs
+			await sendMessage(
+				conversationId,
+				user.id,
+				trimmedMessage,
+				photoUrls.length > 0 ? photoUrls : null
+			);
+
 			// Clear input and photos on success
 			setMessage("");
-			// Clean up photo preview URLs
+			// Clean up remaining photo preview URLs
 			selectedPhotos.forEach((photo) => {
 				URL.revokeObjectURL(photo.preview);
 			});
 			setSelectedPhotos([]);
 			selectedPhotosRef.current = [];
+			// Clear photo error if message was sent successfully
+			if (failedPhotos.length === 0) {
+				setPhotoError(null);
+			}
 			// Notify parent to refetch messages
 			onMessageSent();
 		} catch (err) {
@@ -105,6 +209,7 @@ export default function MessageInput({
 			);
 		} finally {
 			setSending(false);
+			setUploading(false);
 		}
 	};
 
@@ -221,6 +326,7 @@ export default function MessageInput({
 
 	const isDisabled =
 		sending ||
+		uploading ||
 		(!message.trim() && selectedPhotos.length === 0) ||
 		!user?.id;
 
@@ -238,6 +344,12 @@ export default function MessageInput({
 			{photoError && (
 				<div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
 					{photoError}
+				</div>
+			)}
+			{uploading && (
+				<div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-blue-600 text-sm flex items-center gap-2">
+					<LoadingSpinner />
+					<span>Uploading photos...</span>
 				</div>
 			)}
 
@@ -331,7 +443,11 @@ export default function MessageInput({
 					disabled={isDisabled}
 					className="w-auto! shrink-0 px-4 py-2"
 				>
-					{sending ? "Sending..." : "Send"}
+					{uploading
+						? "Uploading..."
+						: sending
+						? "Sending..."
+						: "Send"}
 				</Button>
 			</form>
 		</div>
