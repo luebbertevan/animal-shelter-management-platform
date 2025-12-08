@@ -123,9 +123,19 @@ export default function Dashboard() {
 						<Link to="/animals" className="block">
 							<Button>View Animals</Button>
 						</Link>
-						<Link to="/animals/new" className="block">
-							<Button>Create New Animal</Button>
+						{isCoordinator && (
+							<Link to="/animals/new" className="block">
+								<Button>Create New Animal</Button>
+							</Link>
+						)}
+						<Link to="/groups" className="block">
+							<Button>View Groups</Button>
 						</Link>
+						{isCoordinator && (
+							<Link to="/groups/new" className="block">
+								<Button>Create New Group</Button>
+							</Link>
+						)}
 					</div>
 				</div>
 

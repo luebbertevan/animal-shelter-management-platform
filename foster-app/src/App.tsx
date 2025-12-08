@@ -5,6 +5,9 @@ import Dashboard from "./pages/Dashboard";
 import AnimalsList from "./pages/animals/AnimalsList";
 import AnimalDetail from "./pages/animals/AnimalDetail";
 import NewAnimal from "./pages/animals/NewAnimal";
+import GroupsList from "./pages/animals/GroupsList";
+import GroupDetail from "./pages/animals/GroupDetail";
+import NewGroup from "./pages/animals/NewGroup";
 import ConversationDetail from "./pages/messaging/ConversationDetail";
 import ConversationsList from "./pages/messaging/ConversationsList";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -44,6 +47,30 @@ function App() {
 					element={
 						<ProtectedRoute>
 							<AnimalDetail />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/groups"
+					element={
+						<ProtectedRoute>
+							<GroupsList />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/groups/new"
+					element={
+						<ProtectedRoute>
+							<NewGroup />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/groups/:id"
+					element={
+						<ProtectedRoute>
+							<GroupDetail />
 						</ProtectedRoute>
 					}
 				/>

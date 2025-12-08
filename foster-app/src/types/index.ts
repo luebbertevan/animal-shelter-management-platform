@@ -104,6 +104,7 @@ export interface AnimalGroup {
 	id: string;
 	name?: string; // e.g., "Litter of 4 kittens"
 	description?: string;
+	priority?: boolean; // High priority flag for urgent placement needs
 	// NOTE: Stored as JSONB array for MVP. Could migrate to separate photos table for better querying later
 	group_photos?: TimestampedPhoto[]; // Timestamped group photos
 	// NOTE: Stored as array for MVP. Could migrate to junction table (group_animals) if needed for more complex group management
