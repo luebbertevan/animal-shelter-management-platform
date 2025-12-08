@@ -1699,7 +1699,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 5.9f: Photo Viewing Polish
 
-**Goal:** Add lightbox for full-size photo viewing and polish error handling.
+**Goal:** Add lightbox for full-size photo viewing.
 
 **Tasks:**
 
@@ -1711,39 +1711,36 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Support keyboard navigation (ESC to close)
     - If multiple photos, add navigation (prev/next arrows)
     - Show photo index (e.g., "2 of 5")
+    - Add download button in lightbox to download full-size photo
+    - Dark overlay behind photo
 
-2. **Enhanced error handling:**
+**Note on Error Handling:**
 
-    - Better error messages for upload failures
-    - Retry functionality for failed uploads
-    - Clear indication of which photos failed
-    - Network error handling (offline detection)
+-   Current error handling is sufficient for MVP:
+    -   Clear error messages already implemented (e.g., "3 photos failed to upload. Message sent with 2 photos.")
+    -   Specific error types handled (file size, quota, permission, network)
+    -   Partial success handling works correctly
+    -   Users can retry by clicking send again
+-   Enhanced error handling (explicit retry buttons, offline detection) can be added post-MVP if needed
 
-3. **Edge cases:**
+**Note on Edge Cases:**
 
-    - Handle very large photos (loading states)
-    - Handle slow network connections
-    - Handle storage quota exceeded
-    - Handle permission errors
+-   Edge cases are already handled:
+    -   Very large photos: Loading states implemented in MessageBubble
+    -   Slow network: Loading spinner shows during upload
+    -   Storage quota: Specific error message already implemented
+    -   Permission errors: Specific error message already implemented
 
 **Testing:**
 
 -   Can click photos to view full size
 -   Lightbox opens and closes correctly
 -   Navigation works for multiple photos
--   Error messages are clear and helpful
--   Edge cases are handled gracefully
+-   Download button works
+-   Keyboard navigation works (ESC to close)
+-   Click outside closes lightbox
 
-**Deliverable:** Polished photo viewing experience with lightbox and robust error handling.
-
-**Photo Retention Policy (Post-MVP):**
-
--   **Per-user limit:** 1,000 photos per user across all conversations (prevents abuse while allowing dedicated fosters to share many photos)
--   **Cleanup logic:** When a user exceeds 1,000 photos, delete oldest photos uploaded by that user
--   **Implementation:** Track total photo count per user, check on upload, delete oldest photos if limit exceeded
--   **Rationale:** Most fosters send ~50 photos/year, dedicated fosters may send 200-500/year. 1,000 photos is generous for active users but prevents blatant abuse (10,000+ photos)
--   **Storage impact:** With 200 users × 1,000 photos max = 600GB theoretical max, but realistic usage is much lower (most users under 500 photos). Estimated actual storage: 100-200GB for message photos, keeping costs around $25-30/month for 5+ years
--   **Note:** Animal/group photos are kept forever (documentation), only message photos have retention limits
+**Deliverable:** Lightbox functionality for full-size photo viewing with navigation and download.
 
 ---
 
@@ -2559,6 +2556,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Display photo grid with thumbnails
     - Show photo metadata (uploaded_at, uploaded_by name)
     - Lightbox/modal for full-size viewing
+    - Download button to download full-size photos
     - Handle loading states and broken images
     - Accept props: `photos` (array), `onDelete` (optional, for permission-based deletion)
 5. **Update animal detail page:**
@@ -2609,7 +2607,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   RLS policies prevent cross-organization access
 -   Photo deletion works correctly with permission checks
 
-**Deliverable:** Photo upload functionality working for animals and groups with proper permission controls.
+**Deliverable:** Photo upload functionality working for animals and groups with proper permission controls and download functionality.
 
 **Photo Retention Policy:**
 
@@ -2749,7 +2747,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Navigation components
 6. Ensure mobile-first responsive design
 7. Test: Compare UI to Figma designs, verify consistency
-8. **Post-milestone:** Schedule meeting with UX designer contact to gather feedback on design implementation
+8. **Create custom thematic loading spinner:**
+    - Design cat-themed spinner animation in Figma
+    - Replace generic loading spinners with thematic spinner
+    - Ensure spinner works on both light and dark backgrounds
+    - Add spinner to photo lightbox and other loading states
+    - Make it subtle and professional (not too playful)
+9. **Post-milestone:** Schedule meeting with UX designer contact to gather feedback on design implementation
 
 **Testing:**
 
@@ -2757,8 +2761,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Components are consistent
 -   Mobile and desktop layouts work
 -   Design system is applied consistently
+-   Thematic spinner is consistent and professional
 
-**Deliverable:** Figma designs implemented with Co Kitty Coalition color palette.
+**Deliverable:** Figma designs implemented with Co Kitty Coalition color palette, including custom thematic loading spinner.
 
 **Notes:**
 
@@ -3315,3 +3320,22 @@ At the end of these milestones, you should have:
 -   Figma designs implemented
 -   Improved loading and empty states
 -   Better error handling
+
+## Post-MVP Features & Enhancements
+
+### Photo Retention Policy
+
+**Goal:** Implement per-user photo limits to prevent storage abuse while allowing dedicated fosters to share many photos.
+
+**Policy Details:**
+
+-   **Per-user limit:** 1,000 photos per user across all conversations (prevents abuse while allowing dedicated fosters to share many photos)
+-   **Cleanup logic:** When a user exceeds 1,000 photos, delete oldest photos uploaded by that user
+-   **Implementation:** Track total photo count per user, check on upload, delete oldest photos if limit exceeded
+-   **Rationale:** Most fosters send ~50 photos/year, dedicated fosters may send 200-500/year. 1,000 photos is generous for active users but prevents blatant abuse (10,000+ photos)
+-   **Storage impact:** With 200 users × 1,000 photos max = 600GB theoretical max, but realistic usage is much lower (most users under 500 photos). Estimated actual storage: 100-200GB for message photos, keeping costs around $25-30/month for 5+ years
+-   **Note:** Animal/group photos are kept forever (documentation), only message photos have retention limits
+
+**When to implement:** After MVP launch, when storage costs become a concern or abuse is detected.
+
+---
