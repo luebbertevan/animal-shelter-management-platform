@@ -311,7 +311,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 1.5: Sign Up
 
-**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. **Note:** This open signup will be replaced in Phase 8 with confirmation code-based signup that links users to organizations and determines their role (coordinator vs foster).
+**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. **Note:** This open signup will be replaced in Phase 10 with confirmation code-based signup that links users to organizations and determines their role (coordinator vs foster).
 
 **Tasks:**
 
@@ -923,7 +923,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Inserts into `public.profiles` with: `id`, `email`, `role` (default 'foster'), and `organization_id` (default org UUID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
     - Create trigger: `on_auth_user_created` that fires AFTER INSERT on `auth.users`
     - **Note:** The trigger will be updated again in Phase 5.2 (M 5.2 - Create Conversation on User Signup) to also create conversations, but for now it just needs to set organization_id
-    - This ensures new signups (before Phase 8) get assigned to default organization
+    - This ensures new signups (before Phase 10) get assigned to default organization
 
 **Tasks:**
 
@@ -993,7 +993,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   User in Org A cannot see data from Org B (when we add second org)
 -   Coordinator in Org A can only manage Org A data
 -   Policies work correctly for all CRUD operations
--   New signups (before Phase 8) get default org and can see default org data
+-   New signups (before Phase 10) get default org and can see default org data
 
 **Deliverable:** RLS policies enforce organization isolation with safe fallbacks.
 
@@ -1047,7 +1047,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 -   Animals list only shows animals from user's organization
 -   Creating animal assigns it to user's organization automatically
--   New signups (before Phase 8) get default org and see default org data
+-   New signups (before Phase 10) get default org and see default org data
 
 **Deliverable:** All queries filter by organization automatically with safe fallbacks.
 
@@ -1131,7 +1131,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Set conversation type to 'foster_chat'
 2. Handle role assignment:
     - Currently: Everyone signs up as 'foster' (default)
-    - Phase 8: Confirmation codes will determine role
+    - Phase 10: Confirmation codes will determine role
     - Solution: Check role from created profile - only fosters get conversations
 3. Test: Sign up as foster, verify conversation is created
 4. Handle edge case: Coordinator signup (no foster chat needed - handled by role check)
@@ -1141,14 +1141,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Updated `handle_new_user()` function to create foster chat after profile creation
 -   Uses `RETURNING id, role` to get created profile's role
 -   Only creates conversation if `role = 'foster'`
--   Works now (everyone is foster) and in Phase 8 (codes determine role)
+-   Works now (everyone is foster) and in Phase 10 (codes determine role)
 
 **Testing:**
 
 -   New foster signup creates foster chat
 -   Conversation is linked to correct organization
 -   Conversation is linked to foster's profile
--   Coordinator signup does not create foster chat (when Phase 8 is implemented)
+-   Coordinator signup does not create foster chat (when Phase 10 is implemented)
 
 **Deliverable:** Automatic conversation creation working for fosters.
 
@@ -1773,9 +1773,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9.5b: Groups List Page
-
-**Goal:** Create read-only groups list page to view all groups in the organization.
+### Milestone 5.9.5b: Groups
 
 **Tasks:**
 
@@ -1785,7 +1783,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Display groups in simple list/card format
     - Show group name, description (if available), and member count
     - Link each group to group detail page
-    - Add "New Group" button (coordinator-only)
+    - Add "Create Group" button (coordinator-only)
     - Handle loading and error states
     - Mobile-first responsive design
 
@@ -1837,7 +1835,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Add back button on group detail page
     - Add "Create Group" button on groups list page
 
-**Note:** This is a minimal implementation. Full editing (M 6.3) will add:
+**Note:** This is a minimal implementation. Full editing (M 6.4) will add:
 
 -   Edit group functionality
 -   Add/remove animals from existing groups
@@ -1995,7 +1993,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Use different colors/styles for different entity types (optional enhancement)
 3. Add navigation for tags:
     - Animals → link to `/animals/:id` (animal detail page)
-    - Groups → link to `/groups/:id` (group detail page - to be created in Phase 6)
+    - Groups → link to `/groups/:id` (group detail page - already created in M 5.9.5b)
     - Fosters → show name only (no profile page yet, or link to future profile page)
 4. Test: Tags display correctly, tags are clickable, navigation works, styling is clear
 
@@ -2122,56 +2120,134 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.3: Group Management UI
+### Milestone 6.3: Reusable Search & Filter Component
 
-**Goal:** Create UI for viewing, creating, and editing animal groups.
+**Goal:** Create reusable search and filter components that can be used across the app (animals list, animal selection in groups, tagging, fosters needed page, etc.).
 
 **Tasks:**
 
-1. Create `src/pages/animals/GroupsList.tsx`:
-    - Fetch all animal groups in organization
-    - Display groups in list format
-    - Show group name, description, member count
-    - Link to group detail page
-    - Add "New Group" button (coordinator-only)
-2. Create `src/pages/animals/GroupDetail.tsx`:
-    - Fetch group by ID from URL params
-    - Display group information
-    - Show list of animals in group with links to animal detail pages
-    - Add "Edit" button (coordinator-only)
-    - Display group-level information (shared care needs, etc.)
-3. Create `src/pages/animals/NewGroup.tsx`:
-    - Form to create new group
-    - Fields: `name`, `description`
-    - Allow selecting animals to add to group (multi-select)
-    - Save group and update animal `group_id` fields
-4. Create `src/pages/animals/EditGroup.tsx`:
-    - Fetch group by ID
-    - Allow editing `name`, `description`
-    - Allow adding/removing animals from group
-    - Update `animal_groups.animal_ids` array and `animals.group_id` fields
-5. Create routes:
-    - `/groups` for groups list
-    - `/groups/:id` for group detail
-    - `/groups/new` for new group (coordinator-only)
-    - `/groups/:id/edit` for edit group (coordinator-only)
-6. Add navigation links to groups page
-7. Test: View groups, create groups, edit groups, add/remove animals
+1. **Create reusable search component** (`src/components/shared/SearchInput.tsx`):
+
+    - Text input with search icon
+    - Debounced search (wait for user to stop typing)
+    - Clear button
+    - Accept props: `value`, `onChange`, `placeholder`, `disabled`
+    - Mobile-friendly styling
+
+2. **Create reusable filter component** (`src/components/animals/AnimalFilters.tsx`):
+
+    - Filter by status (dropdown/multi-select)
+    - Filter by priority (toggle)
+    - Filter by sex (dropdown)
+    - Filter by group (dropdown - shows all groups)
+    - Clear filters button
+    - Show active filter count
+    - Accept props: `filters`, `onFiltersChange`, `availableGroups`
+    - Return filter object that can be applied to Supabase queries
+
+3. **Create filter utility functions** (`src/lib/filterUtils.ts`):
+
+    - Function to build Supabase query from filter object
+    - Function to check if filters are active
+    - Function to clear all filters
+    - Reusable across different pages
+
+4. **Update AnimalsList to use new components**:
+
+    - Integrate SearchInput and AnimalFilters
+    - Apply filters to Supabase query
+    - Display filtered results
+    - Show "No results" when filters match nothing
+    - Preserve filter state in URL params (optional, for shareable links)
+
+5. **Update NewGroup animal selection to use SearchInput**:
+
+    - Add search input above animal checkboxes
+    - Filter animals by name as user types
+    - Improve UX for selecting animals from large lists
+
+6. **Test:**
+    - Search works correctly in animals list
+    - Filters work correctly and can be combined
+    - Search works in group animal selection
+    - Components are reusable and work in different contexts
 
 **Testing:**
 
--   Can view all groups in organization
--   Coordinator can create new groups
--   Coordinator can edit groups
--   Can add/remove animals from groups
--   Animal detail pages show group membership
--   Group detail pages show all group members
+-   Search component works correctly with debouncing
+-   Filter component applies filters correctly
+-   Filters can be combined (status + priority + sex, etc.)
+-   Search works in animals list
+-   Search works in group animal selection
+-   Clear filters button works
+-   Active filter count is accurate
+-   Components are reusable across different pages
 
-**Deliverable:** Group management UI working.
+**Deliverable:** Reusable search and filter components working across the app.
 
 ---
 
-### Milestone 6.4: Display Groups in Animal UI
+### Milestone 6.4: Group Management UI Polish & Edit Functionality
+
+**Goal:** Add missing features to group management UI, including edit functionality, validation, and polish. Note: Basic group management (list, detail, create) was completed in M 5.9.5.
+
+**Tasks:**
+
+1. **Create Edit Group page** (`src/pages/animals/EditGroup.tsx`):
+
+    - Fetch group by ID from URL params
+    - Pre-populate form with existing group data (name, description, priority)
+    - Allow editing `name`, `description`, and `priority`
+    - Allow adding/removing animals from group using search/filter component (from M 6.3)
+    - Update `animal_groups.animal_ids` array on save
+    - Handle loading and error states
+    - Redirect to group detail page after successful update
+    - Add route `/groups/:id/edit` (coordinator-only)
+
+2. **Add Edit button to GroupDetail page**:
+
+    - Show "Edit" button for coordinators only
+    - Link to edit page
+
+3. **Add validation and notifications**:
+
+    - **Duplicate group assignment detection:**
+        - When adding animals to a group, check if animal is already in another group
+        - Show warning notification: "Animal [name] is already in group [group name]. Do you want to move it to this group?"
+        - Allow coordinator to confirm or cancel
+        - If confirmed, remove animal from previous group and add to new group
+        - Show success notification after update
+    - **Empty group validation:**
+        - Warn if trying to save group with no animals
+        - Allow saving empty groups (for future use) but show confirmation
+
+4. **Polish existing group pages**:
+
+    - Improve loading states and error handling
+    - Add better empty states
+    - Improve mobile responsiveness
+    - Add confirmation dialogs for destructive actions (if delete functionality added)
+
+5. **Add missing fields** (if any identified during testing):
+    - Review schema and ensure all relevant fields are displayed/editable
+    - Add any missing fields to forms
+
+**Testing:**
+
+-   Coordinator can edit group name, description, and priority
+-   Coordinator can add/remove animals from existing groups
+-   Duplicate group assignment shows warning and handles correctly
+-   Empty group validation works correctly
+-   Edit page pre-populates with correct data
+-   Changes save correctly to database
+-   Navigation works correctly
+-   Mobile layout is polished
+
+**Deliverable:** Complete group management UI with edit functionality, validation, and polish.
+
+---
+
+### Milestone 6.5: Display Groups in Animal UI
 
 **Goal:** Show group information throughout animal UI and allow adding animals to groups during creation/editing.
 
@@ -2189,8 +2265,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Allow adding animal to existing group or removing from group
 4. Update `AnimalsList.tsx`:
     - Show group indicator/badge for animals in groups
-    - Allow filtering by group
     - Show group name in animal preview cards
+    - Note: Group filtering is already implemented in M 6.3 (Search & Filter Component)
 5. Test: Groups display correctly throughout UI, animals can be added to groups during creation
 
 **Testing:**
@@ -2199,451 +2275,19 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Animals list shows group indicators
 -   Can create animal and assign to group in one step
 -   Can change group membership when editing animal
--   Filtering by group works
+-   Group indicators display correctly in animals list
 
 **Deliverable:** Group display and assignment working throughout animal UI.
 
 ---
 
-## Phase 7: Push Notifications (PWA)
+## Phase 7: Photo Uploads for Animals and Groups
 
-**Goal:** Enable push notifications for messaging and important updates, ensuring users are alerted even when app is closed.
-
----
-
-### Milestone 7.1: Firebase Cloud Messaging Setup
-
-**Goal:** Configure FCM for web push notifications on Android and desktop browsers.
-
-**Tasks:**
-
-1. Create Firebase project at console.firebase.google.com
-2. Add web app to Firebase project
-3. Get Firebase configuration (API key, project ID, etc.)
-4. Install Firebase SDK: `bun add firebase`
-5. Create `src/lib/firebase.ts`:
-    - Initialize Firebase app with config
-    - Initialize messaging service
-    - Create function to request notification permission
-    - Create function to get FCM push token
-    - Create function to handle foreground messages
-6. Get VAPID key from Firebase Console → Project Settings → Cloud Messaging
-7. Store VAPID key in environment variables
-8. Test: Request permission, verify token is generated
-
-**Testing:**
-
--   Can request notification permission
--   FCM token is generated and logged
--   Permission prompt appears correctly
--   Token is valid format
-
-**Deliverable:** FCM configured and ready to use.
+**Goal:** Allow coordinators and fosters to upload photos for animals and groups, with proper permission controls.
 
 ---
 
-### Milestone 7.2: Push Token Storage
-
-**Goal:** Store user's push token in database so backend can send notifications.
-
-**Tasks:**
-
-1. Create `public.push_tokens` table:
-    - `id` (UUID primary key)
-    - `user_id` (UUID, references profiles)
-    - `token` (TEXT, unique, required)
-    - `platform` (TEXT: 'web', 'ios', 'android')
-    - `organization_id` (UUID, references organizations)
-    - `created_at`, `updated_at`
-2. Enable RLS on push_tokens table
-3. Create RLS policies:
-    - Users can manage their own tokens
-    - Coordinators can view tokens in their organization (for sending notifications)
-4. Create `src/hooks/usePushNotifications.ts`:
-    - Request notification permission on mount
-    - Get FCM token when permission granted
-    - Upsert token to database (handle token updates)
-    - Listen for foreground messages
-    - Show browser notification for foreground messages
-5. Add hook to main app layout
-6. Test: Grant permission, verify token saved to database
-
-**Testing:**
-
--   Token is saved to database when permission granted
--   Token is updated if user grants permission again
--   Token is linked to correct user and organization
--   Foreground notifications appear when app is open
-
-**Deliverable:** Push tokens stored and managed automatically.
-
----
-
-### Milestone 7.3: In-App Notifications System
-
-**Goal:** Store notifications in database so users see missed notifications when they return.
-
-**Tasks:**
-
-1. Complete `public.notifications` table (from Phase 4.5):
-    - Ensure all columns exist: `id`, `user_id`, `organization_id`, `type`, `title`, `body`, `read`, `created_at`
-2. Enable RLS on notifications table
-3. Create RLS policies:
-    - Users can view their own notifications
-    - Users can update read status
-    - Coordinators can create notifications (for sending)
-4. Create `src/hooks/useNotifications.ts`:
-    - Fetch unread notifications for current user
-    - Mark notifications as read
-    - Subscribe to new notifications via Realtime
-5. Create notification badge component:
-    - Show unread count
-    - Display in navigation/header
-6. Test: Create notification, verify it appears, verify read status updates
-
-**Testing:**
-
--   Notifications are stored in database
--   Users see their notifications
--   Unread count is accurate
--   Marking as read updates database
-
-**Deliverable:** In-app notifications system working.
-
----
-
-### Milestone 7.4: Send Push Notifications for Messages
-
-**Goal:** Send push notification when new message arrives in conversation.
-
-**Tasks:**
-
-1. Create Supabase Edge Function `send-push-notification`:
-    - Accept user_id, title, body as parameters
-    - Fetch user's push tokens from database
-    - Send notification via FCM API
-    - Handle errors gracefully
-2. Create database trigger or function:
-    - When new message is inserted
-    - Get conversation participants (excluding sender)
-    - For each participant, create in-app notification
-    - For each participant with push token, call Edge Function
-3. Test: Send message, verify recipients receive push notification
-4. Handle edge cases:
-    - User has no push token (only in-app notification)
-    - Multiple devices (send to all tokens)
-    - Notification permission denied
-
-**Testing:**
-
--   Message sent triggers push notification to recipients
--   Notification appears on recipient's device
--   Works when app is closed
--   In-app notification also created
-
-**Deliverable:** Push notifications for messages working.
-
----
-
-### Milestone 7.5: Notification Preferences
-
-**Goal:** Allow users to control what types of notifications they receive.
-
-**Tasks:**
-
-1. Add `notification_preferences` JSONB column to profiles table:
-    - Store preferences as JSON object
-    - Types: `messages`, `assignments`, `reminders`, `updates`
-    - Each type: boolean (enabled/disabled)
-2. Create `src/pages/settings/NotificationSettings.tsx`:
-    - Fetch user's notification preferences
-    - Display toggles for each notification type
-    - Save preferences to database
-    - Show current preference state
-3. Add route `/settings/notifications`
-4. Add link to settings in navigation
-5. Update notification sending logic:
-    - Check user's preferences before sending
-    - Respect disabled notification types
-6. Test: Toggle preferences, verify notifications respect settings
-
-**Testing:**
-
--   Users can view and update preferences
--   Preferences are saved correctly
--   Notifications respect disabled types
--   Enabled types still send notifications
-
-**Deliverable:** Notification preferences working.
-
----
-
-## Phase 8: Confirmation Codes (For Both Coordinators & Fosters)
-
-**Goal:** Enable coordinators to generate confirmation codes for both coordinators and fosters in their organization, controlling platform access. Codes are linked to email addresses and organizations, and determine user role. This replaces open signup and eliminates the need for separate signup pages or organization creation flows.
-
----
-
-### Milestone 8.1: Confirmation Codes Schema
-
-**Goal:** Create database schema for confirmation codes that link users to organizations and determine their role.
-
-**Tasks:**
-
-1. Create `public.confirmation_codes` table:
-    - `id` (UUID primary key)
-    - `code` (TEXT, unique, required) - human-readable code (e.g., "ABC123")
-    - `email` (TEXT, required) - email address the code is assigned to
-    - `organization_id` (UUID, references organizations, required)
-    - `role` (TEXT, required, CHECK role IN ('coordinator', 'foster')) - determines user role
-    - `created_by` (UUID, references profiles - coordinator who created the code)
-    - `used_by` (UUID, nullable, references profiles - user who used it)
-    - `used_at` (TIMESTAMPTZ, nullable) - when code was used
-    - `expires_at` (TIMESTAMPTZ, nullable) - optional expiration
-2. Enable RLS on confirmation_codes table
-3. Create RLS policies:
-    - Coordinators can view codes in their organization
-    - Coordinators can create codes in their organization
-    - Coordinators can revoke codes in their organization (mark as used or delete)
-4. Create PostgreSQL function for code validation (security):
-    - Function: `public.validate_confirmation_code(code TEXT, email TEXT)`
-    - Returns: JSON with `valid` (boolean), `organization_id`, `role` (if valid)
-    - Only checks if specific code exists, is unused, matches email, and is not expired
-    - Does NOT expose other codes or allow listing
-    - Mark function as `SECURITY DEFINER` to bypass RLS for validation
-    - This allows signup validation without exposing all codes
-5. Add indexes:
-    - Index on `code` for fast lookup during signup
-    - Index on `email` for lookup by email
-    - Index on `organization_id` for filtering
-6. Test: Create test code, verify it's stored correctly
-
-**Testing:**
-
--   Table created with correct structure
--   Can create confirmation code with email, organization, and role
--   RLS policies work correctly
--   Code lookup is fast
--   Email matching works correctly
-
-**Deliverable:** Confirmation codes schema ready with email and role support.
-
----
-
-### Milestone 8.2: Coordinator Code Generation UI
-
-**Goal:** Coordinators can generate confirmation codes via a simple form UI, linking codes to email addresses and roles.
-
-**Tasks:**
-
-1. Create function to generate unique code:
-    - Generate random alphanumeric code (e.g., "ABC123")
-    - Ensure uniqueness in database
-    - Make it readable and shareable
-2. Create `src/pages/coordinators/ConfirmationCodes.tsx`:
-    - Form to generate new code:
-        - Email address input (required, type="email")
-        - Role selector (dropdown: "Coordinator" or "Foster")
-        - "Generate Code" button
-    - When code is generated:
-        - Save to database with:
-            - Email from form
-            - Role from form
-            - Organization from coordinator's organization (automatic)
-            - Created by coordinator's user ID (automatic)
-            - Generated code
-        - Display generated code prominently
-        - Show "Copy Code" button
-        - Show "Email Code" button (opens email client)
-    - Display list of previously generated codes:
-        - Show code, email, role, status (active/used), created date
-        - Filter by role or status (optional)
-3. Add route `/coordinators/codes` (coordinator-only)
-4. Add navigation link for coordinators
-5. Test: Coordinator can generate codes, codes are unique, codes are linked to correct organization and email
-
-**Testing:**
-
--   Coordinator can generate codes with email and role
--   Codes are unique
--   Codes are automatically linked to coordinator's organization
--   Codes have correct role assigned
--   Codes appear in list after generation
--   Can copy and email codes
-
-**Deliverable:** Coordinator code generation UI working.
-
----
-
-### Milestone 8.3: Update Signup to Use Confirmation Codes
-
-**Goal:** Replace open signup with confirmation code-based signup. Codes determine role and organization assignment.
-
-**Tasks:**
-
-1. Update `src/pages/SignUp.tsx`:
-    - Add "Confirmation Code" input field (required)
-    - Add email validation to match code's email
-    - Validate code before submitting:
-        - Code exists in database
-        - Code is not already used
-        - Email matches code's email address
-        - Code is not expired (if expiration implemented)
-    - Show clear error messages for invalid codes
-2. Create function to validate code:
-    - Call PostgreSQL function `public.validate_confirmation_code(code, email)`
-    - Function returns validation result with organization_id and role (if valid)
-    - This is more secure than querying the table directly (doesn't expose other codes)
-3. On successful signup:
-    - Create user account with Supabase auth
-    - Create profile with:
-        - Role from confirmation code
-        - Organization from confirmation code
-        - Email from signup form
-    - Mark code as used (set `used_by` to new user's ID, `used_at` to now)
-    - Auto-login user (as in M 1.6)
-4. Handle role-based routing after signup:
-    - Coordinators → coordinator dashboard
-    - Fosters → foster dashboard
-5. Test: Try signup with valid coordinator code, valid foster code, invalid code, used code, wrong email
-
-**Testing:**
-
--   Valid coordinator code creates coordinator account
--   Valid foster code creates foster account
--   Invalid code shows error
--   Used code shows error
--   Wrong email shows error
--   Code is marked as used after signup
--   User is assigned to correct organization and role
--   User is auto-logged in after signup
-
-**Deliverable:** Confirmation code-based signup working for both coordinators and fosters.
-
----
-
-### Milestone 8.4: Code Management & Sharing
-
-**Goal:** Coordinators can view, manage, and share confirmation codes they've generated.
-
-**Tasks:**
-
-1. Update `src/pages/coordinators/ConfirmationCodes.tsx`:
-    - Display list of all codes in coordinator's organization:
-        - Show: code, email, role, status (active/used), created date, created by (coordinator name), used date (if used)
-        - Filter by role or status (optional, for better organization)
-        - Show used codes with clear "Used" indicator
-    - For each code:
-        - "Copy Code" button (copies to clipboard)
-        - "Email Code" button (opens email client with code and signup URL)
-        - Show who used the code (if used) - link to user profile
-2. Implement code sharing:
-    - Generate mailto link with code in email body
-    - Include signup URL with code as parameter (e.g., `https://app.vercel.app/signup?code=ABC123`)
-    - Pre-fill recipient email address from code's email
-    - Include friendly message explaining what the code is for
-3. Add code management features:
-    - View all codes (active and used)
-    - See which codes have been used and by whom
-    - Resend code via email if needed
-4. Test: View codes, copy code, email code, verify codes are filtered by organization
-
-**Testing:**
-
--   Coordinator can view all codes in their organization
--   Can copy code to clipboard
--   Can email code via mailto link
--   Codes display correctly with all information
--   Used codes show who used them
--   Codes are properly filtered by organization
-
-**Deliverable:** Code management and sharing working for coordinators.
-
----
-
-## Phase 9: Quality of Life Features
-
-**Goal:** Add filtering, search, and timestamp display to improve usability and tracking.
-
----
-
-### Milestone 9.1: Animal Filtering & Search
-
-**Goal:** Allow users to filter and search animals by various criteria.
-
-**Tasks:**
-
-1. Create `src/components/animals/AnimalFilters.tsx`:
-    - Filter by status (dropdown/multi-select)
-    - Filter by priority (high priority toggle)
-    - Filter by sex (dropdown)
-    - Clear filters button
-    - Show active filter count
-2. Update `src/pages/animals/AnimalsList.tsx`:
-    - Add filter state management
-    - Apply filters to Supabase query
-    - Display filtered results
-    - Show "No results" when filters match nothing
-3. Add search functionality:
-    - Search input field
-    - Search by name (case-insensitive)
-    - Search by characteristics
-    - Combine search with filters
-4. Test: Apply filters, verify results update, clear filters, search works
-
-**Testing:**
-
--   Filters work correctly
--   Search works correctly
--   Filters and search can be combined
--   Results update in real-time
--   Empty states show correctly
-
-**Deliverable:** Animal filtering and search working.
-
----
-
-### Milestone 9.2: Timestamp Display & History
-
-**Goal:** Display timestamps on messages and data edits to show when information changed.
-
-**Tasks:**
-
-1. Ensure all relevant tables have `created_at` and `updated_at` timestamps:
-    - Verify `animals` table has both timestamps
-    - Verify `messages` table has `created_at`
-    - Verify `animal_groups` table has both timestamps
-    - Add `updated_at` triggers if missing
-2. Display timestamps in UI:
-    - Show `created_at` timestamp on all messages
-    - Show `created_at` and `updated_at` on animal detail page
-    - Format timestamps in readable format (e.g., "2 hours ago", "Jan 15, 2024")
-3. Create timestamp display component:
-    - `src/components/ui/Timestamp.tsx` for consistent timestamp formatting
-    - Handle relative time (e.g., "just now", "5 minutes ago")
-    - Handle absolute time for older items
-4. Add to animal detail page:
-    - Show "Created: [timestamp]"
-    - Show "Last updated: [timestamp]" if different from created
-5. Add to message display:
-    - Show timestamp with each message
-    - Format consistently across all messages
-6. Test: Verify timestamps display correctly and update when data changes
-
-**Testing:**
-
--   Timestamps display on all messages
--   Timestamps display on animal records
--   Timestamps update when data is edited
--   Timestamp formatting is readable and consistent
-
-**Deliverable:** Timestamp display working throughout app.
-
-**Note:** This milestone focuses on displaying existing timestamps. A separate activity logging system (tracking who did what) may be added later based on customer feedback - see QUESTIONS_FOR_RESCUE.md.
-
----
-
-### Milestone 9.3: Photo Uploads for Animals and Groups
+### Milestone 7.1: Photo Uploads for Animals and Groups
 
 **Goal:** Allow coordinators and fosters to upload photos for animals and groups, with proper permission controls.
 
@@ -2736,68 +2380,444 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 9.4: User Deactivation & Reactivation
+## Phase 8: Fosters Needed Page
 
-**Goal:** Allow coordinators to deactivate and reactivate user accounts (fosters) while preserving all historical data.
-
-**Tasks:**
-
-1. Add `deactivated_at` field to `profiles` table:
-    - Migration: Add `deactivated_at TIMESTAMPTZ` column (nullable)
-    - When `deactivated_at` is NULL, user is active
-    - When `deactivated_at` has a timestamp, user is deactivated
-2. Update RLS policies:
-    - Deactivated users cannot log in (check `deactivated_at IS NULL` in auth policies)
-    - Coordinators can view all profiles in their organization (including deactivated)
-    - Coordinators can update `deactivated_at` for fosters in their organization
-    - Coordinators cannot deactivate other coordinators (or require special permission)
-3. Update `ProtectedRoute` component:
-    - Check if user is deactivated before allowing access
-    - Redirect to login with message if deactivated
-4. Create user management page:
-    - `src/pages/coordinators/UserManagement.tsx`
-    - Display list of all users (fosters and coordinators) in organization
-    - Show: name, email, role, status (active/deactivated), deactivated date
-    - Filter by role or status
-    - For each foster:
-        - "Deactivate" button (if active)
-        - "Reactivate" button (if deactivated)
-        - Show confirmation dialog before deactivating
-5. Handle animal assignments on deactivation:
-    - When foster is deactivated, show warning about current animal assignments
-    - Option 1: Automatically unassign all animals from deactivated foster
-    - Option 2: Require coordinator to manually reassign animals before deactivation
-    - **Recommendation:** Option 2 (require manual reassignment) to prevent accidental data loss
-6. Update queries to exclude deactivated users where appropriate:
-    - Active fosters list (for assignments)
-    - Available fosters filter
-    - But include deactivated users in historical views (messages, past assignments)
-7. Add route `/coordinators/users` (coordinator-only)
-8. Add navigation link for coordinators
-9. Test: Deactivate foster, verify they cannot log in, reactivate foster, verify they can log in again
-
-**Testing:**
-
--   Can deactivate fosters in organization
--   Deactivated users cannot log in
--   Deactivated users are excluded from active foster lists
--   Historical data (messages, assignments) is preserved
--   Can reactivate deactivated users
--   Reactivated users can log in again
--   Animal assignments are handled correctly
--   Coordinators cannot deactivate other coordinators (or special permission required)
-
-**Deliverable:** User deactivation and reactivation working with data preservation.
+**Goal:** Create a page where fosters can browse animals and groups needing placement and request them through messaging.
 
 ---
 
-## Phase 10: UX Polish & Navigation
+### Milestone 8.1: Fosters Needed Page
+
+**Goal:** Display animals and groups that need foster placement, allowing fosters to browse and request them.
+
+**Tasks:**
+
+1. **Create Fosters Needed page** (`src/pages/fosters/FostersNeeded.tsx`):
+
+    - Fetch animals and groups with status `needs_foster` or `available` (filtered by organization)
+    - Display animals and groups in a browseable list/grid format
+    - Show key information: name, photos, priority indicator, basic needs
+    - Use search/filter components from M 6.3 to allow filtering by:
+        - Species
+        - Priority (high priority animals/groups)
+        - Group vs individual animals
+    - Link to animal/group detail pages for more information
+    - Mobile-first responsive design
+
+2. **Add "Request to Foster" functionality:**
+
+    - Add "Request to Foster" button on animal/group detail pages (foster-only)
+    - Button should be visible on Fosters Needed page items and detail pages
+    - When clicked, open messaging interface with auto-filled content:
+        - Navigate to foster's conversation (foster chat)
+        - Pre-fill message content with request template:
+            - Include animal/group name
+            - Include basic information (species, priority if applicable)
+            - Template: "Hi, I'm interested in fostering [Animal/Group Name]. [Optional: Add any relevant information about my experience or availability]."
+        - Auto-tag the animal/group in the message (using tagging from M 5.10)
+        - Allow foster to edit message before sending
+        - Send message to coordinators (visible in coordinator group chat and foster's conversation)
+
+3. **Update routing:**
+
+    - Add route `/fosters-needed` (accessible to all users, but primarily for fosters)
+    - Add navigation link for fosters (e.g., in Dashboard or navigation menu)
+
+4. **Handle request flow:**
+
+    - When foster clicks "Request to Foster":
+        - Check if foster already has an active request for this animal/group (optional - prevent duplicates)
+        - Open conversation with pre-filled message
+        - Auto-tag animal/group in message
+        - Foster can edit and send message
+        - Coordinators see request in their conversation list and coordinator group chat
+
+5. **Display request status (optional enhancement):**
+    - Show if foster has already requested an animal/group
+    - Display "Requested" indicator on animals/groups that have been requested
+    - Allow viewing previous requests in conversation history
+
+**Implementation Notes:**
+
+-   **Messaging Integration:** Requests go through the existing messaging system (Phase 5), ensuring all coordinators can see requests
+-   **Auto-tagging:** Uses message tagging feature (M 5.10) to link requests to specific animals/groups
+-   **No New Database Tables:** Uses existing `animals`, `animal_groups`, and `messages` tables with `message_links` for tagging
+-   **Simple Request Flow:** Fosters send a message with auto-filled content and tags - coordinators respond through existing messaging
+
+**Testing:**
+
+-   Fosters can view animals/groups needing placement
+-   Can filter by species, priority, and group status
+-   "Request to Foster" button opens conversation with pre-filled message
+-   Message includes animal/group tag
+-   Coordinators see requests in their conversation list
+-   Requests appear in coordinator group chat
+-   Foster can edit message before sending
+-   Mobile layout is usable
+
+**Deliverable:** Fosters Needed page working with request functionality through messaging system.
+
+---
+
+### Milestone 8.2: Coordinator Request Handling & Assignment
+
+**Goal:** Enable coordinators to view, approve, and handle foster requests, assigning animals/groups to fosters and updating relevant information.
+
+**Tasks:**
+
+1. **Create coordinator request management UI:**
+
+    - Display foster requests in coordinator dashboard or dedicated requests page
+    - Show requests with:
+        - Foster name and contact info
+        - Requested animal/group information
+        - Request message content
+        - Request timestamp
+        - Request status (pending, approved, rejected)
+    - Filter requests by status, priority, or foster
+    - Link to full conversation where request was made
+
+2. **Implement request approval workflow:**
+
+    - "Approve Request" button/action for coordinators
+    - When approved:
+        - Assign animal/group to foster (update `current_foster_id` on animal/group)
+        - Update animal/group status (e.g., change from `needs_foster` to `in_foster`)
+        - Update foster's assigned animals/groups list
+        - Send confirmation message to foster (auto-generated or coordinator can customize)
+        - Tag animal/group in confirmation message
+    - Handle group assignments:
+        - If approving group request, assign entire group to foster
+        - Update all animals in group to show foster assignment
+        - Ensure group status reflects assignment
+
+3. **Create assignment UI/flow:**
+
+    - Assignment confirmation dialog/page
+    - Show what will be assigned (animal/group details)
+    - Optional: Add pickup/transfer event:
+        - Date/time for pickup
+        - Location for pickup
+        - Special instructions
+        - Store as event or note (design decision needed)
+    - Allow coordinator to add notes or instructions during assignment
+    - Send assignment notification to foster
+
+4. **Update animal/group data on assignment:**
+
+    - Set `current_foster_id` on animal or group record
+    - Update status field appropriately
+    - Record assignment timestamp
+    - Link assignment to requesting message (optional - for audit trail)
+
+5. **Handle request rejection:**
+
+    - "Reject Request" action (optional - coordinator can just not respond)
+    - If implemented: Send polite rejection message to foster
+    - Mark request as rejected (for coordinator tracking)
+
+6. **Request status tracking:**
+    - Track request status in database (design decision needed):
+        - Option 1: Use message metadata or tags
+        - Option 2: Create simple `foster_requests` table
+        - Option 3: Track through message content and assignment status
+    - Display request history for coordinators
+    - Show which requests have been fulfilled
+
+**Design Decisions Needed (To be made during implementation):**
+
+-   **Request tracking:** How to track request status (database table vs. message-based)
+-   **Pickup/Transfer events:** Whether to create dedicated event system or use notes/messages
+-   **Assignment workflow:** Single-step approval vs. multi-step (approve → schedule pickup → confirm)
+-   **Notification preferences:** How fosters want to be notified of approvals
+-   **Multiple requests:** Handling when multiple fosters request same animal/group
+-   **Assignment history:** Whether to track assignment history or just current assignment
+
+**Testing:**
+
+-   Coordinators can view all foster requests
+-   Can approve requests and assign animals/groups to fosters
+-   Animal/group status updates correctly on assignment
+-   Foster receives assignment notification
+-   Assignment information is stored correctly
+-   Group assignments work correctly (all animals in group assigned)
+-   Request status is tracked appropriately
+
+**Deliverable:** Coordinator request handling and assignment workflow working. Coordinators can approve requests and assign animals/groups to fosters with proper data updates.
+
+**Note:** Specific implementation details (pickup events, request tracking method, etc.) will be finalized based on rescue organization feedback and testing during development.
+
+---
+
+## Planning Phase: Organization Record-Keeping Requirements
+
+**Goal:** Meet with rescue organization to plan additional pages and record-keeping needs.
+
+**Note:** Before proceeding to Phase 9 (Timestamp Display & History), schedule a planning meeting with the rescue organization to discuss:
+
+1. **Additional Record Types:**
+
+    - Determine which records the organization wants tracked (e.g., medical records, adoption records, foster history, intake records)
+    - Decide which records are essential for MVP vs. post-MVP
+
+2. **Data Structure Decisions:**
+
+    - How each record type should be structured
+    - What data fields are needed for each record type
+    - Whether records should be linked to animals, groups, fosters, or organizations
+    - What relationships exist between different record types
+
+3. **Page Requirements:**
+
+    - What pages/views are needed for each record type
+    - Who should have access to each type of record (coordinators vs. fosters)
+    - What actions can be performed on each record type (create, view, edit, delete)
+
+4. **Timeline and Priority:**
+    - Prioritize which record types are most critical
+    - Determine which can be added post-MVP
+    - Plan implementation order for additional features
+
+**Outcome:** Document decisions and create implementation plan for additional record-keeping features based on organization's needs.
+
+---
+
+## Phase 9: Timestamp Display & History
+
+**Goal:** Display timestamps on messages and data edits to show when information changed.
+
+---
+
+### Milestone 9.1: Timestamp Display & History
+
+**Goal:** Display timestamps on messages and data edits to show when information changed.
+
+**Tasks:**
+
+1. Ensure all relevant tables have `created_at` and `updated_at` timestamps:
+    - Verify `animals` table has both timestamps
+    - Verify `messages` table has `created_at`
+    - Verify `animal_groups` table has both timestamps
+    - Add `updated_at` triggers if missing
+2. Display timestamps in UI:
+    - Show `created_at` timestamp on all messages
+    - Show `created_at` and `updated_at` on animal detail page
+    - Format timestamps in readable format (e.g., "2 hours ago", "Jan 15, 2024")
+3. Create timestamp display component:
+    - `src/components/ui/Timestamp.tsx` for consistent timestamp formatting
+    - Handle relative time (e.g., "just now", "5 minutes ago")
+    - Handle absolute time for older items
+4. Add to animal detail page:
+    - Show "Created: [timestamp]"
+    - Show "Last updated: [timestamp]" if different from created
+5. Add to message display:
+    - Show timestamp with each message
+    - Format consistently across all messages
+6. Test: Verify timestamps display correctly and update when data changes
+
+**Testing:**
+
+-   Timestamps display on all messages
+-   Timestamps display on animal records
+-   Timestamps update when data is edited
+-   Timestamp formatting is readable and consistent
+
+**Deliverable:** Timestamp display working throughout app.
+
+**Note:** This milestone focuses on displaying existing timestamps. A separate activity logging system (tracking who did what) may be added later based on customer feedback - see QUESTIONS_FOR_RESCUE.md.
+
+---
+
+## Phase 10: Confirmation Codes (For Both Coordinators & Fosters)
+
+**Goal:** Enable coordinators to generate confirmation codes for both coordinators and fosters in their organization, controlling platform access. Codes are linked to email addresses and organizations, and determine user role. This replaces open signup and eliminates the need for separate signup pages or organization creation flows.
+
+---
+
+### Milestone 10.1: Confirmation Codes Schema
+
+**Goal:** Create database schema for confirmation codes that link users to organizations and determine their role.
+
+**Tasks:**
+
+1. Create `public.confirmation_codes` table:
+    - `id` (UUID primary key)
+    - `code` (TEXT, unique, required) - human-readable code (e.g., "ABC123")
+    - `email` (TEXT, required) - email address the code is assigned to
+    - `organization_id` (UUID, references organizations, required)
+    - `role` (TEXT, required, CHECK role IN ('coordinator', 'foster')) - determines user role
+    - `created_by` (UUID, references profiles - coordinator who created the code)
+    - `used_by` (UUID, nullable, references profiles - user who used it)
+    - `used_at` (TIMESTAMPTZ, nullable) - when code was used
+    - `expires_at` (TIMESTAMPTZ, nullable) - optional expiration
+2. Enable RLS on confirmation_codes table
+3. Create RLS policies:
+    - Coordinators can view codes in their organization
+    - Coordinators can create codes in their organization
+    - Coordinators can revoke codes in their organization (mark as used or delete)
+4. Create PostgreSQL function for code validation (security):
+    - Function: `public.validate_confirmation_code(code TEXT, email TEXT)`
+    - Returns: JSON with `valid` (boolean), `organization_id`, `role` (if valid)
+    - Only checks if specific code exists, is unused, matches email, and is not expired
+    - Does NOT expose other codes or allow listing
+    - Mark function as `SECURITY DEFINER` to bypass RLS for validation
+    - This allows signup validation without exposing all codes
+5. Add indexes:
+    - Index on `code` for fast lookup during signup
+    - Index on `email` for lookup by email
+    - Index on `organization_id` for filtering
+6. Test: Create test code, verify it's stored correctly
+
+**Testing:**
+
+-   Table created with correct structure
+-   Can create confirmation code with email, organization, and role
+-   RLS policies work correctly
+-   Code lookup is fast
+-   Email matching works correctly
+
+**Deliverable:** Confirmation codes schema ready with email and role support.
+
+---
+
+### Milestone 10.2: Coordinator Code Generation UI
+
+**Goal:** Coordinators can generate confirmation codes via a simple form UI, linking codes to email addresses and roles.
+
+**Tasks:**
+
+1. Create function to generate unique code:
+    - Generate random alphanumeric code (e.g., "ABC123")
+    - Ensure uniqueness in database
+    - Make it readable and shareable
+2. Create `src/pages/coordinators/ConfirmationCodes.tsx`:
+    - Form to generate new code:
+        - Email address input (required, type="email")
+        - Role selector (dropdown: "Coordinator" or "Foster")
+        - "Generate Code" button
+    - When code is generated:
+        - Save to database with:
+            - Email from form
+            - Role from form
+            - Organization from coordinator's organization (automatic)
+            - Created by coordinator's user ID (automatic)
+            - Generated code
+        - Display generated code prominently
+        - Show "Copy Code" button
+        - Show "Email Code" button (opens email client)
+    - Display list of previously generated codes:
+        - Show code, email, role, status (active/used), created date
+        - Filter by role or status (optional)
+3. Add route `/coordinators/codes` (coordinator-only)
+4. Add navigation link for coordinators
+5. Test: Coordinator can generate codes, codes are unique, codes are linked to correct organization and email
+
+**Testing:**
+
+-   Coordinator can generate codes with email and role
+-   Codes are unique
+-   Codes are automatically linked to coordinator's organization
+-   Codes have correct role assigned
+-   Codes appear in list after generation
+-   Can copy and email codes
+
+**Deliverable:** Coordinator code generation UI working.
+
+---
+
+### Milestone 10.3: Update Signup to Use Confirmation Codes
+
+**Goal:** Replace open signup with confirmation code-based signup. Codes determine role and organization assignment.
+
+**Tasks:**
+
+1. Update `src/pages/SignUp.tsx`:
+    - Add "Confirmation Code" input field (required)
+    - Add email validation to match code's email
+    - Validate code before submitting:
+        - Code exists in database
+        - Code is not already used
+        - Email matches code's email address
+        - Code is not expired (if expiration implemented)
+    - Show clear error messages for invalid codes
+2. Create function to validate code:
+    - Call PostgreSQL function `public.validate_confirmation_code(code, email)`
+    - Function returns validation result with organization_id and role (if valid)
+    - This is more secure than querying the table directly (doesn't expose other codes)
+3. On successful signup:
+    - Create user account with Supabase auth
+    - Create profile with:
+        - Role from confirmation code
+        - Organization from confirmation code
+        - Email from signup form
+    - Mark code as used (set `used_by` to new user's ID, `used_at` to now)
+    - Auto-login user (as in M 1.6)
+4. Handle role-based routing after signup:
+    - Coordinators → coordinator dashboard
+    - Fosters → foster dashboard
+5. Test: Try signup with valid coordinator code, valid foster code, invalid code, used code, wrong email
+
+**Testing:**
+
+-   Valid coordinator code creates coordinator account
+-   Valid foster code creates foster account
+-   Invalid code shows error
+-   Used code shows error
+-   Wrong email shows error
+-   Code is marked as used after signup
+-   User is assigned to correct organization and role
+-   User is auto-logged in after signup
+
+**Deliverable:** Confirmation code-based signup working for both coordinators and fosters.
+
+---
+
+### Milestone 10.4: Code Management & Sharing
+
+**Goal:** Coordinators can view, manage, and share confirmation codes they've generated.
+
+**Tasks:**
+
+1. Update `src/pages/coordinators/ConfirmationCodes.tsx`:
+    - Display list of all codes in coordinator's organization:
+        - Show: code, email, role, status (active/used), created date, created by (coordinator name), used date (if used)
+        - Filter by role or status (optional, for better organization)
+        - Show used codes with clear "Used" indicator
+    - For each code:
+        - "Copy Code" button (copies to clipboard)
+        - "Email Code" button (opens email client with code and signup URL)
+        - Show who used the code (if used) - link to user profile
+2. Implement code sharing:
+    - Generate mailto link with code in email body
+    - Include signup URL with code as parameter (e.g., `https://app.vercel.app/signup?code=ABC123`)
+    - Pre-fill recipient email address from code's email
+    - Include friendly message explaining what the code is for
+3. Add code management features:
+    - View all codes (active and used)
+    - See which codes have been used and by whom
+    - Resend code via email if needed
+4. Test: View codes, copy code, email code, verify codes are filtered by organization
+
+**Testing:**
+
+-   Coordinator can view all codes in their organization
+-   Can copy code to clipboard
+-   Can email code via mailto link
+-   Codes display correctly with all information
+-   Used codes show who used them
+-   Codes are properly filtered by organization
+
+**Deliverable:** Code management and sharing working for coordinators.
+
+---
+
+## Phase 11: UX Polish & Navigation
 
 **Goal:** Improve user experience with polished design, better navigation, and refined interactions based on Figma designs.
 
 ---
 
-### Milestone 10.1: Navigation Structure
+### Milestone 11.1: Navigation Structure
 
 **Goal:** Create consistent, mobile-friendly navigation throughout the app.
 
@@ -2832,7 +2852,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.2: Figma Design Implementation
+### Milestone 11.2: Figma Design Implementation
 
 **Goal:** Implement polished UI designs from Figma, improving visual consistency and user experience.
 
@@ -2892,7 +2912,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.3: Loading States & Empty States
+### Milestone 11.3: Loading States & Empty States
 
 **Goal:** Improve perceived performance and user guidance with better loading and empty states.
 
@@ -2936,7 +2956,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.4: Error Handling Improvements
+### Milestone 11.4: Error Handling Improvements
 
 **Goal:** Provide better error messages and recovery options throughout the app.
 
@@ -2972,7 +2992,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.5: Quick Actions & Shortcuts
+### Milestone 11.5: Quick Actions & Shortcuts
 
 **Goal:** Add convenient shortcuts and quick actions to improve workflow efficiency.
 
@@ -3007,13 +3027,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 11: Landing Page & Marketing Site
+## Phase 12: Landing Page & Marketing Site
 
 **Goal:** Create a professional, impressive landing page to attract rescue organizations, showcase the app, and provide information for portfolio visitors.
 
 ---
 
-### Milestone 11.1: Landing Page Structure & Navigation
+### Milestone 12.1: Landing Page Structure & Navigation
 
 **Goal:** Set up the landing page route structure and navigation to existing app functionality.
 
@@ -3048,7 +3068,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.2: App Description & Partner Showcase
+### Milestone 12.2: App Description & Partner Showcase
 
 **Goal:** Display compelling app information and showcase partners/testimonials (e.g., Co Kitty Coalition).
 
@@ -3089,7 +3109,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.3: App Demo & Advertising
+### Milestone 12.3: App Demo & Advertising
 
 **Goal:** Showcase the app with demos, screenshots, or interactive elements to demonstrate value.
 
@@ -3129,7 +3149,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.4: Contact & Personal Story
+### Milestone 12.4: Contact & Personal Story
 
 **Goal:** Provide contact information and share personal story to build trust and connection.
 
@@ -3171,7 +3191,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.5: Donation Section
+### Milestone 12.5: Donation Section
 
 **Goal:** Provide a way for visitors to support the project through donations.
 
@@ -3210,7 +3230,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.6: Landing Page Polish & Figma Design
+### Milestone 12.6: Landing Page Polish & Figma Design
 
 **Goal:** Refine landing page design using Figma, ensuring professional, impressive appearance.
 
@@ -3257,13 +3277,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 12: Expo Wrapping (For Reliable iOS Notifications)
+## Phase 13: Expo Wrapping (For Reliable iOS Notifications)
 
 **Goal:** Wrap PWA in Expo to enable App Store distribution and reliable iOS push notifications via APNs.
 
 ---
 
-### Milestone 12.1: Initialize Expo Project
+### Milestone 13.1: Initialize Expo Project
 
 **Goal:** Create Expo app that wraps the existing PWA.
 
@@ -3295,7 +3315,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 12.2: Expo Push Notifications
+### Milestone 13.2: Expo Push Notifications
 
 **Goal:** Replace FCM with Expo Push Notifications for reliable iOS support.
 
@@ -3327,7 +3347,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 12.3: Build & Publish
+### Milestone 13.3: Build & Publish
 
 **Goal:** Build and publish app to App Store and Play Store.
 
