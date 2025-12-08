@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PhotoLightbox from "./PhotoLightbox";
 
 interface MessageBubbleProps {
 	message: {
@@ -19,6 +20,8 @@ export default function MessageBubble({
 	const [imageLoadStates, setImageLoadStates] = useState<
 		Map<string, boolean>
 	>(new Map());
+	const [lightboxOpen, setLightboxOpen] = useState(false);
+	const [lightboxIndex, setLightboxIndex] = useState(0);
 
 	const timestamp = new Date(message.created_at).toLocaleString(undefined, {
 		year: "numeric",
@@ -42,6 +45,11 @@ export default function MessageBubble({
 
 	const handleImageError = (url: string) => {
 		setImageErrors((prev: Set<string>) => new Set(prev).add(url));
+	};
+
+	const handlePhotoClick = (index: number) => {
+		setLightboxIndex(index);
+		setLightboxOpen(true);
 	};
 
 	return (
@@ -138,16 +146,19 @@ export default function MessageBubble({
 											<img
 												src={url}
 												alt={`Photo ${index + 1}`}
-												className={`w-full h-full object-cover ${
+												className={`w-full h-full object-cover cursor-pointer ${
 													isLoading
 														? "opacity-0"
 														: "opacity-100"
-												} transition-opacity duration-200`}
+												} transition-opacity duration-200 hover:opacity-90`}
 												onLoad={() =>
 													handleImageLoad(url)
 												}
 												onError={() =>
 													handleImageError(url)
+												}
+												onClick={() =>
+													handlePhotoClick(index)
 												}
 											/>
 										)}
@@ -158,6 +169,17 @@ export default function MessageBubble({
 					</div>
 				)}
 			</div>
+
+			{/* Photo Lightbox */}
+			{hasPhotos && (
+				<PhotoLightbox
+					key={`${lightboxIndex}-${lightboxOpen}`}
+					photos={photoUrls}
+					initialIndex={lightboxIndex}
+					isOpen={lightboxOpen}
+					onClose={() => setLightboxOpen(false)}
+				/>
+			)}
 		</div>
 	);
 }
