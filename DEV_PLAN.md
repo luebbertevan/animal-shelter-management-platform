@@ -2747,7 +2747,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Navigation components
 6. Ensure mobile-first responsive design
 7. Test: Compare UI to Figma designs, verify consistency
-8. **Post-milestone:** Schedule meeting with UX designer contact to gather feedback on design implementation
+8. **Create custom thematic loading spinner:**
+    - Design cat-themed spinner animation in Figma
+    - Replace generic loading spinners with thematic spinner
+    - Ensure spinner works on both light and dark backgrounds
+    - Add spinner to photo lightbox and other loading states
+    - Make it subtle and professional (not too playful)
+9. **Post-milestone:** Schedule meeting with UX designer contact to gather feedback on design implementation
 
 **Testing:**
 
@@ -2755,8 +2761,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Components are consistent
 -   Mobile and desktop layouts work
 -   Design system is applied consistently
+-   Thematic spinner is consistent and professional
 
-**Deliverable:** Figma designs implemented with Co Kitty Coalition color palette.
+**Deliverable:** Figma designs implemented with Co Kitty Coalition color palette, including custom thematic loading spinner.
 
 **Notes:**
 
