@@ -193,4 +193,5 @@ export interface Message {
 	content: string;
 	created_at: string;
 	edited_at?: string;
+	photo_urls?: string[] | null; // Array of photo URLs from Supabase Storage
 }

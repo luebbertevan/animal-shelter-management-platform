@@ -1711,6 +1711,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Support keyboard navigation (ESC to close)
     - If multiple photos, add navigation (prev/next arrows)
     - Show photo index (e.g., "2 of 5")
+    - Add download button in lightbox to download full-size photo
 
 2. **Enhanced error handling:**
 
@@ -2559,6 +2560,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Display photo grid with thumbnails
     - Show photo metadata (uploaded_at, uploaded_by name)
     - Lightbox/modal for full-size viewing
+    - Download button to download full-size photos
     - Handle loading states and broken images
     - Accept props: `photos` (array), `onDelete` (optional, for permission-based deletion)
 5. **Update animal detail page:**
@@ -2609,7 +2611,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   RLS policies prevent cross-organization access
 -   Photo deletion works correctly with permission checks
 
-**Deliverable:** Photo upload functionality working for animals and groups with proper permission controls.
+**Deliverable:** Photo upload functionality working for animals and groups with proper permission controls and download functionality.
 
 **Photo Retention Policy:**
 

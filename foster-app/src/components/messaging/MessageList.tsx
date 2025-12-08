@@ -18,13 +18,8 @@ interface MessageListProps {
 const MESSAGE_LIMIT = 100;
 
 // Type for message with joined profile data from Supabase
-type MessageWithProfile = {
-	id: string;
-	conversation_id: string;
-	sender_id: string;
-	content: string;
-	created_at: string;
-	edited_at: string | null;
+// Extends Message type to avoid duplication
+type MessageWithProfile = Message & {
 	profiles: { full_name: string } | null;
 };
 
@@ -43,6 +38,7 @@ async function fetchMessages(
 			content,
 			created_at,
 			edited_at,
+			photo_urls,
 			profiles!messages_sender_id_fkey(full_name)
 		`
 		)
@@ -80,6 +76,7 @@ async function fetchMessages(
 			content: msg.content,
 			created_at: msg.created_at,
 			edited_at: msg.edited_at,
+			photo_urls: msg.photo_urls,
 			sender_name: extractFullName(msg.profiles) ?? "",
 		}))
 		.reverse(); // Reverse to display oldest first
@@ -298,6 +295,7 @@ export default function MessageList({
 						content: string;
 						created_at: string;
 						edited_at: string | null;
+						photo_urls: string[] | null;
 					};
 
 					// Fetch the sender's profile to get the name
@@ -318,6 +316,7 @@ export default function MessageList({
 							content: newMessage.content,
 							created_at: newMessage.created_at,
 							edited_at: newMessage.edited_at ?? undefined,
+							photo_urls: newMessage.photo_urls ?? undefined,
 							sender_name: senderName,
 						};
 
@@ -459,6 +458,7 @@ export default function MessageList({
 							content: message.content,
 							created_at: message.created_at,
 							sender_name: message.sender_name,
+							photo_urls: message.photo_urls,
 						}}
 						isOwnMessage={isOwnMessage}
 					/>
