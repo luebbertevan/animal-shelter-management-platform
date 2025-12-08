@@ -1744,6 +1744,125 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
+### Milestone 5.9.5: Minimal Group Management UI (Prerequisite for Group Tagging)
+
+**Goal:** Create minimal group management UI to enable testing of group tagging in messages. This provides basic create/view functionality for groups without full editing capabilities.
+
+### Milestone 5.9.5a: Database - Add Priority Field
+
+**Goal:** Add priority field to groups table. Priority will default to high if any animal in the group is high priority (handled in frontend), but coordinators can override this.
+
+**Tasks:**
+
+1. **Create migration to add priority field:**
+
+    - Add `priority BOOLEAN DEFAULT false` column to `animal_groups` table
+    - Match the priority field structure from `animals` table
+    - No database triggers needed - priority is set by frontend logic and can be manually changed
+
+2. **Update TypeScript type:**
+    - Add `priority?: boolean` to `AnimalGroup` interface in `src/types/index.ts`
+
+**Testing:**
+
+-   Priority field exists in `animal_groups` table
+-   Can set priority to `true` or `false` when creating/updating groups
+-   TypeScript type includes priority field
+
+**Deliverable:** Priority field added to groups table. Priority defaults and updates are handled in the frontend, allowing coordinators to override as needed.
+
+---
+
+### Milestone 5.9.5b: Groups List Page
+
+**Goal:** Create read-only groups list page to view all groups in the organization.
+
+**Tasks:**
+
+1. **Create Groups List page** (`src/pages/animals/GroupsList.tsx`):
+
+    - Fetch all animal groups in organization using React Query
+    - Display groups in simple list/card format
+    - Show group name, description (if available), and member count
+    - Link each group to group detail page
+    - Add "New Group" button (coordinator-only)
+    - Handle loading and error states
+    - Mobile-first responsive design
+
+2. **Create Group Detail page** (`src/pages/animals/GroupDetail.tsx`):
+
+    - Fetch group by ID from URL params using React Query
+    - Display group information (name, description)
+    - Show list of animals in group (from `animal_ids` array):
+        - Fetch animal details for each animal_id
+        - Display animal names with links to animal detail pages
+        - Show "No animals in group" if array is empty
+    - Handle loading and error states
+    - Mobile-first responsive design
+
+3. **Create New Group form** (`src/pages/animals/NewGroup.tsx`):
+
+    - Simple form with:
+        - Group name (required, text input)
+        - Description (optional, textarea)
+        - Priority toggle (boolean checkbox - defaults based on selected animals, but editable)
+        - Animal selection (multi-select):
+            - Fetch all animals in organization
+            - Allow selecting multiple animals to add to group
+            - Display as checkboxes or multi-select dropdown
+            - Show priority indicator for high priority animals
+    - **Priority default logic (frontend):**
+        - When animals are selected, check if any selected animal has `priority = true`
+        - If yes → default priority checkbox to checked (`true`)
+        - If no → default priority checkbox to unchecked (`false`)
+        - Coordinator can manually override the default by toggling the checkbox
+        - Priority updates reactively as animals are selected/deselected
+    - Form validation (name required)
+    - On submit:
+        - Create group with `name`, `description`, `animal_ids` array, and `priority` (from checkbox state)
+        - Set `organization_id` from user's profile
+        - Handle errors with user-friendly messages
+    - Redirect to group detail page on success
+    - Mobile-first responsive design
+
+4. **Add routing**:
+
+    - Add route `/groups` for groups list
+    - Add route `/groups/:id` for group detail
+    - Add route `/groups/new` for new group (coordinator-only, can use ProtectedRoute with role check)
+    - Ensure routes are protected (require authentication)
+
+5. **Add navigation**:
+    - Add "Groups" link to Dashboard or navigation (for coordinators)
+    - Add back button on group detail page
+    - Add "Create Group" button on groups list page
+
+**Note:** This is a minimal implementation. Full editing (M 6.3) will add:
+
+-   Edit group functionality
+-   Add/remove animals from existing groups
+-   Update group information
+-   More sophisticated group management features
+
+**Testing:**
+
+-   Coordinator can access new group form
+-   Form validation works (name required)
+-   Can select multiple animals to add to group
+-   Priority checkbox defaults to checked if any selected animal is high priority
+-   Priority checkbox defaults to unchecked if no selected animals are high priority
+-   Priority checkbox updates reactively as animals are selected/deselected
+-   Coordinator can manually override priority checkbox (toggle it regardless of animal selection)
+-   Group is created with correct data including priority
+-   Redirects to group detail page on success
+-   Error handling works correctly
+-   Fosters cannot access new group form
+-   Mobile layout is usable
+
+**Deliverable:** New group form working. Coordinators can create groups with animals, enabling testing of group tagging in messages.
+
+---
+
 ### Milestone 5.10a: Update Database Schema for Foster Tagging
 
 **Goal:** Extend `message_links` table to support tagging fosters in addition to animals and groups, and rename table to reflect its broader purpose.
