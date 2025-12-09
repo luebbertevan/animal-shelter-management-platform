@@ -3,8 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
-import { useAuth } from "../../hooks/useAuth";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Animal } from "../../types";
 import Input from "../../components/ui/Input";
 import Textarea from "../../components/ui/Textarea";
@@ -18,8 +17,7 @@ import { fetchAnimals } from "../../lib/animalQueries";
 
 export default function NewGroup() {
 	const navigate = useNavigate();
-	const { user } = useAuth();
-	const { profile } = useUserProfile();
+	const { user, profile } = useProtectedAuth();
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [priority, setPriority] = useState(false);
@@ -35,18 +33,14 @@ export default function NewGroup() {
 		isLoading: isLoadingAnimals,
 		isError: isErrorAnimals,
 	} = useQuery<Animal[], Error>({
-		queryKey: ["animals", user?.id, profile?.organization_id],
+		queryKey: ["animals", user.id, profile.organization_id],
 		queryFn: () => {
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
 			return fetchAnimals(profile.organization_id, {
 				fields: ["id", "name", "priority"],
 				orderBy: "created_at",
 				orderDirection: "desc",
 			});
 		},
-		enabled: !!user && !!profile?.organization_id,
 	});
 
 	// Smart priority defaulting: check if any selected animal is high priority
@@ -101,18 +95,6 @@ export default function NewGroup() {
 		setSubmitError(null);
 
 		if (!validateForm()) {
-			return;
-		}
-
-		if (!user) {
-			setSubmitError("You must be logged in to create a group.");
-			return;
-		}
-
-		if (!profile?.organization_id) {
-			setSubmitError(
-				"Unable to determine your organization. Please try again."
-			);
 			return;
 		}
 

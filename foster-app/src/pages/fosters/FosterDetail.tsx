@@ -1,7 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../../hooks/useAuth";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Animal, AnimalGroup } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
@@ -12,8 +11,7 @@ import { isOffline } from "../../lib/errorUtils";
 
 export default function FosterDetail() {
 	const { id } = useParams<{ id: string }>();
-	const { user } = useAuth();
-	const { profile, isCoordinator } = useUserProfile();
+	const { user, profile, isCoordinator } = useProtectedAuth();
 
 	const {
 		data: foster,
@@ -21,19 +19,14 @@ export default function FosterDetail() {
 		isError: isErrorFoster,
 		error: fosterError,
 	} = useQuery({
-		queryKey: ["fosters", user?.id, profile?.organization_id, id],
+		queryKey: ["fosters", user.id, profile.organization_id, id],
 		queryFn: async () => {
 			if (!id) {
 				throw new Error("Foster ID is required");
 			}
-
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
-
 			return fetchFosterById(id, profile.organization_id);
 		},
-		enabled: !!id && !!user && !!profile?.organization_id && isCoordinator,
+		enabled: !!id && isCoordinator,
 	});
 
 	// Fetch assigned animals
@@ -41,15 +34,14 @@ export default function FosterDetail() {
 		useQuery<Animal[], Error>({
 			queryKey: [
 				"foster-animals",
-				user?.id,
-				profile?.organization_id,
+				user.id,
+				profile.organization_id,
 				foster?.id,
 			],
 			queryFn: async () => {
-				if (!foster?.id || !profile?.organization_id) {
+				if (!foster?.id) {
 					return [];
 				}
-
 				return fetchAnimalsByFosterId(
 					foster.id,
 					profile.organization_id,
@@ -58,7 +50,7 @@ export default function FosterDetail() {
 					}
 				);
 			},
-			enabled: !!foster && !!user && !!profile?.organization_id,
+			enabled: !!foster,
 		});
 
 	// Fetch assigned groups
@@ -68,12 +60,12 @@ export default function FosterDetail() {
 	>({
 		queryKey: [
 			"foster-groups",
-			user?.id,
-			profile?.organization_id,
+			user.id,
+			profile.organization_id,
 			foster?.id,
 		],
 		queryFn: async () => {
-			if (!foster?.id || !profile?.organization_id) {
+			if (!foster?.id) {
 				return [];
 			}
 
@@ -81,7 +73,7 @@ export default function FosterDetail() {
 				fields: ["id", "name", "description", "priority"],
 			});
 		},
-		enabled: !!foster && !!user && !!profile?.organization_id,
+		enabled: !!foster,
 	});
 
 	const isLoading = isLoadingFoster || isLoadingAnimals || isLoadingGroups;

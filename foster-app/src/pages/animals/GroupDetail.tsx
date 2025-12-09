@@ -1,7 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../../hooks/useAuth";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { AnimalGroup, Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
@@ -11,8 +10,7 @@ import { isOffline } from "../../lib/errorUtils";
 
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
-	const { user } = useAuth();
-	const { profile } = useUserProfile();
+	const { user, profile } = useProtectedAuth();
 
 	const {
 		data: group,
@@ -20,19 +18,14 @@ export default function GroupDetail() {
 		isError: isErrorGroup,
 		error: groupError,
 	} = useQuery<AnimalGroup, Error>({
-		queryKey: ["groups", user?.id, profile?.organization_id, id],
+		queryKey: ["groups", user.id, profile.organization_id, id],
 		queryFn: async () => {
 			if (!id) {
 				throw new Error("Group ID is required");
 			}
-
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
-
 			return fetchGroupById(id, profile.organization_id);
 		},
-		enabled: !!id && !!user && !!profile?.organization_id,
+		enabled: !!id,
 	});
 
 	const {
@@ -42,19 +35,14 @@ export default function GroupDetail() {
 	} = useQuery<Animal[], Error>({
 		queryKey: [
 			"group-animals",
-			user?.id,
-			profile?.organization_id,
+			user.id,
+			profile.organization_id,
 			group?.animal_ids,
 		],
 		queryFn: async () => {
 			if (!group?.animal_ids || group.animal_ids.length === 0) {
 				return [];
 			}
-
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
-
 			return fetchAnimalsByIds(
 				group.animal_ids,
 				profile.organization_id,
@@ -63,11 +51,7 @@ export default function GroupDetail() {
 				}
 			);
 		},
-		enabled:
-			!!group &&
-			!!user &&
-			!!profile?.organization_id &&
-			!!group.animal_ids,
+		enabled: !!group && !!group.animal_ids,
 	});
 
 	const isLoading = isLoadingGroup || isLoadingAnimals;
