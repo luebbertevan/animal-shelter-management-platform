@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../../hooks/useAuth";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { AnimalGroup } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
@@ -18,8 +17,7 @@ type GroupWithAnimalNames = Pick<
 };
 
 export default function GroupsList() {
-	const { user } = useAuth();
-	const { profile, isCoordinator } = useUserProfile();
+	const { user, profile, isCoordinator } = useProtectedAuth();
 
 	const {
 		data: groupsData = [],
@@ -28,11 +26,8 @@ export default function GroupsList() {
 		error: groupsError,
 		refetch,
 	} = useQuery({
-		queryKey: ["groups", user?.id, profile?.organization_id], // Include user ID and org ID in cache key
+		queryKey: ["groups", user.id, profile.organization_id],
 		queryFn: () => {
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
 			return fetchGroups(profile.organization_id, {
 				fields: ["id", "name", "description", "animal_ids", "priority"],
 				orderBy: "created_at",
@@ -40,20 +35,15 @@ export default function GroupsList() {
 				checkOffline: true,
 			});
 		},
-		enabled: !!user && !!profile?.organization_id, // Only fetch if user is logged in and has org ID
 	});
 
 	const { data: animalsData = [], isLoading: isLoadingAnimals } = useQuery({
-		queryKey: ["animals", user?.id, profile?.organization_id],
+		queryKey: ["animals", user.id, profile.organization_id],
 		queryFn: () => {
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
 			return fetchAnimals(profile.organization_id, {
 				fields: ["id", "name"],
 			});
 		},
-		enabled: !!user && !!profile?.organization_id,
 	});
 
 	// Create a map of animal IDs to names for quick lookup

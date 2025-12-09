@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { useAuth } from "../../hooks/useAuth";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { getErrorMessage } from "../../lib/errorUtils";
 import { uploadPhoto } from "../../lib/photoUtils";
 import Button from "../ui/Button";
@@ -58,8 +57,7 @@ export default function MessageInput({
 	conversationId,
 	onMessageSent,
 }: MessageInputProps) {
-	const { user } = useAuth();
-	const { profile } = useUserProfile();
+	const { user, profile } = useProtectedAuth();
 	const [message, setMessage] = useState("");
 	const [sending, setSending] = useState(false);
 	const [uploading, setUploading] = useState(false);
@@ -87,18 +85,6 @@ export default function MessageInput({
 			return;
 		}
 
-		// Validation: user must be authenticated
-		if (!user?.id) {
-			setError("You must be signed in to send messages.");
-			return;
-		}
-
-		// Validation: organization ID must be available for photo uploads
-		if (!profile?.organization_id) {
-			setError("Organization information not available.");
-			return;
-		}
-
 		setSending(true);
 		setError(null);
 		setPhotoError(null);
@@ -113,9 +99,6 @@ export default function MessageInput({
 
 				// Upload all photos in parallel
 				const organizationId = profile.organization_id;
-				if (!organizationId) {
-					throw new Error("Organization ID not available");
-				}
 				const uploadPromises = selectedPhotos.map(
 					async (photo): Promise<UploadResult> => {
 						try {
@@ -327,8 +310,7 @@ export default function MessageInput({
 	const isDisabled =
 		sending ||
 		uploading ||
-		(!message.trim() && selectedPhotos.length === 0) ||
-		!user?.id;
+		(!message.trim() && selectedPhotos.length === 0);
 
 	const handlePhotoButtonClick = () => {
 		fileInputRef.current?.click();

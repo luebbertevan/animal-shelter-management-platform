@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Conversation } from "../../types";
 import MessageList from "../../components/messaging/MessageList";
 import MessageInput from "../../components/messaging/MessageInput";
@@ -48,7 +48,7 @@ async function fetchConversation(
 export default function ConversationDetail() {
 	const { conversationId } = useParams<{ conversationId: string }>();
 	const navigate = useNavigate();
-	const { profile } = useUserProfile();
+	const { profile } = useProtectedAuth();
 	const queryClient = useQueryClient();
 	const scrollableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -58,17 +58,14 @@ export default function ConversationDetail() {
 		isError,
 		error,
 	} = useQuery<Conversation & { foster_name?: string }, Error>({
-		queryKey: ["conversation", conversationId, profile?.organization_id],
+		queryKey: ["conversation", conversationId, profile.organization_id],
 		queryFn: async () => {
 			if (!conversationId) {
 				throw new Error("Conversation ID is required");
 			}
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
 			return fetchConversation(conversationId, profile.organization_id);
 		},
-		enabled: !!conversationId && !!profile?.organization_id,
+		enabled: !!conversationId,
 	});
 
 	if (isLoading) {
@@ -107,7 +104,7 @@ export default function ConversationDetail() {
 	// Determine conversation header text based on user role
 	const getHeaderText = () => {
 		// For fosters, show nothing
-		if (profile?.role === "foster") {
+		if (profile.role === "foster") {
 			return "";
 		}
 
@@ -133,7 +130,7 @@ export default function ConversationDetail() {
 
 	// Determine back button navigation based on user role
 	const handleBack = () => {
-		if (profile?.role === "foster") {
+		if (profile.role === "foster") {
 			navigate("/dashboard");
 		} else {
 			// Coordinators navigate to conversation list

@@ -1,10 +1,8 @@
 import { useNavigate, Link } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import { useAuth } from "../hooks/useAuth";
-import { useUserProfile } from "../hooks/useUserProfile";
+import { useProtectedAuth } from "../hooks/useProtectedAuth";
 import Button from "../components/ui/Button";
-import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { getErrorMessage } from "../lib/errorUtils";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
@@ -35,35 +33,16 @@ async function fetchFosterConversation(userId: string, organizationId: string) {
 export default function Dashboard() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { user, loading: isLoadingAuth } = useAuth();
-	const {
-		profile,
-		isLoading: isLoadingProfile,
-		isFoster,
-		isCoordinator,
-	} = useUserProfile();
+	const { user, profile, isFoster, isCoordinator } = useProtectedAuth();
 
 	// Fetch foster's conversation ID if user is a foster
 	const { data: conversationId } = useQuery<string | null>({
-		queryKey: ["fosterConversation", user?.id, profile?.organization_id],
+		queryKey: ["fosterConversation", user.id, profile.organization_id],
 		queryFn: async () => {
-			if (!user?.id || !profile?.organization_id || !isFoster) {
-				return null;
-			}
 			return fetchFosterConversation(user.id, profile.organization_id);
 		},
-		enabled: !!user?.id && !!profile?.organization_id && isFoster,
+		enabled: isFoster,
 	});
-
-	// Wait for both auth and profile to load before showing content
-	// This prevents partial rendering and ensures everything appears at once
-	if (isLoadingAuth || isLoadingProfile) {
-		return (
-			<div className="min-h-screen flex items-center justify-center">
-				<LoadingSpinner />
-			</div>
-		);
-	}
 
 	const handleLogout = async () => {
 		const { error } = await supabase.auth.signOut();
@@ -85,7 +64,7 @@ export default function Dashboard() {
 				<div className="bg-white rounded-lg shadow-md p-6 mb-4">
 					<div className="flex justify-between items-center mb-4">
 						<div>
-							{profile?.organization_name && (
+							{profile.organization_name && (
 								<p className="text-lg font-semibold text-pink-600 mb-2">
 									{profile.organization_name}
 								</p>
@@ -93,11 +72,9 @@ export default function Dashboard() {
 							<h1 className="text-2xl font-bold text-gray-900">
 								Dashboard
 							</h1>
-							{user && (
-								<p className="text-sm text-gray-600 mt-1">
-									Signed in as {user.email}
-								</p>
-							)}
+							<p className="text-sm text-gray-600 mt-1">
+								Signed in as {user.email}
+							</p>
 						</div>
 					</div>
 				</div>

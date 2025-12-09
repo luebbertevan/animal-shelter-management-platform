@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
-import { useAuth } from "../../hooks/useAuth";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Message } from "../../types";
 import { getErrorMessage } from "../../lib/errorUtils";
 import { extractFullName } from "../../lib/supabaseUtils";
@@ -88,7 +88,7 @@ export default function MessageList({
 	conversationId,
 	scrollableContainerRef: parentScrollableContainerRef,
 }: MessageListProps) {
-	const { user } = useAuth();
+	const { user } = useProtectedAuth();
 	const queryClient = useQueryClient();
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -448,7 +448,7 @@ export default function MessageList({
 			)}
 
 			{messages.map((message) => {
-				const isOwnMessage = message.sender_id === user?.id;
+				const isOwnMessage = message.sender_id === user.id;
 
 				return (
 					<MessageBubble

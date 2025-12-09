@@ -1,15 +1,13 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../../hooks/useAuth";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import { fetchFosters } from "../../lib/fosterQueries";
 import { isOffline } from "../../lib/errorUtils";
 
 export default function FostersList() {
-	const { user } = useAuth();
-	const { profile, isCoordinator } = useUserProfile();
+	const { user, profile, isCoordinator } = useProtectedAuth();
 
 	const {
 		data: fosters = [],
@@ -18,11 +16,8 @@ export default function FostersList() {
 		error,
 		refetch,
 	} = useQuery({
-		queryKey: ["fosters", user?.id, profile?.organization_id],
+		queryKey: ["fosters", user.id, profile.organization_id],
 		queryFn: () => {
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
 			return fetchFosters(profile.organization_id, {
 				fields: [
 					"id",
@@ -36,7 +31,7 @@ export default function FostersList() {
 				checkOffline: true,
 			});
 		},
-		enabled: !!user && !!profile?.organization_id && isCoordinator,
+		enabled: isCoordinator,
 	});
 
 	// Redirect non-coordinators (handled by route protection, but double-check)

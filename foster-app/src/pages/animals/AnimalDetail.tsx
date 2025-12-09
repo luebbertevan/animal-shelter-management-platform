@@ -1,7 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../../hooks/useAuth";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
@@ -11,8 +10,7 @@ import { isOffline } from "../../lib/errorUtils";
 
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
-	const { user } = useAuth();
-	const { isCoordinator, profile } = useUserProfile();
+	const { user, profile, isCoordinator } = useProtectedAuth();
 
 	const {
 		data: animal,
@@ -20,19 +18,14 @@ export default function AnimalDetail() {
 		isError,
 		error,
 	} = useQuery<Animal, Error>({
-		queryKey: ["animals", user?.id, profile?.organization_id, id], // Include user ID, org ID, and animal ID in cache key
+		queryKey: ["animals", user.id, profile.organization_id, id],
 		queryFn: async () => {
 			if (!id) {
 				throw new Error("Animal ID is required");
 			}
-
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
-
 			return fetchAnimalById(id, profile.organization_id);
 		},
-		enabled: !!id && !!user && !!profile?.organization_id, // Only run query if id, user, and org ID exist
+		enabled: !!id,
 	});
 
 	if (isLoading) {

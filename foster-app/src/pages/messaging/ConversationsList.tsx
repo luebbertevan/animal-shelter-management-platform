@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Conversation } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Button from "../../components/ui/Button";
@@ -69,7 +69,7 @@ async function fetchConversations(organizationId: string) {
 
 export default function ConversationsList() {
 	const navigate = useNavigate();
-	const { profile, isLoading: isLoadingProfile } = useUserProfile();
+	const { profile } = useProtectedAuth();
 
 	const {
 		data: conversations,
@@ -77,17 +77,13 @@ export default function ConversationsList() {
 		isError,
 		error,
 	} = useQuery<ConversationWithFosterName[]>({
-		queryKey: ["conversations", profile?.organization_id],
+		queryKey: ["conversations", profile.organization_id],
 		queryFn: async () => {
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
 			return fetchConversations(profile.organization_id);
 		},
-		enabled: !!profile?.organization_id,
 	});
 
-	if (isLoadingProfile || isLoading) {
+	if (isLoading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center">
 				<LoadingSpinner />

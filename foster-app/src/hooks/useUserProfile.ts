@@ -1,31 +1,48 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import { useAuth } from "./useAuth";
+import type { AuthState } from "./useAuth";
 
-interface UserProfile {
+export interface UserProfile {
 	role: "coordinator" | "foster";
 	organization_id: string;
 	organization_name?: string;
 }
 
 /**
+ * Discriminated union type for user profile state
+ * Only loads when user is authenticated
+ */
+export type ProfileState =
+	| { status: "loading" }
+	| { status: "loaded"; profile: UserProfile }
+	| { status: "error" };
+
+/**
  * Hook to fetch the current user's profile (including role)
  * Uses React Query for caching and automatic refetching
+ *
+ * @param authState - The authentication state from useAuth()
  */
-export function useUserProfile() {
-	const { user } = useAuth();
-
-	const { data: profile, isLoading } = useQuery<UserProfile | null>({
-		queryKey: ["profile", user?.id],
+export function useUserProfile(authState: AuthState): ProfileState {
+	const {
+		data: profile,
+		isLoading,
+		isError,
+	} = useQuery<UserProfile | null>({
+		queryKey: [
+			"profile",
+			authState.status === "authenticated" ? authState.user.id : null,
+		],
 		queryFn: async () => {
-			if (!user?.id) return null;
+			// TypeScript knows user exists here because of enabled check
+			if (authState.status !== "authenticated") return null;
 
 			try {
 				// Fetch profile with organization name via join
 				const { data, error } = await supabase
 					.from("profiles")
 					.select("role, organization_id, organizations(name)")
-					.eq("id", user.id)
+					.eq("id", authState.user.id)
 					.single();
 
 				if (error) {
@@ -53,16 +70,19 @@ export function useUserProfile() {
 				return null;
 			}
 		},
-		enabled: !!user?.id,
+		enabled: authState.status === "authenticated",
 	});
 
-	const isCoordinator = profile?.role === "coordinator";
-	const isFoster = profile?.role === "foster";
+	if (isLoading) {
+		return { status: "loading" };
+	}
+
+	if (isError || !profile) {
+		return { status: "error" };
+	}
 
 	return {
+		status: "loaded",
 		profile,
-		isLoading,
-		isCoordinator,
-		isFoster,
 	};
 }
