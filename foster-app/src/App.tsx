@@ -10,6 +10,8 @@ import GroupDetail from "./pages/animals/GroupDetail";
 import NewGroup from "./pages/animals/NewGroup";
 import ConversationDetail from "./pages/messaging/ConversationDetail";
 import ConversationsList from "./pages/messaging/ConversationsList";
+import FostersList from "./pages/fosters/FostersList";
+import FosterDetail from "./pages/fosters/FosterDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -87,6 +89,22 @@ function App() {
 					element={
 						<ProtectedRoute>
 							<ConversationDetail />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/fosters"
+					element={
+						<ProtectedRoute>
+							<FostersList />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/fosters/:id"
+					element={
+						<ProtectedRoute>
+							<FosterDetail />
 						</ProtectedRoute>
 					}
 				/>

@@ -165,6 +165,10 @@ export interface Foster extends BaseUser {
 	preferred_animal_profiles?: string; // What types of animals they prefer
 	// NOTE: Simple boolean toggle for MVP. Might change to calendar with specific dates later
 	availability?: boolean; // Simple toggle: available or not available
+	// Contact and inspection fields
+	phone_number?: string; // Phone number for foster contact
+	full_address?: string; // Full address for foster location
+	home_inspection?: string; // Free-form text field for home inspection notes/information
 }
 
 export interface Coordinator extends BaseUser {
