@@ -1,13 +1,14 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserProfile } from "../../hooks/useUserProfile";
-import type { AnimalGroup, Animal } from "../../types";
+import type { AnimalGroup } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import { getErrorMessage, isOffline } from "../../lib/errorUtils";
+import { fetchGroups } from "../../lib/groupQueries";
+import { fetchAnimals } from "../../lib/animalQueries";
+import { isOffline } from "../../lib/errorUtils";
 
 type GroupWithAnimalNames = Pick<
 	AnimalGroup,
@@ -15,75 +16,6 @@ type GroupWithAnimalNames = Pick<
 > & {
 	animalNames: string[];
 };
-
-// Type for groups returned from fetch (without animalNames)
-type GroupData = Omit<GroupWithAnimalNames, "animalNames">;
-
-async function fetchGroups(organizationId: string) {
-	try {
-		// Let service worker handle offline - it will serve cached data if available
-		const { data, error } = await supabase
-			.from("animal_groups")
-			.select("id, name, description, animal_ids, priority")
-			.eq("organization_id", organizationId) // Filter by organization
-			.order("created_at", { ascending: false });
-
-		if (error) {
-			// Use errorUtils to get user-friendly message
-			throw new Error(
-				getErrorMessage(
-					error,
-					"Failed to fetch groups. Please try again."
-				)
-			);
-		}
-
-		// Explicitly handle null/undefined data (shouldn't happen, but safety check)
-		if (data === null || data === undefined) {
-			throw new Error(
-				"Unexpected error: No data returned from server. Please try again."
-			);
-		}
-
-		// If we're offline and got empty data, treat it as a network error
-		if (isOffline() && data.length === 0) {
-			throw new TypeError("Failed to fetch");
-		}
-
-		// Return empty array if no groups (this is valid, not an error)
-		// Note: This returns data without animalNames, which will be added in useMemo
-		return data as GroupData[];
-	} catch (err) {
-		// Catch network errors that occur before Supabase returns
-		throw new Error(
-			getErrorMessage(err, "Failed to fetch groups. Please try again.")
-		);
-	}
-}
-
-async function fetchAnimals(organizationId: string): Promise<Animal[]> {
-	try {
-		const { data, error } = await supabase
-			.from("animals")
-			.select("id, name")
-			.eq("organization_id", organizationId);
-
-		if (error) {
-			throw new Error(
-				getErrorMessage(
-					error,
-					"Failed to fetch animals. Please try again."
-				)
-			);
-		}
-
-		return (data || []) as Animal[];
-	} catch (err) {
-		throw new Error(
-			getErrorMessage(err, "Failed to fetch animals. Please try again.")
-		);
-	}
-}
 
 export default function GroupsList() {
 	const { user } = useAuth();
@@ -101,7 +33,12 @@ export default function GroupsList() {
 			if (!profile?.organization_id) {
 				throw new Error("Organization ID not available");
 			}
-			return fetchGroups(profile.organization_id);
+			return fetchGroups(profile.organization_id, {
+				fields: ["id", "name", "description", "animal_ids", "priority"],
+				orderBy: "created_at",
+				orderDirection: "desc",
+				checkOffline: true,
+			});
 		},
 		enabled: !!user && !!profile?.organization_id, // Only fetch if user is logged in and has org ID
 	});
@@ -112,7 +49,9 @@ export default function GroupsList() {
 			if (!profile?.organization_id) {
 				throw new Error("Organization ID not available");
 			}
-			return fetchAnimals(profile.organization_id);
+			return fetchAnimals(profile.organization_id, {
+				fields: ["id", "name"],
+			});
 		},
 		enabled: !!user && !!profile?.organization_id,
 	});

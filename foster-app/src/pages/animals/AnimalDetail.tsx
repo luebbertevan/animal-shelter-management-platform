@@ -1,17 +1,13 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import type { Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import Button from "../../components/ui/Button";
-import {
-	getErrorMessage,
-	handleSupabaseNotFound,
-	isOffline,
-} from "../../lib/errorUtils";
+import { fetchAnimalById } from "../../lib/animalQueries";
+import { isOffline } from "../../lib/errorUtils";
 
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -34,53 +30,7 @@ export default function AnimalDetail() {
 				throw new Error("Organization ID not available");
 			}
 
-			try {
-				// Let service worker handle offline - it will serve cached data if available
-				const { data, error: fetchError } = await supabase
-					.from("animals")
-					.select("*")
-					.eq("id", id)
-					.eq("organization_id", profile.organization_id) // Filter by organization
-					.single();
-
-				if (fetchError) {
-					// Check if it's a "not found" error or network error
-					const notFoundError = handleSupabaseNotFound(
-						fetchError,
-						null,
-						"Animal"
-					);
-
-					// If it's a network error (TypeError), use getErrorMessage for user-friendly message
-					if (notFoundError instanceof TypeError) {
-						throw new Error(
-							getErrorMessage(
-								notFoundError,
-								"Failed to load animal details. Please try again."
-							)
-						);
-					}
-
-					// Otherwise, it's a real "not found" error
-					throw notFoundError;
-				}
-
-				if (!data) {
-					// Use helper to determine if it's "not found" or network error
-					throw handleSupabaseNotFound(null, data, "Animal");
-				}
-
-				return data as Animal;
-			} catch (err) {
-				// Catch network errors that occur before Supabase returns (TypeError: Failed to fetch)
-				// or any other unexpected errors
-				throw new Error(
-					getErrorMessage(
-						err,
-						"Failed to load animal details. Please try again."
-					)
-				);
-			}
+			return fetchAnimalById(id, profile.organization_id);
 		},
 		enabled: !!id && !!user && !!profile?.organization_id, // Only run query if id, user, and org ID exist
 	});

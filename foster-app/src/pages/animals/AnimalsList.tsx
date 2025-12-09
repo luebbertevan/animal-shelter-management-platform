@@ -1,18 +1,12 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserProfile } from "../../hooks/useUserProfile";
-import type { Animal } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import { getErrorMessage, isOffline } from "../../lib/errorUtils";
-
-type AnimalsListItem = Pick<
-	Animal,
-	"id" | "name" | "status" | "sex" | "priority"
->;
+import { fetchAnimals } from "../../lib/animalQueries";
+import { isOffline } from "../../lib/errorUtils";
 
 // Helper function to create a URL-friendly slug from a name
 function createSlug(name: string | undefined | null): string {
@@ -24,50 +18,6 @@ function createSlug(name: string | undefined | null): string {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphens
 		.replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
-}
-
-async function fetchAnimals(organizationId: string) {
-	try {
-		// Let service worker handle offline - it will serve cached data if available
-		const { data, error } = await supabase
-			.from("animals")
-			.select("id, name, status, sex, priority")
-			.eq("organization_id", organizationId) // Filter by organization
-			.order("created_at", { ascending: false });
-
-		if (error) {
-			// Use errorUtils to get user-friendly message
-			throw new Error(
-				getErrorMessage(
-					error,
-					"Failed to fetch animals. Please try again."
-				)
-			);
-		}
-
-		// Explicitly handle null/undefined data (shouldn't happen, but safety check)
-		// Using unique message to help identify this specific bug if it occurs
-		if (data === null || data === undefined) {
-			throw new Error(
-				"Unexpected error: No data returned from server. Please try again."
-			);
-		}
-
-		// If we're offline and got empty data, treat it as a network error
-		// (Supabase might return empty array instead of error when offline)
-		if (isOffline() && data.length === 0) {
-			throw new TypeError("Failed to fetch");
-		}
-
-		// Return empty array if no animals (this is valid, not an error)
-		return data as AnimalsListItem[];
-	} catch (err) {
-		// Catch network errors that occur before Supabase returns (TypeError: Failed to fetch)
-		// or any other unexpected errors
-		throw new Error(
-			getErrorMessage(err, "Failed to fetch animals. Please try again.")
-		);
-	}
 }
 
 export default function AnimalsList() {
@@ -86,7 +36,12 @@ export default function AnimalsList() {
 			if (!profile?.organization_id) {
 				throw new Error("Organization ID not available");
 			}
-			return fetchAnimals(profile.organization_id);
+			return fetchAnimals(profile.organization_id, {
+				fields: ["id", "name", "status", "sex", "priority"],
+				orderBy: "created_at",
+				orderDirection: "desc",
+				checkOffline: true,
+			});
 		},
 		enabled: !!user && !!profile?.organization_id, // Only fetch if user is logged in and has org ID
 	});

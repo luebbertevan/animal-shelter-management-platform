@@ -1,0 +1,130 @@
+import { supabase } from "./supabase";
+import {
+	getErrorMessage,
+	isOffline,
+	handleSupabaseNotFound,
+} from "./errorUtils";
+import type { AnimalGroup } from "../types";
+
+export interface FetchGroupsOptions {
+	// Fields to select. Default: ["id", "name", "description", "animal_ids", "priority"]
+	// Pass "*" to select all fields
+	fields?: string[];
+	// Order by field. Default: "created_at"
+	orderBy?: string;
+	// Order direction. Default: "desc"
+	orderDirection?: "asc" | "desc";
+	// Whether to check for offline state and throw error if offline with empty data.
+	// Default: false
+	checkOffline?: boolean;
+}
+
+/**
+ * Fetch all groups for an organization
+ */
+export async function fetchGroups(
+	organizationId: string,
+	options: FetchGroupsOptions = {}
+): Promise<AnimalGroup[]> {
+	const {
+		fields = ["id", "name", "description", "animal_ids", "priority"],
+		orderBy = "created_at",
+		orderDirection = "desc",
+		checkOffline = false,
+	} = options;
+
+	try {
+		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
+		let query = supabase
+			.from("animal_groups")
+			.select(selectFields)
+			.eq("organization_id", organizationId);
+
+		// Add ordering if specified
+		if (orderBy) {
+			query = query.order(orderBy, {
+				ascending: orderDirection === "asc",
+			});
+		}
+
+		const { data, error } = await query;
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to fetch groups. Please try again."
+				)
+			);
+		}
+
+		// Explicitly handle null/undefined data (shouldn't happen, but safety check)
+		if (data === null || data === undefined) {
+			throw new Error(
+				"Unexpected error: No data returned from server. Please try again."
+			);
+		}
+
+		// If we're offline and got empty data, treat it as a network error
+		if (checkOffline && isOffline() && data.length === 0) {
+			throw new TypeError("Failed to fetch");
+		}
+
+		// Return empty array if no groups (this is valid, not an error)
+		return (data || []) as unknown as AnimalGroup[];
+	} catch (err) {
+		// Catch network errors that occur before Supabase returns
+		throw new Error(
+			getErrorMessage(err, "Failed to fetch groups. Please try again.")
+		);
+	}
+}
+
+/**
+ * Fetch a single group by ID
+ */
+export async function fetchGroupById(
+	groupId: string,
+	organizationId: string
+): Promise<AnimalGroup> {
+	try {
+		const { data, error: fetchError } = await supabase
+			.from("animal_groups")
+			.select("*")
+			.eq("id", groupId)
+			.eq("organization_id", organizationId)
+			.single();
+
+		if (fetchError) {
+			const notFoundError = handleSupabaseNotFound(
+				fetchError,
+				null,
+				"Group"
+			);
+
+			if (notFoundError instanceof TypeError) {
+				throw new Error(
+					getErrorMessage(
+						notFoundError,
+						"Failed to load group details. Please try again."
+					)
+				);
+			}
+
+			throw notFoundError;
+		}
+
+		if (!data) {
+			throw handleSupabaseNotFound(null, data, "Group");
+		}
+
+		return data as AnimalGroup;
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to load group details. Please try again."
+			)
+		);
+	}
+}
