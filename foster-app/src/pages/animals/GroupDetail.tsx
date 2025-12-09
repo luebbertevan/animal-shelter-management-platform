@@ -1,97 +1,13 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserProfile } from "../../hooks/useUserProfile";
 import type { AnimalGroup, Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
-import {
-	getErrorMessage,
-	handleSupabaseNotFound,
-	isOffline,
-} from "../../lib/errorUtils";
-
-async function fetchGroup(
-	groupId: string,
-	organizationId: string
-): Promise<AnimalGroup> {
-	try {
-		const { data, error: fetchError } = await supabase
-			.from("animal_groups")
-			.select("*")
-			.eq("id", groupId)
-			.eq("organization_id", organizationId)
-			.single();
-
-		if (fetchError) {
-			const notFoundError = handleSupabaseNotFound(
-				fetchError,
-				null,
-				"Group"
-			);
-
-			if (notFoundError instanceof TypeError) {
-				throw new Error(
-					getErrorMessage(
-						notFoundError,
-						"Failed to load group details. Please try again."
-					)
-				);
-			}
-
-			throw notFoundError;
-		}
-
-		if (!data) {
-			throw handleSupabaseNotFound(null, data, "Group");
-		}
-
-		return data as AnimalGroup;
-	} catch (err) {
-		throw new Error(
-			getErrorMessage(
-				err,
-				"Failed to load group details. Please try again."
-			)
-		);
-	}
-}
-
-async function fetchAnimalsByIds(
-	animalIds: string[],
-	organizationId: string
-): Promise<Animal[]> {
-	if (animalIds.length === 0) {
-		return [];
-	}
-
-	try {
-		const { data, error } = await supabase
-			.from("animals")
-			.select("id, name, priority")
-			.in("id", animalIds)
-			.eq("organization_id", organizationId);
-
-		if (error) {
-			throw new Error(
-				getErrorMessage(
-					error,
-					"Failed to load group members. Please try again."
-				)
-			);
-		}
-
-		return (data || []) as Animal[];
-	} catch (err) {
-		throw new Error(
-			getErrorMessage(
-				err,
-				"Failed to load group members. Please try again."
-			)
-		);
-	}
-}
+import { fetchGroupById } from "../../lib/groupQueries";
+import { fetchAnimalsByIds } from "../../lib/animalQueries";
+import { isOffline } from "../../lib/errorUtils";
 
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -114,7 +30,7 @@ export default function GroupDetail() {
 				throw new Error("Organization ID not available");
 			}
 
-			return fetchGroup(id, profile.organization_id);
+			return fetchGroupById(id, profile.organization_id);
 		},
 		enabled: !!id && !!user && !!profile?.organization_id,
 	});
@@ -139,7 +55,13 @@ export default function GroupDetail() {
 				throw new Error("Organization ID not available");
 			}
 
-			return fetchAnimalsByIds(group.animal_ids, profile.organization_id);
+			return fetchAnimalsByIds(
+				group.animal_ids,
+				profile.organization_id,
+				{
+					fields: ["id", "name", "priority"],
+				}
+			);
 		},
 		enabled:
 			!!group &&
@@ -259,7 +181,6 @@ export default function GroupDetail() {
 								</span>
 							</div>
 						)}
-
 					</div>
 
 					{isLoadingAnimals && (

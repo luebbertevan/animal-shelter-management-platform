@@ -14,31 +14,7 @@ import ErrorMessage from "../../components/ui/ErrorMessage";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
-
-async function fetchAnimals(organizationId: string): Promise<Animal[]> {
-	try {
-		const { data, error } = await supabase
-			.from("animals")
-			.select("id, name, priority")
-			.eq("organization_id", organizationId)
-			.order("created_at", { ascending: false });
-
-		if (error) {
-			throw new Error(
-				getErrorMessage(
-					error,
-					"Failed to fetch animals. Please try again."
-				)
-			);
-		}
-
-		return (data || []) as Animal[];
-	} catch (err) {
-		throw new Error(
-			getErrorMessage(err, "Failed to fetch animals. Please try again.")
-		);
-	}
-}
+import { fetchAnimals } from "../../lib/animalQueries";
 
 export default function NewGroup() {
 	const navigate = useNavigate();
@@ -64,7 +40,11 @@ export default function NewGroup() {
 			if (!profile?.organization_id) {
 				throw new Error("Organization ID not available");
 			}
-			return fetchAnimals(profile.organization_id);
+			return fetchAnimals(profile.organization_id, {
+				fields: ["id", "name", "priority"],
+				orderBy: "created_at",
+				orderDirection: "desc",
+			});
 		},
 		enabled: !!user && !!profile?.organization_id,
 	});
