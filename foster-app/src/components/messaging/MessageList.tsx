@@ -100,6 +100,8 @@ export default function MessageList({
 	const [hasMoreMessages, setHasMoreMessages] = useState<boolean>(false);
 	const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 	const [isAtTop, setIsAtTop] = useState<boolean>(false);
+	const [hasScrolledToBottom, setHasScrolledToBottom] =
+		useState<boolean>(false);
 
 	const {
 		data: messages,
@@ -138,6 +140,7 @@ export default function MessageList({
 		setOldestMessageDate(null);
 		setHasMoreMessages(false);
 		setIsAtTop(false);
+		setHasScrolledToBottom(false);
 	}, [conversationId]);
 
 	// Track scroll position to show "Load Older Messages" button only when at top
@@ -385,11 +388,19 @@ export default function MessageList({
 							behavior: "auto",
 							block: "end",
 						});
-						// Mark that first load is complete
+						// Mark that first load is complete and scroll has happened
 						isFirstLoadRef.current = false;
+						// Set flag to show messages after scroll is complete
+						// Use another RAF to ensure scroll has actually happened
+						requestAnimationFrame(() => {
+							setHasScrolledToBottom(true);
+						});
 					}
 				});
 			});
+		} else if (messages && messages.length > 0 && !isFirstLoadRef.current) {
+			// If messages exist but it's not first load, we can show them immediately
+			setHasScrolledToBottom(true);
 		}
 	}, [messages, isLoadingMore]);
 
@@ -432,7 +443,16 @@ export default function MessageList({
 	}
 
 	return (
-		<div ref={messagesContainerRef} className="space-y-2 p-4 pb-6">
+		<div
+			ref={messagesContainerRef}
+			className="space-y-2 p-4 pb-6"
+			style={{
+				opacity: hasScrolledToBottom ? 1 : 0,
+				transition: hasScrolledToBottom
+					? "opacity 0.1s ease-in"
+					: "none",
+			}}
+		>
 			{/* Load Older Messages button - only show when at top and there are more messages */}
 			{hasMoreMessages && isAtTop && (
 				<div className="flex justify-center py-2">

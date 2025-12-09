@@ -1990,32 +1990,71 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Milestone 5.10b: Backend Support for Foster Tagging
 
-**Goal:** Update backend queries and functions to handle foster tags in addition to animal and group tags.
+**Goal:** Create backend queries and functions to fetch and create message tags for animals, groups, and fosters.
 
 **Tasks:**
 
-1. Update message fetching queries:
-    - Modify queries that fetch `message_links` to include `foster_profile_id`
+1. **Create message link fetching queries:**
+
+    - Create query function to fetch `message_links` for a given message ID
+    - Join with `animals` table to get animal name when `animal_id` is set
+    - Join with `animal_groups` table to get group name when `group_id` is set
     - Join with `profiles` table to get foster name when `foster_profile_id` is set
-    - Return foster information along with animal/group information
-2. Create helper functions/types:
+    - Return all three entity types with their display names
+    - Handle cases where multiple links exist for a single message
+
+2. **Update message fetching in MessageList:**
+
+    - Modify `fetchMessages` function to also fetch `message_links` for each message
+    - Use Supabase's `.select()` with nested queries to fetch links alongside messages
+    - Transform link data to include entity type and display name
+    - Return messages with tags array attached
+
+3. **Create helper functions/types:**
+
     - Type for message link result (includes `animal_id`, `group_id`, `foster_profile_id`, and joined data)
+    - Type for tag data (includes `type: 'animal' | 'group' | 'foster'`, `id`, `name`)
     - Helper function to determine entity type from link (animal, group, or foster)
     - Helper function to get display name for each entity type
-3. Update message sending function:
+    - Helper function to transform raw link data into tag format
+
+4. **Create message link insertion function:**
+
+    - Create function to insert tags into `message_links` table
     - Accept array of tags (each with `type` and `id`)
-    - Insert into `message_links` with appropriate field set based on type
-    - Handle all three entity types correctly
-4. Test: Verify queries return foster tags correctly, verify tag insertion works for all types
+    - Insert into `message_links` with appropriate field set based on type:
+        - If `type === 'animal'`: set `animal_id`, leave others null
+        - If `type === 'group'`: set `group_id`, leave others null
+        - If `type === 'foster'`: set `foster_profile_id`, leave others null
+    - Handle multiple tags for a single message (insert multiple rows)
+    - Handle errors gracefully (invalid IDs, permission errors, etc.)
+
+5. **Update message sending function:**
+
+    - Modify `sendMessage` function in `MessageInput.tsx` to accept optional `tags` parameter
+    - After message is created, if tags exist, call link insertion function
+    - Handle errors: if message is created but tags fail, show appropriate error
+    - Return message ID so tags can be linked to it
+
+6. **Test:**
+    - Verify queries return tags with correct names for all three entity types
+    - Verify tag insertion works for animals, groups, and fosters
+    - Verify helper functions correctly identify entity types
+    - Verify display names are correct for all entity types
+    - Test error cases (invalid IDs, permission errors)
 
 **Testing:**
 
--   Queries return foster tags with foster names
+-   Can fetch message links with animal names
+-   Can fetch message links with group names
+-   Can fetch message links with foster names
 -   Can insert tags for animals, groups, and fosters
 -   Helper functions correctly identify entity types
 -   Display names are correct for all entity types
+-   Multiple tags per message work correctly
+-   Error handling works for invalid tags
 
-**Deliverable:** Backend fully supports fetching and creating tags for animals, groups, and fosters.
+**Deliverable:** Backend fully supports fetching and creating tags for animals, groups, and fosters. Messages can be tagged with any combination of animals, groups, and fosters.
 
 ---
 
