@@ -136,6 +136,11 @@ export default function Dashboard() {
 								<Button>Create New Group</Button>
 							</Link>
 						)}
+						{isCoordinator && (
+							<Link to="/fosters" className="block">
+								<Button>View Fosters</Button>
+							</Link>
+						)}
 					</div>
 				</div>
 

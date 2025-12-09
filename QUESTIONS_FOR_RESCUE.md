@@ -138,6 +138,8 @@
     -   Do you need to track which foster is currently assigned to each animal in the animal record itself?
     -   Or is that tracked separately in assignments?
 
+19.5. **Status Changes and Foster Assignments:** - When an animal's status changes from "in_foster" to another status (e.g., "adopted", "in_shelter", "medical_hold"), should the foster assignment be automatically cleared/removed? - Or should the foster assignment remain even after status changes (for historical tracking)? - Are there specific status transitions that should always clear foster assignments? (e.g., "in_foster" → "adopted" always clears, but "in_foster" → "medical_hold" might keep assignment) - When changing status TO "in_foster", should the system require a foster assignment, or can an animal be "in_foster" without an assigned foster? - If an animal is removed from a group (and the group was assigned to a foster), should the animal's individual foster assignment be cleared, or preserved?
+
 ## General Workflow
 
 20. **Data Entry:**
@@ -244,6 +246,11 @@
     -   Do you need to track if a foster has signed a contract? (yes/no, date signed)
     -   Do you need to track home inspection? (date completed, who performed it)
     -   Are these required before a foster can be assigned animals, or just tracked for record-keeping?
+    -   **Home Inspection Details:**
+        -   What information is essential for home inspections? (date, inspector name, pass/fail status, notes)
+        -   Do you need to track multiple home inspections per foster (e.g., annual re-inspections), or just the most recent one?
+        -   Should home inspection status be visible to fosters, or only to coordinators?
+        -   Is home inspection required before a foster can be assigned animals, or can assignments happen before inspection?
 
 ## Adoption Data
 
@@ -268,6 +275,8 @@
     -   Do you need to track where the animal was adopted from? (location, event, etc.)
     -   Do you need to track if records were sent to the adopter? (yes/no, date sent)
     -   Is there a "moved to café" status? What does this mean?
+
+34.5. **Adopter Information:** - What information is essential to track for adopters? (name, phone number, email, address, emergency contact) - Should adopter information be stored in the animal record, or in a separate adopters/adoptions table? - Can the same adopter adopt multiple animals? If so, should we link adoptions to a single adopter profile? - Do you need to track adopter contact information for follow-ups or future adoptions? - When an animal's status changes to "adopted", should the system: - Require adopter information to be entered before saving? - Allow saving "adopted" status without adopter info (to be added later)? - Automatically clear the foster assignment when status changes to "adopted"? - Should adopter information be visible to fosters, or only to coordinators?
 
 35. **Adoption Display:**
     -   Do you need to view adoptions grouped by month? (e.g., "Total adoptions in January")

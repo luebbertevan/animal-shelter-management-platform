@@ -174,3 +174,44 @@ export async function fetchAnimalsByIds(
 		);
 	}
 }
+
+export interface FetchAnimalsByFosterIdOptions {
+	// Fields to select. Default: ["id", "name", "priority"]
+	fields?: string[];
+}
+
+// Fetch animals assigned to a specific foster
+export async function fetchAnimalsByFosterId(
+	fosterId: string,
+	organizationId: string,
+	options: FetchAnimalsByFosterIdOptions = {}
+): Promise<Animal[]> {
+	const { fields = ["id", "name", "priority"] } = options;
+
+	try {
+		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
+		const { data, error } = await supabase
+			.from("animals")
+			.select(selectFields)
+			.eq("organization_id", organizationId)
+			.eq("current_foster_id", fosterId);
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to load assigned animals. Please try again."
+				)
+			);
+		}
+
+		return (data || []) as unknown as Animal[];
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to load assigned animals. Please try again."
+			)
+		);
+	}
+}

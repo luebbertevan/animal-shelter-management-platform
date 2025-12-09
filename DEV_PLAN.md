@@ -1861,6 +1861,90 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
+### Milestone 5.9.5c: Foster List and Detail Pages
+
+**Goal:** Create foster list and detail pages so coordinators can view foster information, contact details, experience, and assigned animals. This enables foster tagging in coordinator chat.
+
+**Tasks:**
+
+1. **Add foster-specific fields to profiles table:**
+
+    - Create migration to add foster-specific fields to `profiles` table:
+        - `phone_number TEXT` (nullable, for foster contact)
+        - `full_address TEXT` (nullable, for foster location)
+        - `home_inspection TEXT` (nullable, free-form text field for home inspection notes/information)
+    - These fields are only relevant for fosters (role='foster'), not coordinators
+    - Update TypeScript `Profile` type to include these fields
+
+2. **Create Foster List page** (`src/pages/fosters/FostersList.tsx`):
+
+    - Fetch all fosters in organization (profiles with `role='foster'`)
+    - Display fosters in list/card format
+    - Show foster name, contact info (phone if available), availability status
+    - Link each foster to foster detail page
+    - Coordinator-only access
+    - Handle loading and error states
+    - Mobile-first responsive design
+
+3. **Create Foster Detail page** (`src/pages/fosters/FosterDetail.tsx`):
+
+    - Fetch foster profile by ID from URL params
+    - Display foster information:
+        - Name, email, phone number, address
+        - Home inspection information (text field)
+        - Experience level (if tracked)
+        - Availability status
+        - Currently assigned animals/groups:
+            - Query `animals` table for `current_foster_id = foster.id`
+            - Query `animal_groups` table for `current_foster_id = foster.id`
+            - Display list with links to animal/group detail pages
+    - Coordinator-only access
+    - Handle loading and error states
+    - Mobile-first responsive design
+
+4. **Add routing:**
+
+    - Add route `/fosters` for fosters list (coordinator-only)
+    - Add route `/fosters/:id` for foster detail (coordinator-only)
+    - Ensure routes are protected and coordinator-only
+
+5. **Add navigation:**
+
+    - Add "Fosters" link to Dashboard (coordinator-only)
+    - Add back button on foster detail page
+
+6. **Update RLS policies:**
+    - Ensure only coordinators can view foster profiles with full information
+    - Fosters should only see their own profile (limited information)
+
+**Design Decisions:**
+
+-   **Foster-specific fields:** Added directly to `profiles` table rather than separate table for simplicity
+-   **Home inspection tracking:** Single text field for flexibility (can include date, inspector, notes, etc.)
+-   **Contact information:** Phone and address are optional fields (can be added later)
+-   **Assigned animals:** Queried from `animals` and `animal_groups` tables using `current_foster_id`
+
+**Note:** This is a minimal implementation focused on viewing foster information. Future enhancements (M 6.4+) may include:
+
+-   Edit foster information
+-   Foster history/assignments timeline
+-   More detailed experience tracking
+-   Foster preferences and availability calendar
+
+**Testing:**
+
+-   Coordinator can access fosters list
+-   Coordinator can view foster detail pages
+-   Foster information displays correctly (name, contact, inspection info)
+-   Assigned animals/groups display correctly
+-   Fosters cannot access other fosters' detail pages
+-   Fosters cannot access fosters list
+-   Mobile layout is usable
+
+**Deliverable:** Foster list and detail pages working. Coordinators can view foster information, enabling foster tagging in coordinator chat.
+
+---
+
 ### Milestone 5.10a: Update Database Schema for Foster Tagging
 
 **Goal:** Extend `message_links` table to support tagging fosters in addition to animals and groups, and rename table to reflect its broader purpose.
@@ -1946,32 +2030,39 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Create tag selector component/modal:
         - Search/autocomplete input
         - Tabs or filter buttons for entity types (Animals, Groups, Fosters)
+        - **Fosters tab should only be visible in coordinator chat** (hide for foster conversations)
         - List of selectable entities with names
         - Allow selecting multiple entities
     - Fetch entities from organization:
         - Animals: fetch from `animals` table (filtered by organization)
         - Groups: fetch from `animal_groups` table (filtered by organization)
-        - Fosters: fetch from `profiles` table (filtered by organization, role='foster')
+        - Fosters: fetch from `profiles` table (filtered by organization, role='foster') - **only in coordinator chat**
     - Display selected tags as chips above input field:
         - Show entity name and type indicator (e.g., "Fluffy (Animal)", "John (Foster)", "Litter of 4 (Group)")
         - Allow removing tags (X button on chip)
         - Style chips distinctively
-2. Update message sending:
+2. **Restrict foster tagging to coordinator chat:**
+    - Check if current conversation is coordinator chat (check conversation type or user role)
+    - Hide "Fosters" tab in tag selector for foster conversations
+    - Only show "Fosters" tab when coordinators are messaging in coordinator chat
+3. Update message sending:
     - Collect selected tags before sending
     - Pass tags to send message function (from M 5.10b)
     - Clear selected tags after successful send
-3. Test: Can open tag selector, search/filter entities, select multiple tags, remove tags, tags appear as chips
+4. Test: Can open tag selector, search/filter entities, select multiple tags, remove tags, tags appear as chips
 
 **Testing:**
 
 -   Tag selector opens and closes correctly
--   Can search/filter animals, groups, and fosters
+-   Can search/filter animals, groups, and fosters (in coordinator chat)
+-   Fosters tab is hidden in foster conversations
+-   Fosters tab is visible in coordinator chat
 -   Can select multiple entities of different types
 -   Selected tags appear as chips with type indicators
 -   Can remove tags before sending
 -   Tags are passed to send function correctly
 
-**Deliverable:** Tag selection UI working in MessageInput. Users can select animals, groups, and fosters to tag in messages.
+**Deliverable:** Tag selection UI working in MessageInput. Coordinators can select animals, groups, and fosters to tag in coordinator chat. Fosters can only tag animals and groups in their conversations.
 
 ---
 
@@ -1994,7 +2085,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 3. Add navigation for tags:
     - Animals → link to `/animals/:id` (animal detail page)
     - Groups → link to `/groups/:id` (group detail page - already created in M 5.9.5b)
-    - Fosters → show name only (no profile page yet, or link to future profile page)
+    - Fosters → link to `/fosters/:id` (foster detail page - created in M 5.9.5c)
 4. Test: Tags display correctly, tags are clickable, navigation works, styling is clear
 
 **Testing:**
@@ -2166,10 +2257,17 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Filter animals by name as user types
     - Improve UX for selecting animals from large lists
 
-6. **Test:**
+6. **Update FostersList to use SearchInput**:
+
+    - Add search input to foster list page
+    - Filter fosters by name as user types
+    - Improve UX for finding fosters in large lists
+
+7. **Test:**
     - Search works correctly in animals list
     - Filters work correctly and can be combined
     - Search works in group animal selection
+    - Search works in fosters list
     - Components are reusable and work in different contexts
 
 **Testing:**
@@ -2179,6 +2277,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Filters can be combined (status + priority + sex, etc.)
 -   Search works in animals list
 -   Search works in group animal selection
+-   Search works in fosters list
 -   Clear filters button works
 -   Active filter count is accurate
 -   Components are reusable across different pages
@@ -2278,6 +2377,144 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Group indicators display correctly in animals list
 
 **Deliverable:** Group display and assignment working throughout animal UI.
+
+---
+
+### Milestone 6.6: Foster Assignment for Animals and Groups
+
+**Goal:** Enable coordinators to assign animals and groups to fosters during creation and editing, with automatic consistency enforcement between individual animal assignments and group assignments.
+
+**Design Decisions:**
+
+-   **Data Model:** Both `animals.current_foster_id` and `animal_groups.current_foster_id` exist. This is intentional redundancy for query performance:
+    -   Querying "all animals assigned to a foster" is fast (direct filter on `animals.current_foster_id`)
+    -   Querying "all groups assigned to a foster" is fast (direct filter on `animal_groups.current_foster_id`)
+    -   We maintain consistency through application logic, not database constraints
+-   **Consistency Rules:**
+    1. When assigning a **group** to a foster, automatically assign all animals in that group to the same foster
+    2. When assigning an **individual animal** to a foster:
+        - If animal is in a group that's assigned to a different foster → show warning/error, require resolution
+        - If animal is in a group that's not assigned → allow individual assignment
+        - If animal is in a group assigned to the same foster → allow (already consistent)
+    3. When removing an animal from a group, preserve its individual foster assignment
+    4. When removing a group assignment, preserve individual animal assignments (animals may be assigned individually)
+-   **Resolution Strategy:** When conflicts are detected, offer coordinator options:
+    -   Assign the whole group to the foster (recommended if most animals should be together)
+    -   Remove animal from group and assign individually
+    -   Cancel the assignment
+-   **Status Change Handling:** (See Questions 19.5 in QUESTIONS_FOR_RESCUE.md - implementation depends on rescue's workflow)
+    -   When status changes FROM "in_foster" to another status, handle foster assignment based on rescue's preference:
+        -   Option A: Automatically clear foster assignment (if status change means animal is no longer with foster)
+        -   Option B: Preserve foster assignment for historical tracking
+        -   Option C: Conditional based on target status (e.g., clear for "adopted", preserve for "medical_hold")
+    -   When status changes TO "in_foster", may require foster assignment (or allow without assignment)
+    -   Implementation will be determined after reviewing answers to Question 19.5
+-   **Adoption Status Handling:** (See Questions 34.5 in QUESTIONS_FOR_RESCUE.md - implementation depends on rescue's workflow)
+    -   When status changes to "adopted", may require adopter information entry
+    -   May automatically clear foster assignment when adopted
+    -   Adopter information fields and requirements will be determined after reviewing answers to Question 34.5
+
+**Tasks:**
+
+1. **Create foster assignment utilities** (`src/lib/assignmentUtils.ts`):
+
+    - `assignGroupToFoster(groupId, fosterId, organizationId)` - Assigns group and all its animals
+    - `assignAnimalToFoster(animalId, fosterId, organizationId)` - Assigns individual animal with conflict checking
+    - `checkAssignmentConflict(animalId, fosterId, organizationId)` - Checks if assignment would create conflict
+    - `removeGroupAssignment(groupId, organizationId)` - Removes group assignment (preserves individual animal assignments)
+    - `removeAnimalAssignment(animalId, organizationId)` - Removes individual animal assignment
+    - All functions handle database transactions/consistency
+
+2. **Update `NewAnimal.tsx`**:
+
+    - Add foster assignment field (dropdown/autocomplete of fosters)
+    - When foster is selected, check if animal will be added to a group
+    - If group assignment exists and conflicts, show warning before save
+    - Save `current_foster_id` on animal creation
+
+3. **Update `EditAnimal.tsx`**:
+
+    - Add foster assignment field (dropdown/autocomplete, with "None" option)
+    - Display current foster assignment
+    - When changing assignment:
+        - Check for conflicts with group assignment
+        - Show resolution dialog if conflict detected
+        - Update `current_foster_id` on save
+    - Handle removing assignment (set to null)
+    - **Status change handling:** (Implementation depends on answers to Question 19.5)
+        - When status changes FROM "in_foster" to another status, handle foster assignment per rescue's workflow
+        - When status changes TO "adopted", handle adopter information entry and foster assignment per Question 34.5
+        - Show confirmation dialogs for status changes that affect assignments
+
+4. **Update `NewGroup.tsx`**:
+
+    - Add foster assignment field (dropdown/autocomplete of fosters)
+    - When foster is selected and group is saved:
+        - Assign group to foster
+        - Automatically assign all selected animals in group to same foster
+        - Show confirmation: "Group and [X] animals will be assigned to [Foster Name]"
+
+5. **Update `EditGroup.tsx`**:
+
+    - Add foster assignment field (dropdown/autocomplete, with "None" option)
+    - Display current foster assignment
+    - When changing group assignment:
+        - Automatically update all animals in group to match
+        - Show confirmation: "Group and [X] animals will be assigned to [Foster Name]"
+    - When removing group assignment:
+        - Preserve individual animal assignments (don't clear them)
+        - Show confirmation: "Group assignment removed. Individual animal assignments preserved."
+    - When adding animals to a group that's assigned to a foster:
+        - Automatically assign new animals to the same foster
+        - Show notification: "[X] animals added to group and assigned to [Foster Name]"
+    - When removing animals from a group:
+        - Preserve their individual foster assignments
+
+6. **Create conflict resolution UI component** (`src/components/animals/AssignmentConflictDialog.tsx`):
+
+    - Shows when assignment conflict is detected
+    - Displays: "Animal [name] is in group [group name] assigned to [foster A], but you're trying to assign to [foster B]"
+    - Options:
+        - "Assign whole group to [foster B]" (recommended)
+        - "Remove from group and assign individually"
+        - "Cancel"
+    - Handles the selected resolution
+
+7. **Update `AnimalDetail.tsx`**:
+
+    - Display current foster assignment (if assigned)
+    - Show group assignment if animal is in an assigned group
+    - If individual and group assignments differ, show warning badge
+    - Link to foster detail page
+
+8. **Update `GroupDetail.tsx`**:
+
+    - Display current foster assignment (if assigned)
+    - Show count of animals in group assigned to foster
+    - If any animals have different assignments, show warning
+
+9. **Add validation and error handling**:
+    - Validate foster exists and is in same organization
+    - Handle database errors gracefully
+    - Show success/error notifications
+    - Update React Query cache after assignments
+
+**Testing:**
+
+-   Can assign individual animal to foster during creation
+-   Can assign individual animal to foster during editing
+-   Can assign group to foster during creation (all animals auto-assigned)
+-   Can assign group to foster during editing (all animals auto-assigned)
+-   Conflict detection works when assigning animal to different foster than its group
+-   Conflict resolution dialog appears and handles all options correctly
+-   Removing group assignment preserves individual animal assignments
+-   Removing animal from group preserves its foster assignment
+-   Adding animals to assigned group auto-assigns them to group's foster
+-   Database consistency maintained (no orphaned assignments)
+-   UI updates correctly after assignments
+-   Error handling works for invalid fosters, network errors, etc.
+
+**Deliverable:** Foster assignment working for animals and groups with automatic consistency enforcement and conflict resolution.
 
 ---
 
