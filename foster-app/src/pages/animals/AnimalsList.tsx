@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "../../hooks/useAuth";
-import { useUserProfile } from "../../hooks/useUserProfile";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import { fetchAnimals } from "../../lib/animalQueries";
@@ -21,8 +20,7 @@ function createSlug(name: string | undefined | null): string {
 }
 
 export default function AnimalsList() {
-	const { user } = useAuth();
-	const { profile } = useUserProfile();
+	const { user, profile } = useProtectedAuth();
 
 	const {
 		data = [],
@@ -31,11 +29,8 @@ export default function AnimalsList() {
 		error,
 		refetch,
 	} = useQuery({
-		queryKey: ["animals", user?.id, profile?.organization_id], // Include user ID and org ID in cache key
+		queryKey: ["animals", user.id, profile.organization_id],
 		queryFn: () => {
-			if (!profile?.organization_id) {
-				throw new Error("Organization ID not available");
-			}
 			return fetchAnimals(profile.organization_id, {
 				fields: ["id", "name", "status", "sex", "priority"],
 				orderBy: "created_at",
@@ -43,7 +38,6 @@ export default function AnimalsList() {
 				checkOffline: true,
 			});
 		},
-		enabled: !!user && !!profile?.organization_id, // Only fetch if user is logged in and has org ID
 	});
 
 	const animals = useMemo(() => data, [data]);
