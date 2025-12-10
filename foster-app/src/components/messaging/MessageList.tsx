@@ -2,9 +2,9 @@ import { useRef, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { Message } from "../../types";
+import type { MessageWithLinks, MessageWithMetadata } from "../../types";
 import { getErrorMessage } from "../../lib/errorUtils";
-import { extractFullName } from "../../lib/supabaseUtils";
+import { transformMessageWithLinks } from "../../lib/messageLinkUtils";
 import MessageBubble from "./MessageBubble";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import Button from "../ui/Button";
@@ -16,12 +16,6 @@ interface MessageListProps {
 
 // Message pagination limit - set to 5 for testing, 100 for production
 const MESSAGE_LIMIT = 100;
-
-// Type for message with joined profile data from Supabase
-// Extends Message type to avoid duplication
-type MessageWithProfile = Message & {
-	profiles: { full_name: string } | null;
-};
 
 async function fetchMessages(
 	conversationId: string,
@@ -62,26 +56,19 @@ async function fetchMessages(
 		);
 	}
 
-	// Transform data to include sender name
+	// Transform data to include sender name and tags
 	// The JOIN returns profiles as a nested object: { profiles: { full_name: "..." } }
+	// Note: message_links are not fetched here (tagging deferred to later)
 	// Cast the data to our known type since Supabase doesn't infer JOIN types
-	const messagesWithProfile = (data || []) as unknown as MessageWithProfile[];
+	const messagesWithProfile = (data || []) as unknown as MessageWithLinks[];
 
 	// Reverse to get oldest first for display (since we fetched newest first)
+	// Use shared transformation function
 	const transformed = messagesWithProfile
-		.map((msg) => ({
-			id: msg.id,
-			conversation_id: msg.conversation_id,
-			sender_id: msg.sender_id,
-			content: msg.content,
-			created_at: msg.created_at,
-			edited_at: msg.edited_at,
-			photo_urls: msg.photo_urls,
-			sender_name: extractFullName(msg.profiles) ?? "",
-		}))
+		.map(transformMessageWithLinks)
 		.reverse(); // Reverse to display oldest first
 
-	return transformed as (Message & { sender_name: string })[];
+	return transformed;
 }
 
 export default function MessageList({
@@ -109,7 +96,7 @@ export default function MessageList({
 		isError,
 		error,
 		refetch,
-	} = useQuery<(Message & { sender_name: string })[]>({
+	} = useQuery<MessageWithMetadata[]>({
 		queryKey: ["messages", conversationId],
 		queryFn: () => fetchMessages(conversationId),
 		enabled: !!conversationId,
@@ -212,7 +199,7 @@ export default function MessageList({
 
 			if (olderMessages.length > 0) {
 				// Prepend older messages to the cached messages
-				queryClient.setQueryData<(Message & { sender_name: string })[]>(
+				queryClient.setQueryData<MessageWithMetadata[]>(
 					["messages", conversationId],
 					(cachedMessages) => {
 						if (!cachedMessages) return olderMessages;
@@ -290,7 +277,7 @@ export default function MessageList({
 					filter: `conversation_id=eq.${conversationId}`,
 				},
 				async (payload) => {
-					// When a new message is inserted, fetch the full message with profile data
+					// When a new message is inserted, fetch the full message with profile data and tags
 					const newMessage = payload.new as {
 						id: string;
 						conversation_id: string;
@@ -301,53 +288,65 @@ export default function MessageList({
 						photo_urls: string[] | null;
 					};
 
-					// Fetch the sender's profile to get the name
-					const { data: profileData } = await supabase
-						.from("profiles")
-						.select("full_name")
-						.eq("id", newMessage.sender_id)
-						.single();
+					// Fetch message with profile join (message_links not fetched - tagging deferred)
+					const { data: messageData, error: fetchError } =
+						await supabase
+							.from("messages")
+							.select(
+								`
+							id,
+							conversation_id,
+							sender_id,
+							content,
+							created_at,
+							edited_at,
+							photo_urls,
+							profiles!messages_sender_id_fkey(full_name)
+						`
+							)
+							.eq("id", newMessage.id)
+							.single();
 
-					const senderName = extractFullName(profileData) ?? "";
+					if (fetchError || !messageData) {
+						console.error(
+							"Failed to fetch message details:",
+							fetchError
+						);
+						return;
+					}
 
-					// Create the message object with sender name
-					const messageWithSender: Message & { sender_name: string } =
-						{
-							id: newMessage.id,
-							conversation_id: newMessage.conversation_id,
-							sender_id: newMessage.sender_id,
-							content: newMessage.content,
-							created_at: newMessage.created_at,
-							edited_at: newMessage.edited_at ?? undefined,
-							photo_urls: newMessage.photo_urls ?? undefined,
-							sender_name: senderName,
-						};
+					// Transform using shared function
+					// Cast through unknown to handle Supabase's type inference
+					const messageWithMetadata = transformMessageWithLinks(
+						messageData as unknown as MessageWithLinks
+					);
 
 					// Update React Query cache by appending the new message
-					queryClient.setQueryData<
-						(Message & { sender_name: string })[]
-					>(["messages", conversationId], (cachedMessages) => {
-						// Check if message already exists (prevent duplicates)
-						if (
-							cachedMessages?.some(
-								(msg) => msg.id === messageWithSender.id
-							)
-						) {
-							return cachedMessages;
+					queryClient.setQueryData<MessageWithMetadata[]>(
+						["messages", conversationId],
+						(cachedMessages) => {
+							// Check if message already exists (prevent duplicates)
+							if (
+								cachedMessages?.some(
+									(msg) => msg.id === messageWithMetadata.id
+								)
+							) {
+								return cachedMessages;
+							}
+
+							// Append new message and sort by created_at to maintain order
+							const updated = [
+								...(cachedMessages || []),
+								messageWithMetadata,
+							].sort(
+								(a, b) =>
+									new Date(a.created_at).getTime() -
+									new Date(b.created_at).getTime()
+							);
+
+							return updated;
 						}
-
-						// Append new message and sort by created_at to maintain order
-						const updated = [
-							...(cachedMessages || []),
-							messageWithSender,
-						].sort(
-							(a, b) =>
-								new Date(a.created_at).getTime() -
-								new Date(b.created_at).getTime()
-						);
-
-						return updated;
-					});
+					);
 
 					// Mark that this is not the first load, so we use smooth scroll
 					isFirstLoadRef.current = false;
