@@ -23,9 +23,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 0: Environment Setup & Project Initialization
+## Phase: Environment Setup & Project Initialization
 
-### Milestone 0.1: Local Development Environment
+### Local Development Environment
 
 **Goal:** Install all required tools and verify they work.
 
@@ -52,7 +52,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 0.2: Supabase Project Setup
+### Supabase Project Setup
 
 **Goal:** Create Supabase project and understand the dashboard.
 
@@ -73,7 +73,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 0.3: Initialize PWA Web App (Vite + React Router)
+### Initialize PWA Web App (Vite + React Router)
 
 **Goal:** Create Vite + React Router app with PWA capabilities and mobile-first design.
 
@@ -111,7 +111,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     │   ├── App.tsx
     │   └── main.tsx
     ├── public/
-    │   └── manifest.json (we'll create this in Phase 3)
+    │   └── manifest.json (we'll create this in PWA Setup phase)
     └── vite.config.ts
     ```
 5. Set up React Router in `src/App.tsx` (see existing file for reference)
@@ -126,7 +126,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 0.4: TypeScript Types
+### TypeScript Types
 
 **Goal:** Define core data models for the app.
 
@@ -140,9 +140,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 1: Database Schema & Authentication
+## Phase: Database Schema & Authentication
 
-### Milestone 1.1: Database Schema Setup
+### Database Schema Setup
 
 **Goal:** Create core database tables in Supabase.
 
@@ -188,7 +188,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 1.2: Supabase Client Setup
+### Supabase Client Setup
 
 **Goal:** Configure Supabase client in web app.
 
@@ -211,7 +211,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 1.3: Authentication UI
+### Authentication UI
 
 **Goal:** Build mobile-first login screen.
 
@@ -253,11 +253,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Deliverable:** Working mobile-first login screen with error handling.
 
-**Note:** Deployment to production is covered in Phase 3.5 (recommended after PWA Setup is complete).
+**Note:** Deployment to production is covered in Deployment phase (recommended after PWA Setup is complete).
 
 ---
 
-### Milestone 1.4: Auth State Management
+### Auth State Management
 
 **Goal:** Track authentication state across the app and protect routes so only logged-in users can access certain pages. This milestone creates a system to track whether a user is logged in and automatically redirects unauthorized users to the login page. It solves the problem where users could access protected pages (like the dashboard) even when not logged in.
 
@@ -309,9 +309,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 1.5: Sign Up
+### Sign Up
 
-**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. **Note:** This open signup will be replaced in Phase 10 with confirmation code-based signup that links users to organizations and determines their role (coordinator vs foster).
+**Goal:** Allow new users to create accounts through a simple signup form. This milestone implements basic user registration with email and password. **Note:** This open signup will be replaced in Confirmation Codes phase with confirmation code-based signup that links users to organizations and determines their role (coordinator vs foster).
 
 **Tasks:**
 
@@ -349,7 +349,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Submits form, which sends data to Supabase
 -   Supabase creates the user account in the auth system
 -   On success, user is redirected to login page to sign in
--   Note: Profile creation will be handled automatically via database trigger (created in initial schema setup, updated in Phase 4.2 to include organization_id, and updated again in Phase 5.2 to create conversations)
+-   Note: Profile creation will be handled automatically via database trigger (created in initial schema setup, updated in Add Organization ID to Core Tables to include organization_id, and updated again in Create Conversation on User Signup to create conversations)
 
 **Testing:**
 
@@ -365,7 +365,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 1.6: Auto-Login After Signup
+### Auto-Login After Signup
 
 **Goal:** Automatically log users in immediately after successful signup, providing a seamless registration experience without requiring them to manually log in.
 
@@ -398,7 +398,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 1.7: Sign Out
+### Sign Out
 
 **Goal:** Allow logged-in users to sign out of their account. This provides a way to end the current session and clear authentication state.
 
@@ -447,9 +447,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 2: First End-to-End Feature (Animals CRUD)
+## Phase: First End-to-End Feature (Animals CRUD)
 
-### Milestone 2.1: Create Animal
+### Create Animal
 
 **Goal:** Allow coordinators to create new animal records through a mobile-friendly form interface. This milestone builds the first data entry feature - a form where coordinators can add new animals to the system. The form will collect essential animal information and save it to the Supabase database.
 
@@ -511,7 +511,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 2.2: List Animals
+### List Animals
 
 **Goal:** Display all animals in a mobile-friendly, scrollable list that allows users to browse and navigate to individual animal details. This milestone creates a page that fetches and displays all animals from the database. It uses React Query for efficient data fetching, caching, and automatic refetching. The list should be visually appealing and easy to navigate on mobile devices.
 
@@ -569,7 +569,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 2.3: View Animal Details
+### View Animal Details
 
 **Goal:** Display complete information about a single animal when a user clicks on it from the list. This milestone creates a detail page that shows all information about a specific animal. The page will fetch the animal data based on the ID in the URL and display it in a readable, mobile-friendly format.
 
@@ -642,9 +642,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 3: PWA Setup (Install to Home Screen)
+## Phase: PWA Setup (Install to Home Screen)
 
-### Milestone 3.1: PWA Manifest
+### PWA Manifest
 
 **Goal:** Configure the app as a Progressive Web App (PWA) so users can install it on their phones like a native app. This milestone makes your web app installable on mobile devices. Users will be able to "Add to Home Screen" and launch it like a native app. This requires creating a web app manifest file and configuring the PWA plugin.
 
@@ -713,7 +713,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 3.2: Service Worker (Offline Support)
+### Service Worker (Offline Support)
 
 **Goal:** Enable the app to work offline by caching assets and data, allowing users to access previously viewed content without an internet connection. This milestone configures caching strategies so the app can function offline. The service worker (automatically generated by Vite PWA plugin) will cache app files and API responses, allowing users to view cached content when offline.
 
@@ -772,11 +772,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 3.5: Deployment (For Real Device Testing)
+## Phase: Deployment (For Real Device Testing)
 
 **Goal:** Deploy the PWA to a public URL so you can test on real phones and share with others.
 
-**Why Deploy After Phase 3:**
+**Why Deploy After PWA Setup:**
 
 -   You have a complete working feature (auth + animals CRUD)
 -   PWA is ready - can test "Add to Home Screen" on real devices
@@ -787,11 +787,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **When to Deploy:**
 
--   **Recommended:** After Phase 3 (PWA Setup) is complete
--   **Alternative:** After Phase 2 if you want to test earlier (but you'll miss PWA features)
+-   **Recommended:** After PWA Setup phase is complete
+-   **Alternative:** After First End-to-End Feature phase if you want to test earlier (but you'll miss PWA features)
 -   **Can skip:** If you're only testing locally for now
 
-### Milestone 3.5.1: Deploy to Vercel (Recommended)
+### Deploy to Vercel (Recommended)
 
 **Goal:** Deploy Vite PWA to Vercel (free, easy, fast).
 
@@ -861,11 +861,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 4: Schema Rework & Multi-Tenancy Foundation
+## Phase: Schema Rework & Multi-Tenancy Foundation
 
 **Goal:** Add organizations to support multiple shelters and prepare schema for future expansion based on customer feedback.
 
-### Milestone 4.1: Add Organizations Table
+### Add Organizations Table
 
 **Goal:** Create organizations table to support multiple shelters using the same system.
 
@@ -892,7 +892,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 4.2: Add Organization ID to Core Tables
+### Add Organization ID to Core Tables
 
 **Goal:** Link users, animals, and animal groups to organizations for data isolation without breaking existing functionality.
 
@@ -922,8 +922,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Create trigger function: `public.handle_new_user()` that:
         - Inserts into `public.profiles` with: `id`, `email`, `role` (default 'foster'), and `organization_id` (default org UUID: `2c20afd1-43b6-4e67-8790-fac084a71fa2`)
     - Create trigger: `on_auth_user_created` that fires AFTER INSERT on `auth.users`
-    - **Note:** The trigger will be updated again in Phase 5.2 (M 5.2 - Create Conversation on User Signup) to also create conversations, but for now it just needs to set organization_id
-    - This ensures new signups (before Phase 10) get assigned to default organization
+    - **Note:** The trigger will be updated again in Create Conversation on User Signup to also create conversations, but for now it just needs to set organization_id
+    - This ensures new signups (before Confirmation Codes phase) get assigned to default organization
 
 **Tasks:**
 
@@ -953,7 +953,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 4.3: Update RLS Policies for Organization Isolation
+### Update RLS Policies for Organization Isolation
 
 **Goal:** Ensure users can only see data from their own organization.
 
@@ -993,13 +993,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   User in Org A cannot see data from Org B (when we add second org)
 -   Coordinator in Org A can only manage Org A data
 -   Policies work correctly for all CRUD operations
--   New signups (before Phase 10) get default org and can see default org data
+-   New signups (before Confirmation Codes phase) get default org and can see default org data
 
 **Deliverable:** RLS policies enforce organization isolation with safe fallbacks.
 
 ---
 
-### Milestone 4.4: Update Queries to Filter by Organization
+### Update Queries to Filter by Organization
 
 **Goal:** All frontend queries automatically filter by user's organization.
 
@@ -1009,7 +1009,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
     - Fetch user's `organization_id` from profile
     - Return `organization_id` in hook response
-    - All profiles will have organization_id (via DEFAULT in M 4.2)
+    - All profiles will have organization_id (via DEFAULT in Add Organization ID to Core Tables)
 
 2. **Update `useUserProfile` hook:**
 
@@ -1047,19 +1047,19 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 -   Animals list only shows animals from user's organization
 -   Creating animal assigns it to user's organization automatically
--   New signups (before Phase 10) get default org and see default org data
+-   New signups (before Confirmation Codes phase) get default org and see default org data
 
 **Deliverable:** All queries filter by organization automatically with safe fallbacks.
 
 ---
 
-## Phase 5: Messaging System (CRITICAL)
+## Phase: Messaging System (CRITICAL)
 
 **Goal:** Enable real-time communication between coordinators and fosters, with full coordinator visibility into all conversations.
 
 ---
 
-### Milestone 5.1: Messages & Conversations Schema
+### Messages & Conversations Schema
 
 **Goal:** Create database schema for messaging system supporting foster chats and coordinator group chat.
 
@@ -1117,21 +1117,21 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.2: Create Conversation on User Signup
+### Create Conversation on User Signup
 
 **Goal:** Automatically create foster chat when foster signs up.
 
 **Tasks:**
 
 1. Update existing `handle_new_user()` trigger function:
-    - Function already exists (created in M 4.2)
+    - Function already exists (created in Add Organization ID to Core Tables)
     - Add logic to create foster chat after profile creation
     - Check if `role = 'foster'` before creating conversation
     - Link conversation to foster's profile and organization
     - Set conversation type to 'foster_chat'
 2. Handle role assignment:
     - Currently: Everyone signs up as 'foster' (default)
-    - Phase 10: Confirmation codes will determine role
+    - Confirmation Codes phase: Confirmation codes will determine role
     - Solution: Check role from created profile - only fosters get conversations
 3. Test: Sign up as foster, verify conversation is created
 4. Handle edge case: Coordinator signup (no foster chat needed - handled by role check)
@@ -1141,20 +1141,20 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Updated `handle_new_user()` function to create foster chat after profile creation
 -   Uses `RETURNING id, role` to get created profile's role
 -   Only creates conversation if `role = 'foster'`
--   Works now (everyone is foster) and in Phase 10 (codes determine role)
+-   Works now (everyone is foster) and in Confirmation Codes phase (codes determine role)
 
 **Testing:**
 
 -   New foster signup creates foster chat
 -   Conversation is linked to correct organization
 -   Conversation is linked to foster's profile
--   Coordinator signup does not create foster chat (when Phase 10 is implemented)
+-   Coordinator signup does not create foster chat (when Confirmation Codes phase is implemented)
 
 **Deliverable:** Automatic conversation creation working for fosters.
 
 ---
 
-### Milestone 5.3: Coordinator Group Chat Setup
+### Coordinator Group Chat Setup
 
 **Goal:** Create and manage coordinator group chat for each organization, automatically created for new organizations.
 
@@ -1208,7 +1208,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.4a: Basic Message List (MVP)
+### Basic Message List (MVP)
 
 **Goal:** Get messages displaying on screen - minimal viable version to verify data fetching works.
 
@@ -1227,7 +1227,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Fetch conversation details (basic - just to get conversation info)
     - Display conversation header (foster name or "Coordinator Chat" - can be simple text)
     - Include MessageList component
-    - Basic layout (no MessageInput yet - that comes in M 5.5b)
+    - Basic layout (no MessageInput yet - that comes in Add MessageInput to Conversation Detail Page)
 3. Create route `/messages/:conversationId`
 4. Add basic back button or navigation
 
@@ -1243,7 +1243,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.4b: Extract MessageBubble Component
+### Extract MessageBubble Component
 
 **Goal:** Extract message rendering into a reusable component for better code organization.
 
@@ -1270,7 +1270,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.4c: Scroll-to-bottom & Polish
+### Scroll-to-bottom & Polish
 
 **Goal:** Add scroll behavior and improve states/styling.
 
@@ -1302,7 +1302,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.5a: Basic MessageInput Component
+### Basic MessageInput Component
 
 **Goal:** Create message input component that allows users to type and send messages (without tagging).
 
@@ -1341,14 +1341,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.5b: Add MessageInput to Conversation Detail Page
+### Add MessageInput to Conversation Detail Page
 
 **Goal:** Add message sending capability to the existing conversation detail page.
 
 **Tasks:**
 
 1. Update `src/pages/messaging/ConversationDetail.tsx`:
-    - Add MessageInput component (from M 5.5a - basic version without tagging)
+    - Add MessageInput component (from Basic MessageInput Component - basic version without tagging)
     - Integrate MessageList and MessageInput:
         - After sending message, refetch messages to show new message in list
         - Message appears in list after successful send (manual refetch, no real-time yet)
@@ -1368,7 +1368,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.6: Direct Navigation to Foster Chat
+### Direct Navigation to Foster Chat
 
 **Goal:** Fosters can access their foster chat directly from the dashboard.
 
@@ -1381,7 +1381,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Style appropriately for mobile-first design
 2. Update `ConversationDetail.tsx` back button behavior:
     - For fosters: Back button navigates to Dashboard (`/dashboard`)
-    - For coordinators: Back button behavior unchanged (will be updated in M 5.7)
+    - For coordinators: Back button behavior unchanged (will be updated in Conversation List for Coordinators)
     - Check user role to determine navigation target
 3. Test: Foster can click "Chat" button, opens conversation, back button returns to dashboard
 
@@ -1397,7 +1397,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.7: Conversation List for Coordinators
+### Conversation List for Coordinators
 
 **Goal:** Coordinators can see all foster chats and coordinator group chat in a list view.
 
@@ -1417,7 +1417,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Style appropriately for mobile-first design
 4. Update `ConversationDetail.tsx` back button behavior:
     - For coordinators: Back button navigates to conversation list (`/messages`)
-    - For fosters: Back button already navigates to Dashboard (from M 5.6)
+    - For fosters: Back button already navigates to Dashboard (from Direct Navigation to Foster Chat)
 5. Style for mobile-first design
 6. Test: Coordinator sees all conversations, can navigate to any, back button returns to list
 
@@ -1434,7 +1434,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.8: Real-Time Message Updates
+### Real-Time Message Updates
 
 **Goal:** Add real-time updates to existing conversation detail page so messages appear instantly.
 
@@ -1475,13 +1475,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9: Photo Sharing in Messages
+### Photo Sharing in Messages
 
 **Goal:** Allow users to send and receive photos in chat messages, with proper storage and display.
 
 ---
 
-### Milestone 5.9a: Storage & Database Setup
+### Storage & Database Setup
 
 **Goal:** Set up infrastructure for photo storage and database schema.
 
@@ -1517,7 +1517,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9b: Photo Upload Backend Function
+### Photo Upload Backend Function
 
 **Goal:** Create reusable photo upload utility function.
 
@@ -1555,7 +1555,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9c: Photo Selection UI
+### Photo Selection UI
 
 **Goal:** Add UI for selecting and previewing photos before sending.
 
@@ -1595,7 +1595,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9d: Integrate Upload with Message Sending
+### Integrate Upload with Message Sending
 
 **Goal:** Connect photo selection UI to upload function and message creation.
 
@@ -1655,7 +1655,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9e: Display Photos in Messages
+### Display Photos in Messages
 
 **Goal:** Display photos in message bubbles.
 
@@ -1697,7 +1697,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9f: Photo Viewing Polish
+### Photo Viewing Polish
 
 **Goal:** Add lightbox for full-size photo viewing.
 
@@ -1744,11 +1744,11 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9.5: Minimal Group Management UI (Prerequisite for Group Tagging)
+### Minimal Group Management UI (Prerequisite for Group Tagging)
 
 **Goal:** Create minimal group management UI to enable testing of group tagging in messages. This provides basic create/view functionality for groups without full editing capabilities.
 
-### Milestone 5.9.5a: Database - Add Priority Field
+### Database - Add Priority Field
 
 **Goal:** Add priority field to groups table. Priority will default to high if any animal in the group is high priority (handled in frontend), but coordinators can override this.
 
@@ -1773,7 +1773,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9.5b: Groups
+### Groups
 
 **Tasks:**
 
@@ -1835,7 +1835,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Add back button on group detail page
     - Add "Create Group" button on groups list page
 
-**Note:** This is a minimal implementation. Full editing (M 6.4) will add:
+**Note:** This is a minimal implementation. Full editing (Group Management UI Polish & Edit Functionality) will add:
 
 -   Edit group functionality
 -   Add/remove animals from existing groups
@@ -1861,7 +1861,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.9.5c: Foster List and Detail Pages
+### Foster List and Detail Pages
 
 **Goal:** Create foster list and detail pages so coordinators can view foster information, contact details, experience, and assigned animals. This enables foster tagging in coordinator chat.
 
@@ -1924,7 +1924,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   **Contact information:** Phone and address are optional fields (can be added later)
 -   **Assigned animals:** Queried from `animals` and `animal_groups` tables using `current_foster_id`
 
-**Note:** This is a minimal implementation focused on viewing foster information. Future enhancements (M 6.4+) may include:
+**Note:** This is a minimal implementation focused on viewing foster information. Future enhancements (Group Management UI Polish & Edit Functionality and later) may include:
 
 -   Edit foster information
 -   Foster history/assignments timeline
@@ -1945,7 +1945,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.10a: Update Database Schema for Foster Tagging
+### Update Database Schema for Foster Tagging
 
 **Goal:** Extend `message_links` table to support tagging fosters in addition to animals and groups, and rename table to reflect its broader purpose.
 
@@ -1988,7 +1988,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.10b: Backend Support for Foster Tagging
+### Backend Support for Foster Tagging
 
 **Goal:** Create backend queries and functions to fetch and create message tags for animals, groups, and fosters.
 
@@ -2058,7 +2058,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.10c: Tag Selection UI in MessageInput
+### Tag Selection UI in MessageInput
 
 **Goal:** Add UI to select and display tags (animals, groups, fosters) before sending a message.
 
@@ -2086,7 +2086,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Only show "Fosters" tab when coordinators are messaging in coordinator chat
 3. Update message sending:
     - Collect selected tags before sending
-    - Pass tags to send message function (from M 5.10b)
+    - Pass tags to send message function (from Backend Support for Foster Tagging)
     - Clear selected tags after successful send
 4. Test: Can open tag selector, search/filter entities, select multiple tags, remove tags, tags appear as chips
 
@@ -2105,7 +2105,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.10d: Display Tags in MessageBubble
+### Display Tags in MessageBubble
 
 **Goal:** Display tags as clickable chips in message bubbles with proper navigation.
 
@@ -2123,8 +2123,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Use different colors/styles for different entity types (optional enhancement)
 3. Add navigation for tags:
     - Animals → link to `/animals/:id` (animal detail page)
-    - Groups → link to `/groups/:id` (group detail page - already created in M 5.9.5b)
-    - Fosters → link to `/fosters/:id` (foster detail page - created in M 5.9.5c)
+    - Groups → link to `/groups/:id` (group detail page - already created in Groups)
+    - Fosters → link to `/fosters/:id` (foster detail page - created in Foster List and Detail Pages)
 4. Test: Tags display correctly, tags are clickable, navigation works, styling is clear
 
 **Testing:**
@@ -2141,7 +2141,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 5.11: Polish Conversation Detail Page
+### Polish Conversation Detail Page
 
 **Goal:** Refine and polish conversation detail page based on testing, add any missing features.
 
@@ -2176,13 +2176,113 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 6: Animal Forms & Groups Management
+### Dashboard - Currently Fostering Section
+
+**Goal:** Add a "Currently Fostering" section to the Dashboard that displays animals and groups currently assigned to the logged-in user (both fosters and coordinators). This provides users with quick access to view the animals they're responsible for. The section only appears if the user is currently fostering animals or groups.
+
+**Tasks:**
+
+1. **Create query functions for assigned animals and groups**:
+
+    - Create function `fetchAssignedAnimals(profileId, organizationId)` to fetch animals where `current_foster_id` matches the user's profile ID
+    - Filter by organization (use `organizationId` parameter)
+    - Query `animals` table with `.eq('current_foster_id', profileId)` and `.eq('organization_id', organizationId)`
+    - Handle errors using `errorUtils`
+    - Create function `fetchAssignedGroups(profileId, organizationId)` to fetch groups where `current_foster_id` matches the user's profile ID
+    - Filter by organization (use `organizationId` parameter)
+    - Query `animal_groups` table with `.eq('current_foster_id', profileId)` and `.eq('organization_id', organizationId)`
+    - Handle errors using `errorUtils`
+    - **Reviewable:** Can test query functions independently with test data, verify they return correct animals/groups for a given profile
+
+2. **Create shared display card components**:
+
+    - Extract animal card component from `AnimalsList.tsx` into reusable component `src/components/animals/AnimalCard.tsx`
+    - Extract group card component from `GroupsList.tsx` into reusable component `src/components/animals/GroupCard.tsx`
+    - Include navigation links in card components:
+        - `AnimalCard` should link to `/animals/:id` (animal detail page)
+        - `GroupCard` should link to `/groups/:id` (group detail page)
+    - Ensure cards are clickable/linkable with proper styling (hover effects, cursor pointer)
+    - Update `AnimalsList.tsx` to use shared `AnimalCard` component
+    - Update `GroupsList.tsx` to use shared `GroupCard` component
+    - Verify cards maintain consistent styling and behavior across all uses
+    - **Reviewable:** Can test card components independently, verify they render correctly, verify navigation works, verify existing lists still work with shared components
+
+3. **Add basic Dashboard section with data fetching**:
+
+    - Update Dashboard component (`src/pages/Dashboard.tsx`):
+        - Add a new "Currently Fostering" section below Quick Actions section
+        - Use React Query's `useQuery` to fetch assigned animals and groups using functions from Task 1
+        - Display animals and groups using shared `AnimalCard` and `GroupCard` components from Task 2
+        - Show loading state while fetching (use `LoadingSpinner` component)
+        - Display in a card-based list format (consistent with AnimalsList and GroupsList styling)
+        - For now, show all assigned animals and groups (group prioritization comes in Task 4)
+    - **Reviewable:** Can test Dashboard section displays assigned animals/groups, verify loading states, verify section appears for users with assignments
+
+4. **Implement conditional rendering and group prioritization logic**:
+
+    - Update Dashboard section to only display if user has assigned animals/groups:
+        - Check if fetched data has any animals or groups
+        - Only render section if data exists (conditional rendering)
+        - If no assigned animals/groups, section should not appear at all
+    - Implement group prioritization logic:
+        - For each assigned animal, check if it belongs to a group (via `group_id` field)
+        - Fetch group data for animals that have `group_id` set
+        - If animal is in a group that's also assigned to this user, display the group instead of the individual animal
+        - Logic: If `animal.group_id` exists AND the group's `current_foster_id` matches user, show group; otherwise show individual animal
+        - Prevent duplicate display: if a group is shown, don't show individual animals from that group
+        - Handle edge case: animals in groups but group isn't assigned to user (show individual animal)
+    - **Reviewable:** Can test conditional rendering (section appears/disappears correctly), can test group prioritization logic (groups shown instead of individual animals when appropriate), can test edge cases
+
+5. **Polish and handle remaining edge cases**:
+
+    - Handle animals assigned individually (not in a group) - ensure they display correctly
+    - Handle groups with no animals (edge case, but should still display)
+    - Ensure section doesn't flash briefly when loading (use conditional rendering based on data existence, not just loading state)
+    - Verify section appears for ALL users (both fosters and coordinators) when they have assignments
+    - Test that section filters by organization correctly
+    - **Reviewable:** Can test all edge cases, verify smooth loading experience, verify works for both user roles
+
+**How It Works:**
+
+-   When a user (foster or coordinator) logs in and views the Dashboard, the app checks if they have any assigned animals or groups
+-   If assigned animals/groups exist, the "Currently Fostering" section appears below Quick Actions
+-   The app queries for animals and groups where `current_foster_id` matches the user's profile ID
+-   If an animal belongs to a group that's also assigned to the user, the group is displayed instead of the individual animal
+-   Clicking on an animal or group card navigates to the respective detail page (using shared card components)
+-   The section uses the same card components as AnimalsList and GroupsList for consistency
+-   The section updates automatically when assignments change (via React Query refetching)
+-   If user has no assigned animals/groups, the section doesn't appear at all
+
+**Testing:**
+
+-   Section appears for fosters with assigned animals/groups
+-   Section appears for coordinators with assigned animals/groups
+-   Section does NOT appear if user has no assigned animals/groups
+-   Assigned animals appear in the list using shared AnimalCard component
+-   Assigned groups appear in the list using shared GroupCard component
+-   Individual animals in assigned groups are not shown separately (group is shown instead)
+-   Individual animals not in groups are shown
+-   Clicking animal card navigates to animal detail page
+-   Clicking group card navigates to group detail page
+-   Cards match styling from AnimalsList and GroupsList
+-   Loading state shows while fetching
+-   Error handling works for failed queries
+-   Section filters by organization correctly
+-   Section is positioned below Quick Actions
+
+**Deliverable:** "Currently Fostering" section on Dashboard working for all users. Section only appears when user has assigned animals/groups. Uses shared card components for consistency with AnimalsList and GroupsList.
+
+**Note:** This milestone can be implemented even if groups aren't fully implemented yet. The group prioritization logic can be simplified to show all assigned animals initially and enhanced when group management is complete. The shared card components should be created to ensure consistency across the app.
+
+---
+
+## Phase: Animal Forms & Groups Management
 
 **Goal:** Complete animal creation/editing forms with all data attributes, enable group management, and allow coordinators to edit animals and groups.
 
 ---
 
-### Milestone 6.1: Complete Animal Creation Form
+### Complete Animal Creation Form
 
 **Goal:** Expand NewAnimal form to include all animal data attributes from schema.
 
@@ -2220,7 +2320,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.2: Animal Editing for Coordinators
+### Animal Editing for Coordinators
 
 **Goal:** Enable coordinators to edit existing animals with all data attributes.
 
@@ -2250,7 +2350,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.3: Reusable Search & Filter Component
+### Reusable Search & Filter Component
 
 **Goal:** Create reusable search and filter components that can be used across the app (animals list, animal selection in groups, tagging, fosters needed page, etc.).
 
@@ -2325,9 +2425,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.4: Group Management UI Polish & Edit Functionality
+### Group Management UI Polish & Edit Functionality
 
-**Goal:** Add missing features to group management UI, including edit functionality, validation, and polish. Note: Basic group management (list, detail, create) was completed in M 5.9.5.
+**Goal:** Add missing features to group management UI, including edit functionality, validation, and polish. Note: Basic group management (list, detail, create) was completed in Minimal Group Management UI.
 
 **Tasks:**
 
@@ -2336,7 +2436,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Fetch group by ID from URL params
     - Pre-populate form with existing group data (name, description, priority)
     - Allow editing `name`, `description`, and `priority`
-    - Allow adding/removing animals from group using search/filter component (from M 6.3)
+    - Allow adding/removing animals from group using search/filter component (from Reusable Search & Filter Component)
     - Update `animal_groups.animal_ids` array on save
     - Handle loading and error states
     - Redirect to group detail page after successful update
@@ -2385,7 +2485,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.5: Display Groups in Animal UI
+### Display Groups in Animal UI
 
 **Goal:** Show group information throughout animal UI and allow adding animals to groups during creation/editing.
 
@@ -2404,7 +2504,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 4. Update `AnimalsList.tsx`:
     - Show group indicator/badge for animals in groups
     - Show group name in animal preview cards
-    - Note: Group filtering is already implemented in M 6.3 (Search & Filter Component)
+    - Note: Group filtering is already implemented in Reusable Search & Filter Component
 5. Test: Groups display correctly throughout UI, animals can be added to groups during creation
 
 **Testing:**
@@ -2419,7 +2519,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 6.6: Foster Assignment for Animals and Groups
+### Foster Assignment for Animals and Groups
 
 **Goal:** Enable coordinators to assign animals and groups to fosters during creation and editing, with automatic consistency enforcement between individual animal assignments and group assignments.
 
@@ -2557,13 +2657,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 7: Photo Uploads for Animals and Groups
+## Phase: Photo Uploads for Animals and Groups
 
 **Goal:** Allow coordinators and fosters to upload photos for animals and groups, with proper permission controls.
 
 ---
 
-### Milestone 7.1: Photo Uploads for Animals and Groups
+### Photo Uploads for Animals and Groups
 
 **Goal:** Allow coordinators and fosters to upload photos for animals and groups, with proper permission controls.
 
@@ -2651,18 +2751,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Photo Retention Policy:**
 
 -   **Animal/Group photos:** Kept forever (no limit) - these are documentation photos that should be preserved long-term
--   **Message photos:** See M 5.9 for per-user retention limits (1,000 photos per user)
+-   **Message photos:** See Photo Sharing in Messages for per-user retention limits (1,000 photos per user)
 -   **Storage impact:** With 500 animals/year × 5 photos = 2,500 photos/year, storage grows to ~37.5GB by year 5. Combined with message photos (100-200GB), total storage stays within Pro tier limits (100GB) or slightly over, keeping costs at $25-30/month for 5+ years
 
 ---
 
-## Phase 8: Fosters Needed Page
+## Phase: Fosters Needed Page
 
 **Goal:** Create a page where fosters can browse animals and groups needing placement and request them through messaging.
 
 ---
 
-### Milestone 8.1: Fosters Needed Page
+### Fosters Needed Page
 
 **Goal:** Display animals and groups that need foster placement, allowing fosters to browse and request them.
 
@@ -2673,7 +2773,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Fetch animals and groups with status `needs_foster` or `available` (filtered by organization)
     - Display animals and groups in a browseable list/grid format
     - Show key information: name, photos, priority indicator, basic needs
-    - Use search/filter components from M 6.3 to allow filtering by:
+    - Use search/filter components from Reusable Search & Filter Component to allow filtering by:
         - Species
         - Priority (high priority animals/groups)
         - Group vs individual animals
@@ -2690,7 +2790,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
             - Include animal/group name
             - Include basic information (species, priority if applicable)
             - Template: "Hi, I'm interested in fostering [Animal/Group Name]. [Optional: Add any relevant information about my experience or availability]."
-        - Auto-tag the animal/group in the message (using tagging from M 5.10)
+        - Auto-tag the animal/group in the message (using tagging from Update Database Schema for Foster Tagging and related milestones)
         - Allow foster to edit message before sending
         - Send message to coordinators (visible in coordinator group chat and foster's conversation)
 
@@ -2715,8 +2815,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Implementation Notes:**
 
--   **Messaging Integration:** Requests go through the existing messaging system (Phase 5), ensuring all coordinators can see requests
--   **Auto-tagging:** Uses message tagging feature (M 5.10) to link requests to specific animals/groups
+-   **Messaging Integration:** Requests go through the existing messaging system (Messaging System phase), ensuring all coordinators can see requests
+-   **Auto-tagging:** Uses message tagging feature (Update Database Schema for Foster Tagging and related milestones) to link requests to specific animals/groups
 -   **No New Database Tables:** Uses existing `animals`, `animal_groups`, and `messages` tables with `message_links` for tagging
 -   **Simple Request Flow:** Fosters send a message with auto-filled content and tags - coordinators respond through existing messaging
 
@@ -2735,7 +2835,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 8.2: Coordinator Request Handling & Assignment
+### Coordinator Request Handling & Assignment
 
 **Goal:** Enable coordinators to view, approve, and handle foster requests, assigning animals/groups to fosters and updating relevant information.
 
@@ -2829,7 +2929,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Goal:** Meet with rescue organization to plan additional pages and record-keeping needs.
 
-**Note:** Before proceeding to Phase 9 (Timestamp Display & History), schedule a planning meeting with the rescue organization to discuss:
+**Note:** Before proceeding to Timestamp Display & History phase, schedule a planning meeting with the rescue organization to discuss:
 
 1. **Additional Record Types:**
 
@@ -2858,13 +2958,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 9: Timestamp Display & History
+## Phase: Timestamp Display & History
 
 **Goal:** Display timestamps on messages and data edits to show when information changed.
 
 ---
 
-### Milestone 9.1: Timestamp Display & History
+### Timestamp Display & History
 
 **Goal:** Display timestamps on messages and data edits to show when information changed.
 
@@ -2904,13 +3004,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 10: Confirmation Codes (For Both Coordinators & Fosters)
+## Phase: Confirmation Codes (For Both Coordinators & Fosters)
 
 **Goal:** Enable coordinators to generate confirmation codes for both coordinators and fosters in their organization, controlling platform access. Codes are linked to email addresses and organizations, and determine user role. This replaces open signup and eliminates the need for separate signup pages or organization creation flows.
 
 ---
 
-### Milestone 10.1: Confirmation Codes Schema
+### Confirmation Codes Schema
 
 **Goal:** Create database schema for confirmation codes that link users to organizations and determine their role.
 
@@ -2956,7 +3056,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.2: Coordinator Code Generation UI
+### Coordinator Code Generation UI
 
 **Goal:** Coordinators can generate confirmation codes via a simple form UI, linking codes to email addresses and roles.
 
@@ -3001,7 +3101,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.3: Update Signup to Use Confirmation Codes
+### Update Signup to Use Confirmation Codes
 
 **Goal:** Replace open signup with confirmation code-based signup. Codes determine role and organization assignment.
 
@@ -3027,7 +3127,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Organization from confirmation code
         - Email from signup form
     - Mark code as used (set `used_by` to new user's ID, `used_at` to now)
-    - Auto-login user (as in M 1.6)
+    - Auto-login user (as in Auto-Login After Signup)
 4. Handle role-based routing after signup:
     - Coordinators → coordinator dashboard
     - Fosters → foster dashboard
@@ -3048,7 +3148,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 10.4: Code Management & Sharing
+### Code Management & Sharing
 
 **Goal:** Coordinators can view, manage, and share confirmation codes they've generated.
 
@@ -3087,13 +3187,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 11: UX Polish & Navigation
+## Phase: UX Polish & Navigation
 
 **Goal:** Improve user experience with polished design, better navigation, and refined interactions based on Figma designs.
 
 ---
 
-### Milestone 11.1: Navigation Structure
+### Navigation Structure
 
 **Goal:** Create consistent, mobile-friendly navigation throughout the app.
 
@@ -3128,7 +3228,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.2: Figma Design Implementation
+### Figma Design Implementation
 
 **Goal:** Implement polished UI designs from Figma, improving visual consistency and user experience.
 
@@ -3188,7 +3288,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.3: Loading States & Empty States
+### Loading States & Empty States
 
 **Goal:** Improve perceived performance and user guidance with better loading and empty states.
 
@@ -3232,7 +3332,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.4: Error Handling Improvements
+### Error Handling Improvements
 
 **Goal:** Provide better error messages and recovery options throughout the app.
 
@@ -3268,7 +3368,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 11.5: Quick Actions & Shortcuts
+### Quick Actions & Shortcuts
 
 **Goal:** Add convenient shortcuts and quick actions to improve workflow efficiency.
 
@@ -3303,13 +3403,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 12: Landing Page & Marketing Site
+## Phase: Landing Page & Marketing Site
 
 **Goal:** Create a professional, impressive landing page to attract rescue organizations, showcase the app, and provide information for portfolio visitors.
 
 ---
 
-### Milestone 12.1: Landing Page Structure & Navigation
+### Landing Page Structure & Navigation
 
 **Goal:** Set up the landing page route structure and navigation to existing app functionality.
 
@@ -3344,7 +3444,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 12.2: App Description & Partner Showcase
+### App Description & Partner Showcase
 
 **Goal:** Display compelling app information and showcase partners/testimonials (e.g., Co Kitty Coalition).
 
@@ -3385,7 +3485,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 12.3: App Demo & Advertising
+### App Demo & Advertising
 
 **Goal:** Showcase the app with demos, screenshots, or interactive elements to demonstrate value.
 
@@ -3425,7 +3525,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 12.4: Contact & Personal Story
+### Contact & Personal Story
 
 **Goal:** Provide contact information and share personal story to build trust and connection.
 
@@ -3467,7 +3567,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 12.5: Donation Section
+### Donation Section
 
 **Goal:** Provide a way for visitors to support the project through donations.
 
@@ -3506,7 +3606,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 12.6: Landing Page Polish & Figma Design
+### Landing Page Polish & Figma Design
 
 **Goal:** Refine landing page design using Figma, ensuring professional, impressive appearance.
 
@@ -3553,13 +3653,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-## Phase 13: Expo Wrapping (For Reliable iOS Notifications)
+## Phase: Expo Wrapping (For Reliable iOS Notifications)
 
 **Goal:** Wrap PWA in Expo to enable App Store distribution and reliable iOS push notifications via APNs.
 
 ---
 
-### Milestone 13.1: Initialize Expo Project
+### Initialize Expo Project
 
 **Goal:** Create Expo app that wraps the existing PWA.
 
@@ -3591,7 +3691,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 13.2: Expo Push Notifications
+### Expo Push Notifications
 
 **Goal:** Replace FCM with Expo Push Notifications for reliable iOS support.
 
@@ -3623,7 +3723,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Milestone 13.3: Build & Publish
+### Build & Publish
 
 **Goal:** Build and publish app to App Store and Play Store.
 
@@ -3670,7 +3770,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   **Use Supabase Docs:** The Supabase documentation is excellent—refer to it often.
 -   **Ask for Help:** If stuck on a milestone for more than a few hours, step back and break it down further.
 -   **Version Control:** Commit after each milestone so you can roll back if needed.
--   **Deployment:** See Phase 3.5 for dedicated deployment milestone. Recommended after Phase 3 (PWA Setup) is complete, so you can test PWA installation on real devices.
+-   **Deployment:** See Deployment phase for dedicated deployment milestone. Recommended after PWA Setup phase is complete, so you can test PWA installation on real devices.
 -   **React Router Benefits:** Pure SPA setup is simpler than Next.js for internal tools. Easy to share components with Expo later since it's pure React.
 
 ---

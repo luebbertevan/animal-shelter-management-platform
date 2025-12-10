@@ -215,3 +215,50 @@ export async function fetchAnimalsByFosterId(
 		);
 	}
 }
+
+export interface FetchAssignedAnimalsOptions {
+	// Fields to select. Default: ["id", "name", "status", "sex", "priority", "group_id"]
+	// Pass "*" to select all fields
+	fields?: string[];
+}
+
+/**
+ * Fetch animals assigned to a specific profile (for Currently Fostering section)
+ * This function fetches animals where current_foster_id matches the profile ID
+ */
+export async function fetchAssignedAnimals(
+	profileId: string,
+	organizationId: string,
+	options: FetchAssignedAnimalsOptions = {}
+): Promise<Animal[]> {
+	const { fields = ["id", "name", "status", "sex", "priority", "group_id"] } =
+		options;
+
+	try {
+		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
+		const { data, error } = await supabase
+			.from("animals")
+			.select(selectFields)
+			.eq("organization_id", organizationId)
+			.eq("current_foster_id", profileId);
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to load assigned animals. Please try again."
+				)
+			);
+		}
+
+		// Return empty array if no animals (this is valid, not an error)
+		return (data || []) as unknown as Animal[];
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to load assigned animals. Please try again."
+			)
+		);
+	}
+}
