@@ -3,6 +3,11 @@ import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { getErrorMessage } from "../../lib/errorUtils";
 import { uploadPhoto } from "../../lib/photoUtils";
+import {
+	transformTagsToLinks,
+	validateTagIds,
+} from "../../lib/messageLinkUtils";
+import type { MessageTag } from "../../types";
 import Button from "../ui/Button";
 import LoadingSpinner from "../ui/LoadingSpinner";
 
@@ -33,24 +38,90 @@ type UploadResult =
 	| { success: true; photo: SelectedPhoto; url: string }
 	| { success: false; photo: SelectedPhoto; error: unknown };
 
+/**
+ * Inserts message links (tags) into the message_links table
+ */
+async function insertMessageLinks(
+	messageId: string,
+	tags: MessageTag[]
+): Promise<void> {
+	if (tags.length === 0) return;
+
+	// Transform tags into message_links format using utility
+	const links = transformTagsToLinks(messageId, tags);
+
+	const { error } = await supabase.from("message_links").insert(links);
+
+	if (error) {
+		throw new Error(
+			getErrorMessage(
+				error,
+				"Failed to create message tags. Please try again."
+			)
+		);
+	}
+}
+
 async function sendMessage(
 	conversationId: string,
 	senderId: string,
 	content: string,
-	photoUrls: string[] | null = null
-): Promise<void> {
-	const { error } = await supabase.from("messages").insert({
-		conversation_id: conversationId,
-		sender_id: senderId,
-		content: content.trim() || "", // Allow empty content if photos exist
-		photo_urls: photoUrls && photoUrls.length > 0 ? photoUrls : null,
-	});
+	photoUrls: string[] | null = null,
+	tags: MessageTag[] = []
+): Promise<string> {
+	// Insert message first
+	const { data, error } = await supabase
+		.from("messages")
+		.insert({
+			conversation_id: conversationId,
+			sender_id: senderId,
+			content: content.trim() || "", // Allow empty content if photos exist
+			photo_urls: photoUrls && photoUrls.length > 0 ? photoUrls : null,
+		})
+		.select("id")
+		.single();
 
 	if (error) {
 		throw new Error(
 			getErrorMessage(error, "Failed to send message. Please try again.")
 		);
 	}
+
+	// If message was created successfully and we have tags, insert the links
+	if (data?.id && tags.length > 0) {
+		try {
+			await insertMessageLinks(data.id, tags);
+		} catch (linkError) {
+			// If link insertion fails, we still have the message created
+			// Return error info so component can show user notification
+			// Message is still sent, but tags failed
+			const errorMessage =
+				linkError instanceof Error
+					? linkError.message
+					: "Failed to create message tags";
+			throw createTagInsertionError(errorMessage, data.id);
+		}
+	}
+
+	return data.id;
+}
+
+/**
+ * Custom error for tag insertion failures
+ * Allows message to be sent but indicates tags failed
+ */
+interface TagInsertionError extends Error {
+	messageId: string;
+}
+
+function createTagInsertionError(
+	message: string,
+	messageId: string
+): TagInsertionError {
+	const error = new Error(message) as TagInsertionError;
+	error.name = "TagInsertionError";
+	error.messageId = messageId;
+	return error;
 }
 
 export default function MessageInput({
@@ -64,6 +135,7 @@ export default function MessageInput({
 	const [error, setError] = useState<string | null>(null);
 	const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
 	const [photoError, setPhotoError] = useState<string | null>(null);
+	const [tagError, setTagError] = useState<string | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
@@ -88,6 +160,7 @@ export default function MessageInput({
 		setSending(true);
 		setError(null);
 		setPhotoError(null);
+		setTagError(null);
 
 		try {
 			const photoUrls: string[] = [];
@@ -162,28 +235,79 @@ export default function MessageInput({
 				}
 			}
 
-			// Send message with successful photo URLs
-			await sendMessage(
-				conversationId,
-				user.id,
-				trimmedMessage,
-				photoUrls.length > 0 ? photoUrls : null
-			);
+			// TODO: Get selected tags from UI (M 5.10c - Tag Selection UI)
+			// For now, tags array is empty until tag selection UI is implemented
+			const selectedTags: MessageTag[] = [];
 
-			// Clear input and photos on success
-			setMessage("");
-			// Clean up remaining photo preview URLs
-			selectedPhotos.forEach((photo) => {
-				URL.revokeObjectURL(photo.preview);
-			});
-			setSelectedPhotos([]);
-			selectedPhotosRef.current = [];
-			// Clear photo error if message was sent successfully
-			if (failedPhotos.length === 0) {
-				setPhotoError(null);
+			// Validate tags before sending (if any are selected)
+			if (selectedTags.length > 0) {
+				const validation = await validateTagIds(
+					selectedTags,
+					profile.organization_id
+				);
+				if (!validation.valid) {
+					setTagError(
+						`Cannot send message: ${validation.errors.join(
+							", "
+						)}. Please remove invalid tags.`
+					);
+					setSending(false);
+					return;
+				}
 			}
-			// Notify parent to refetch messages
-			onMessageSent();
+
+			// Send message with successful photo URLs and tags
+			try {
+				await sendMessage(
+					conversationId,
+					user.id,
+					trimmedMessage,
+					photoUrls.length > 0 ? photoUrls : null,
+					selectedTags
+				);
+
+				// Clear input and photos on success
+				setMessage("");
+				// Clean up remaining photo preview URLs
+				selectedPhotos.forEach((photo) => {
+					URL.revokeObjectURL(photo.preview);
+				});
+				setSelectedPhotos([]);
+				selectedPhotosRef.current = [];
+				// Clear photo error if message was sent successfully
+				if (failedPhotos.length === 0) {
+					setPhotoError(null);
+				}
+				// Notify parent to refetch messages
+				onMessageSent();
+			} catch (err) {
+				// Handle tag insertion errors separately (message was sent, tags failed)
+				if (
+					err &&
+					typeof err === "object" &&
+					"name" in err &&
+					err.name === "TagInsertionError"
+				) {
+					setTagError(
+						"Message sent, but some tags could not be added. Please try again."
+					);
+					// Still clear input and notify parent since message was sent
+					setMessage("");
+					selectedPhotos.forEach((photo) => {
+						URL.revokeObjectURL(photo.preview);
+					});
+					setSelectedPhotos([]);
+					selectedPhotosRef.current = [];
+					onMessageSent();
+				} else {
+					// Regular error - message send failed
+					setError(
+						err instanceof Error
+							? err.message
+							: "Failed to send message. Please try again."
+					);
+				}
+			}
 		} catch (err) {
 			setError(
 				err instanceof Error
@@ -326,6 +450,11 @@ export default function MessageInput({
 			{photoError && (
 				<div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
 					{photoError}
+				</div>
+			)}
+			{tagError && (
+				<div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-700 text-sm">
+					{tagError}
 				</div>
 			)}
 			{uploading && (

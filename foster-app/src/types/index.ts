@@ -200,3 +200,58 @@ export interface Message {
 	edited_at?: string;
 	photo_urls?: string[] | null; // Array of photo URLs from Supabase Storage
 }
+
+// Message tag types
+export type TagType = "animal" | "group" | "foster";
+
+export const TAG_TYPES = {
+	ANIMAL: "animal",
+	GROUP: "group",
+	FOSTER: "foster",
+} as const;
+
+export interface MessageTag {
+	type: TagType;
+	id: string;
+	name: string;
+}
+
+// Raw message link data from Supabase (with joined data)
+export interface MessageLinkRaw {
+	id: string;
+	message_id: string;
+	animal_id: string | null;
+	group_id: string | null;
+	foster_profile_id: string | null;
+	animals: { name: string } | null;
+	animal_groups: { name: string } | null;
+	profiles: { full_name: string } | null;
+}
+
+// Message with links from Supabase query (includes joined data)
+// message_links is optional - can be omitted from queries when tagging is not in use
+export type MessageWithLinks = {
+	id: string;
+	conversation_id: string;
+	sender_id: string;
+	content: string;
+	created_at: string;
+	edited_at: string | null;
+	photo_urls: string[] | null;
+	profiles: { full_name: string } | null;
+	message_links?: Array<{
+		id: string;
+		animal_id: string | null;
+		group_id: string | null;
+		foster_profile_id: string | null;
+		animals: { name: string } | null;
+		animal_groups: { name: string } | null;
+		profiles: { full_name: string } | null;
+	}> | null;
+};
+
+// Message with metadata (sender name and tags) for UI
+export type MessageWithMetadata = Message & {
+	sender_name: string;
+	tags: MessageTag[];
+};
