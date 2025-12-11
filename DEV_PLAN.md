@@ -2499,6 +2499,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
+**Group 1: Setup & UI Component**
+
 1. **Install Headless UI:**
 
     - Run `npm install @headlessui/react`
@@ -2518,15 +2520,22 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Handle empty suggestions array gracefully (show empty dropdown, still allow custom input)
     - Mobile-friendly (close on blur, touch-friendly interactions)
     - Component must be generic/reusable - suggestions array passed as prop, no hardcoded field-specific logic
+    - **Testing:** Test component with mock data (hardcoded suggestions array) before integrating with backend
+
+**Group 2: Backend/Data Layer**
 
 3. **Create shared field suggestions helper function** (`src/lib/animalQueries.ts`):
 
     - Create generic helper: `fetchFieldSuggestions(organizationId: string, fieldName: string, limit: number = 20): Promise<string[]>`
     - Query: Fetch all values for specified field where `organization_id` matches and field is not NULL
+    - Use Supabase query builder (same pattern as existing `animalQueries.ts` functions):
+        - Example: `supabase.from('animals').select(fieldName).eq('organization_id', orgId).not(fieldName, 'is', null)`
+        - Fetch all matching rows (simple query, no aggregation in SQL)
     - Client-side processing (shared logic):
         - Count frequency of each exact value (case-sensitive matching)
         - Sort by frequency (descending), then alphabetically
         - Return top N unique values (default 20)
+    - Why client-side processing: Supabase query builder doesn't easily support GROUP BY with COUNT and ORDER BY in a single query. Client-side processing is simpler and avoids needing RPC functions or raw SQL.
     - This shared function handles the common logic for both fields
 
 4. **Create breed suggestions query function** (`src/lib/animalQueries.ts`):
@@ -2544,6 +2553,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - For MVP, exact text matching only (no parsing or splitting)
     - Return array of unique characteristic strings sorted by frequency (most frequent first)
 
+**Group 3: Integration**
+
 6. **Update `src/pages/animals/NewAnimal.tsx`**:
 
     - Add React Query hooks to fetch suggestions for both Primary Breed and Physical Characteristics fields using `useQuery`
@@ -2554,16 +2565,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Pass appropriate suggestions array as prop to each Combobox instance
     - Each Combobox instance uses the same reusable component but with different suggestions data
     - Handle custom values on form submission (no special handling needed - save as-is)
-
-7. **SQL Query Implementation:**
-    - Use Supabase query builder (same pattern as existing `animalQueries.ts` functions):
-        - Example: `supabase.from('animals').select('primary_breed').eq('organization_id', orgId).not('primary_breed', 'is', null)`
-        - Fetch all matching rows (simple query, no aggregation in SQL)
-    - Process results client-side in TypeScript:
-        - Count frequency of each exact value (case-sensitive)
-        - Sort by frequency (descending), then alphabetically
-        - Take top 20
-    - Why client-side processing: Supabase query builder doesn't easily support GROUP BY with COUNT and ORDER BY in a single query. Client-side processing is simpler and avoids needing RPC functions or raw SQL.
 
 **Design decisions:**
 
@@ -2752,68 +2753,6 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Works on mobile devices
 
 **Deliverable:** Photo upload working in animal creation form with proper storage and metadata.
-
----
-
-### Complete Animal Creation Form - Medical and Behavioral Needs
-
-**Goal:** Add medical needs and behavioral needs textarea sections to animal creation form.
-
-**Tasks:**
-
-1. **Update `src/pages/animals/NewAnimal.tsx`**:
-
-    - Add "Medical Needs" section (textarea, optional):
-        - Multi-line text input for medical history, conditions, medications, special care
-        - Placeholder text: "Enter medical needs, conditions, medications, or special care requirements..."
-    - Add "Behavioral Needs" section (textarea, optional):
-        - Multi-line text input for behavioral notes, training needs, etc.
-        - Placeholder text: "Enter behavioral notes, training needs, or other behavioral information..."
-
-2. **Form layout**:
-    - Group these as separate sections or clearly labeled fields
-    - Adequate height for textareas (e.g., 4-6 rows)
-    - Mobile-friendly sizing
-
-**Testing:**
-
--   Can enter multi-line text in both fields
--   Text saves correctly to database
--   Fields are optional
--   Works on mobile devices
--   Textareas are appropriately sized
-
-**Deliverable:** Medical and behavioral needs fields working in creation form.
-
----
-
-### Complete Animal Creation Form - Physical Characteristics
-
-**Goal:** Add physical characteristics field to animal creation form.
-
-**Tasks:**
-
-1. **Update `src/pages/animals/NewAnimal.tsx`**:
-
-    - Add "Physical Characteristics" field (text input, optional):
-        - Simple text input field (no dropdown/autocomplete for now)
-        - Plan to upgrade to dropdown with "Add new" option later if needed
-        - Placeholder: "e.g., orange tabby, long-haired, white paws"
-
-2. **Form layout**:
-    - Clear label and spacing
-    - Consistent with other text fields
-
-**Testing:**
-
--   Can enter text in field
--   Value saves correctly to database
--   Field is optional
--   Works on mobile devices
-
-**Deliverable:** Physical characteristics field working in creation form.
-
-**Note:** Physical characteristics dropdown with "most common first" can be added later if needed. Starting with simple text field for faster implementation.
 
 ---
 
