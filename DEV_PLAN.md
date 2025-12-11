@@ -2503,7 +2503,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 1. **Install Headless UI:**
 
-    - Run `npm install @headlessui/react`
+    - Run `bun install @headlessui/react`
 
 2. **Create reusable Combobox component** (`src/components/ui/Combobox.tsx`):
 
