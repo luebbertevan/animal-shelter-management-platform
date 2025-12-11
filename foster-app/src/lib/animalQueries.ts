@@ -270,3 +270,114 @@ export async function fetchAssignedAnimals(
 		);
 	}
 }
+
+/**
+ * Generic helper function to fetch field suggestions for a given field name.
+ * Returns the top N most frequent unique values for the specified field.
+ *
+ * @param organizationId - The organization ID to filter by
+ * @param fieldName - The name of the field to get suggestions for (e.g., 'primary_breed', 'physical_characteristics')
+ * @param limit - Maximum number of suggestions to return (default: 20)
+ * @returns Array of unique field values sorted by frequency (most frequent first), then alphabetically
+ */
+export async function fetchFieldSuggestions(
+	organizationId: string,
+	fieldName: string,
+	limit: number = 20
+): Promise<string[]> {
+	try {
+		// Fetch all non-null values for the specified field in the organization
+		const { data, error } = await supabase
+			.from("animals")
+			.select(fieldName)
+			.eq("organization_id", organizationId)
+			.not(fieldName, "is", null);
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					`Failed to fetch ${fieldName} suggestions. Please try again.`
+				)
+			);
+		}
+
+		// Handle empty result
+		if (!data || data.length === 0) {
+			return [];
+		}
+
+		// Client-side processing: Count frequency of each exact value (case-sensitive)
+		type ValueCount = { value: string; count: number };
+
+		const valueCounts = new Map<string, number>();
+
+		// Count occurrences of each value
+		for (const row of data) {
+			// Type assertion: we know fieldName is a valid key since we queried for it
+			const rowObj = row as unknown as Record<string, unknown>;
+			const value = rowObj[fieldName] as string | null | undefined;
+			if (
+				value != null &&
+				typeof value === "string" &&
+				value.trim() !== ""
+			) {
+				valueCounts.set(value, (valueCounts.get(value) || 0) + 1);
+			}
+		}
+
+		// Convert to array and sort by frequency (descending), then alphabetically
+		const sortedValues: ValueCount[] = Array.from(
+			valueCounts.entries()
+		).map(([value, count]) => ({ value, count }));
+
+		sortedValues.sort((a, b) => {
+			// First sort by count (descending - most frequent first)
+			if (b.count !== a.count) {
+				return b.count - a.count;
+			}
+			// If counts are equal, sort alphabetically (ascending)
+			return a.value.localeCompare(b.value);
+		});
+
+		// Return top N values
+		return sortedValues.slice(0, limit).map((item) => item.value);
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				`Failed to fetch ${fieldName} suggestions. Please try again.`
+			)
+		);
+	}
+}
+
+/**
+ * Fetch breed suggestions for an organization.
+ * Returns the top 20 most frequent primary_breed values.
+ *
+ * @param organizationId - The organization ID to filter by
+ * @returns Array of unique breed strings sorted by frequency (most frequent first)
+ */
+export async function fetchBreedSuggestions(
+	organizationId: string
+): Promise<string[]> {
+	return fetchFieldSuggestions(organizationId, "primary_breed", 20);
+}
+
+/**
+ * Fetch physical characteristics suggestions for an organization.
+ * Returns the top 20 most frequent physical_characteristics values.
+ *
+ * @param organizationId - The organization ID to filter by
+ * @returns Array of unique characteristic strings sorted by frequency (most frequent first)
+ */
+export async function fetchPhysicalCharacteristicsSuggestions(
+	organizationId: string
+): Promise<string[]> {
+	return fetchFieldSuggestions(
+		organizationId,
+		"physical_characteristics",
+		20
+	);
+}
