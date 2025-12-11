@@ -2329,10 +2329,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Add `photos?: PhotoMetadata[]` to `Animal` interface (array of photo objects with minimal metadata)
     - Create `PhotoMetadata` type: `{ url: string, uploaded_by?: string }`
         - `url`: Photo URL (required)
-        - `uploaded_by`: User/profile ID (optional, only needed for permission checks - fosters can only delete their own photos)
+        - `uploaded_by`: User/profile ID (needed for permission checks - fosters can only delete their own photos)
         - Keep it simple - mirror messaging approach but add minimal metadata for permissions
         - Timestamps can be derived from file metadata if needed
-        - Captions can be added later if needed
     - Add `bio?: string` to `Animal` interface (text field for animal biography) - fosters will be able to edit
     - Keep `additional_notes` (already exists)
     - Keep `tags` in interface but note it won't be handled in UI yet

@@ -10,14 +10,16 @@ import Button from "../../components/ui/Button";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
-import type { AnimalStatus, Sex } from "../../types";
+import type { AnimalStatus, SexSpayNeuterStatus } from "../../types";
 
 export default function NewAnimal() {
 	const navigate = useNavigate();
 	const { user, profile } = useProtectedAuth();
 	const [name, setName] = useState("");
-	const [status, setStatus] = useState<AnimalStatus>("needs_foster");
-	const [sex, setSex] = useState<Sex | "">("");
+	const [status, setStatus] = useState<AnimalStatus>("in_shelter");
+	const [sexSpayNeuterStatus, setSexSpayNeuterStatus] = useState<
+		SexSpayNeuterStatus | ""
+	>("");
 	const [priority, setPriority] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [loading, setLoading] = useState(false);
@@ -25,7 +27,6 @@ export default function NewAnimal() {
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
 	const statusOptions: { value: AnimalStatus; label: string }[] = [
-		{ value: "needs_foster", label: "Needs Foster" },
 		{ value: "in_foster", label: "In Foster" },
 		{ value: "adopted", label: "Adopted" },
 		{ value: "medical_hold", label: "Medical Hold" },
@@ -33,10 +34,15 @@ export default function NewAnimal() {
 		{ value: "transferring", label: "Transferring" },
 	];
 
-	const sexOptions: { value: Sex | ""; label: string }[] = [
+	const sexSpayNeuterOptions: {
+		value: SexSpayNeuterStatus | "";
+		label: string;
+	}[] = [
 		{ value: "", label: "Select..." },
 		{ value: "male", label: "Male" },
 		{ value: "female", label: "Female" },
+		{ value: "spayed_female", label: "Spayed Female" },
+		{ value: "neutered_male", label: "Neutered Male" },
 	];
 
 	const validateForm = (): boolean => {
@@ -74,8 +80,8 @@ export default function NewAnimal() {
 			};
 
 			// Add optional fields only if they have values
-			if (sex) {
-				animalData.sex = sex;
+			if (sexSpayNeuterStatus) {
+				animalData.sex_spay_neuter_status = sexSpayNeuterStatus;
 			}
 
 			// Add priority field
@@ -158,9 +164,13 @@ export default function NewAnimal() {
 
 						<Select
 							label="Sex"
-							value={sex}
-							onChange={(e) => setSex(e.target.value as Sex | "")}
-							options={sexOptions}
+							value={sexSpayNeuterStatus}
+							onChange={(e) =>
+								setSexSpayNeuterStatus(
+									e.target.value as SexSpayNeuterStatus | ""
+								)
+							}
+							options={sexSpayNeuterOptions}
 							disabled={loading}
 						/>
 

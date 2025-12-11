@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { Animal } from "../../types";
+import type { Animal, SexSpayNeuterStatus } from "../../types";
 
 // Helper function to create a URL-friendly slug from a name
 function createSlug(name: string | undefined | null): string {
@@ -13,8 +13,27 @@ function createSlug(name: string | undefined | null): string {
 		.replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
 }
 
+// Helper function to format sex/spay-neuter status for display
+function formatSexSpayNeuterStatus(status: SexSpayNeuterStatus): string {
+	switch (status) {
+		case "male":
+			return "Male";
+		case "female":
+			return "Female";
+		case "spayed_female":
+			return "Spayed Female";
+		case "neutered_male":
+			return "Neutered Male";
+		default:
+			return status;
+	}
+}
+
 interface AnimalCardProps {
-	animal: Pick<Animal, "id" | "name" | "status" | "sex" | "priority">;
+	animal: Pick<
+		Animal,
+		"id" | "name" | "status" | "sex_spay_neuter_status" | "priority"
+	>;
 }
 
 /**
@@ -42,11 +61,13 @@ export default function AnimalCard({ animal }: AnimalCardProps) {
 						</span>
 					</p>
 				)}
-				{animal.sex && (
+				{animal.sex_spay_neuter_status && (
 					<p>
 						<span className="text-gray-500">Sex:</span>{" "}
-						<span className="font-medium capitalize">
-							{animal.sex}
+						<span className="font-medium">
+							{formatSexSpayNeuterStatus(
+								animal.sex_spay_neuter_status
+							)}
 						</span>
 					</p>
 				)}
@@ -61,4 +82,3 @@ export default function AnimalCard({ animal }: AnimalCardProps) {
 		</Link>
 	);
 }
-

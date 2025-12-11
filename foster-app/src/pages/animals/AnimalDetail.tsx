@@ -1,12 +1,28 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { Animal } from "../../types";
+import type { Animal, SexSpayNeuterStatus } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import Button from "../../components/ui/Button";
 import { fetchAnimalById } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
+
+// Helper function to format sex/spay-neuter status for display
+function formatSexSpayNeuterStatus(status: SexSpayNeuterStatus): string {
+	switch (status) {
+		case "male":
+			return "Male";
+		case "female":
+			return "Female";
+		case "spayed_female":
+			return "Spayed Female";
+		case "neutered_male":
+			return "Neutered Male";
+		default:
+			return status;
+	}
+}
 
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -137,13 +153,15 @@ export default function AnimalDetail() {
 							</div>
 						)}
 
-						{animal.sex && (
+						{animal.sex_spay_neuter_status && (
 							<div>
 								<label className="block text-sm font-medium text-gray-500 mb-1">
 									Sex
 								</label>
-								<p className="text-lg font-medium capitalize">
-									{animal.sex}
+								<p className="text-lg font-medium">
+									{formatSexSpayNeuterStatus(
+										animal.sex_spay_neuter_status
+									)}
 								</p>
 							</div>
 						)}

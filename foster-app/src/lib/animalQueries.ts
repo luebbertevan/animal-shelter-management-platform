@@ -7,7 +7,7 @@ import {
 import type { Animal } from "../types";
 
 export interface FetchAnimalsOptions {
-	// Fields to select. Default: ["id", "name", "status", "sex", "priority"]
+	// Fields to select. Default: ["id", "name", "status", "sex_spay_neuter_status", "priority"]
 	// Pass "*" to select all fields
 	fields?: string[];
 	// Order by field. Default: "created_at"
@@ -27,7 +27,7 @@ export async function fetchAnimals(
 	options: FetchAnimalsOptions = {}
 ): Promise<Animal[]> {
 	const {
-		fields = ["id", "name", "status", "sex", "priority"],
+		fields = ["id", "name", "status", "sex_spay_neuter_status", "priority"],
 		orderBy = "created_at",
 		orderDirection = "desc",
 		checkOffline = false,
@@ -217,7 +217,7 @@ export async function fetchAnimalsByFosterId(
 }
 
 export interface FetchAssignedAnimalsOptions {
-	// Fields to select. Default: ["id", "name", "status", "sex", "priority", "group_id"]
+	// Fields to select. Default: ["id", "name", "status", "sex_spay_neuter_status", "priority", "group_id"]
 	// Pass "*" to select all fields
 	fields?: string[];
 }
@@ -231,8 +231,16 @@ export async function fetchAssignedAnimals(
 	organizationId: string,
 	options: FetchAssignedAnimalsOptions = {}
 ): Promise<Animal[]> {
-	const { fields = ["id", "name", "status", "sex", "priority", "group_id"] } =
-		options;
+	const {
+		fields = [
+			"id",
+			"name",
+			"status",
+			"sex_spay_neuter_status",
+			"priority",
+			"group_id",
+		],
+	} = options;
 
 	try {
 		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
