@@ -2405,18 +2405,28 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - **Display Placement Request** (checkbox, optional):
         - Boolean field to control if animal appears on placement request page
         - Place next to Status field (same row or adjacent)
-        - Auto-update logic: When status changes, automatically update checkbox (simple rule: `true` for `in_shelter`, `false` for others)
-        - But allow manual editing - if user manually changes checkbox, persist that value even if status changes later
-        - Implementation: Track if checkbox was manually edited (use a flag or compare current value to auto-calculated value)
-        - Default: `false` (or auto-calculated based on initial status)
+        - Auto-update logic: When status changes, automatically update checkbox:
+            - If status is `in_shelter`, `medical_hold`, or `transferring` → set to `true`
+            - If status is `adopted` or `in_foster` → set to `false`
+        - User can manually change checkbox independently (no special tracking needed)
+        - If status changes again after manual edit, checkbox will auto-update again based on new status
+        - Default: Auto-calculated based on initial status when form loads
     - **Life Stage** (dropdown, optional):
         - Options: `kitten`, `adult`, `senior`, `unknown`
         - Include "Select..." placeholder option
         - Simple dropdown for now (no auto-fill logic yet - will be added in separate task after date/age fields)
+    - **Primary Breed** (text input, optional):
+        - Text field for now (will be upgraded to dropdown with custom option later)
+    - **Physical Characteristics** (text input, optional):
+        - Text field for now (will be upgraded to dropdown with custom option later)
+    - **Medical Needs** (textarea, optional):
+        - Multi-line text input for medical history, conditions, medications, special care
+    - **Behavioral Needs** (textarea, optional):
+        - Multi-line text input for behavioral notes, training needs, etc.
     - **Additional Notes** (textarea, optional):
         - Multi-line text input for general notes
-    - **Bio** (textarea, optional):
-        - Multi-line text input for animal biography
+    - **Adoption Bio** (textarea, optional):
+        - Multi-line text input for adoption biography
         - Last field in form
         - Fosters will be able to edit this field later (dedicated milestone)
     - **Priority** (toggle, optional) - already exists
@@ -2471,6 +2481,97 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Works on mobile devices
 
 **Deliverable:** Combined sex/spay-neuter field working in creation form.
+
+---
+
+### Complete Animal Creation Form - Smart Dropdowns with Custom Options
+
+**Goal:** Upgrade Primary Breed and Physical Characteristics fields from text inputs to smart dropdowns that show most common values and allow custom input.
+
+**Approach:** Use Headless UI Combobox component for accessible, keyboard-navigable dropdowns with custom input capability. Fetch suggestions via direct SQL query (no separate table needed).
+
+**Performance Notes:**
+
+-   Query fetches top 20 most common values per organization
+-   Queries are fast (organization-scoped, simple aggregation)
+-   Client-side caching (React Query) prevents unnecessary requests
+-   Suggestions don't need real-time updates (acceptable to be slightly stale)
+
+**Tasks:**
+
+1. **Install Headless UI:**
+
+    - Run `npm install @headlessui/react`
+
+2. **Create reusable Combobox component** (`src/components/ui/Combobox.tsx`):
+
+    - Use Headless UI `Combobox` component
+    - Props: `label`, `value`, `onChange`, `suggestions`, `placeholder`, `disabled`, `error`
+    - Style to match existing form components (use Tailwind classes)
+    - Support keyboard navigation (arrow keys, enter, escape)
+    - Show suggestions dropdown when user types or clicks
+    - Allow selecting from suggestions or typing custom value
+    - Mobile-friendly (close on blur, touch-friendly interactions)
+
+3. **Create breed suggestions query function** (`src/lib/animalQueries.ts`):
+
+    - Function: `fetchBreedSuggestions(organizationId: string): Promise<string[]>`
+    - Query: Get DISTINCT `primary_breed` values for organization, grouped and ordered by frequency (COUNT), limit to top 20
+    - Filter out NULL values
+    - Handle case normalization (lowercase for comparison, preserve original case for display)
+    - Return array of unique breed strings
+
+4. **Create physical characteristics suggestions query function** (`src/lib/animalQueries.ts`):
+
+    - Function: `fetchPhysicalCharacteristicsSuggestions(organizationId: string): Promise<string[]>`
+    - Query: Get DISTINCT `physical_characteristics` values for organization, grouped and ordered by frequency, limit to top 20
+    - Filter out NULL values
+    - For MVP, exact text matching only (no parsing or splitting)
+    - Return array of unique characteristic strings
+
+5. **Update `src/pages/animals/NewAnimal.tsx`**:
+
+    - Add React Query hooks to fetch suggestions for both fields using `useQuery`
+    - Configure React Query with 5-minute cache (stale-while-revalidate pattern)
+    - Handle loading and error states (show loading spinner or fallback gracefully)
+    - Replace text Input components with Combobox components
+    - Pass suggestions array as prop to each Combobox
+    - Handle custom values on form submission (no special handling needed - save as-is)
+
+6. **SQL Query Implementation:**
+    - Use Supabase query builder: `.select('primary_breed').eq('organization_id', orgId).not('primary_breed', 'is', null)`
+    - Use `.order()` with aggregation or post-process results to count frequencies
+    - Alternative: Use RPC function if aggregation is complex
+    - Return unique values sorted by frequency (most common first)
+
+**Design decisions:**
+
+-   **Suggestion limit:** Top 20 most common values
+-   **Case handling:** Case-insensitive matching when filtering suggestions, preserve original case from database
+-   **Custom values:** Always allowed - user can type anything not in suggestions
+-   **Empty state:** Show placeholder text, show suggestions when user starts typing or clicks dropdown arrow
+-   **Caching:** React Query cache with 5-minute stale time (stale-while-revalidate)
+-   **Performance:** Query runs on form mount, results cached. Acceptable if suggestions are slightly stale.
+
+**Implementation details:**
+
+-   Headless UI Combobox provides accessible dropdown with keyboard navigation out of the box
+-   Styling: Match existing Input/Select component styles (border-pink-300, focus:border-pink-500, etc.)
+-   Filtering: Headless UI handles filtering suggestions as user types
+-   Custom input: User can type anything, even if not in suggestions list
+
+**Testing:**
+
+-   Can select from dropdown suggestions
+-   Can type custom value not in suggestions
+-   Suggestions update correctly after creating animals with new values (on next form load, after cache expires)
+-   Keyboard navigation works (arrow keys, enter, escape, tab)
+-   Works on mobile devices (touch interactions, dropdown closes appropriately)
+-   Handles edge cases: empty values, very long values, special characters
+-   Loading state shows appropriately while fetching suggestions
+-   Error state handled gracefully (show empty suggestions list if query fails)
+
+**Deliverable:** Primary Breed and Physical Characteristics fields upgraded to smart dropdowns with suggestions (top 20 most common values) and custom input support.
 
 ---
 
