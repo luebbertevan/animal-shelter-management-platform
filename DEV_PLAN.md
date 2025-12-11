@@ -468,7 +468,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Name field (text input, required)
         - Species field (text input or dropdown, required - e.g., "Cat", "Dog")
         - Breed field (text input, optional)
-        - Status dropdown (required, defaults to 'needs_foster' - options: needs_foster, in_foster, adopted, medical_hold, available, transferred)
+        - Status dropdown (required, defaults to 'in_shelter' - options: in_shelter, in_foster, adopted, medical_hold, transferring)
     - Use React state to manage form field values
     - Add form validation to ensure required fields are filled
     - Style the form with Tailwind CSS for mobile-first responsive design (single column on mobile, comfortable spacing)
@@ -514,6 +514,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 ### List Animals
 
 **Goal:** Display all animals in a mobile-friendly, scrollable list that allows users to browse and navigate to individual animal details. This milestone creates a page that fetches and displays all animals from the database. It uses React Query for efficient data fetching, caching, and automatic refetching. The list should be visually appealing and easy to navigate on mobile devices.
+
+**Note:** View Animals and View Groups are separate pages (not combined). They share reusable components (AnimalCard, GroupCard, search/filter components) but remain distinct pages for clarity and different use cases.
 
 **Tasks:**
 
@@ -1775,6 +1777,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Groups
 
+**Note:** View Animals and View Groups are separate pages (not combined). They share reusable components but remain distinct pages.
+
 **Tasks:**
 
 1. **Create Groups List page** (`src/pages/animals/GroupsList.tsx`):
@@ -2280,73 +2284,768 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Goal:** Complete animal creation/editing forms with all data attributes, enable group management, and allow coordinators to edit animals and groups.
 
+**Implementation Order:**
+
+1. **Update Animal Types and Schema** (foundation - must be first)
+2. **Complete Animal Creation Form - Basic Fields** (gets form working with core fields, includes bio)
+3. **Complete Animal Creation Form - Combined Sex/SpayNeuter Field** (moderate complexity)
+4. **Complete Animal Creation Form - Physical Characteristics** (simple text field)
+5. **Complete Animal Creation Form - Medical and Behavioral Needs** (simple textareas)
+6. **Complete Animal Creation Form - Date and Age Fields** (most complex - bidirectional auto-fill)
+7. **Complete Animal Creation Form - Life Stage Auto-Fill** (depends on date/age fields)
+8. **Complete Animal Creation Form - Photo Upload** (complex - separate milestone before editing)
+9. **Enable Animal Editing** (reuse form components, includes photos and bio)
+10. **Copy Data from Animal Feature** (high priority - really nice feature)
+11. **Foster Photo & Bio Editing** (dedicated milestone - only thing fosters can edit)
+12. **Update Animal Preview Card & Detail Page** (display all new fields, do after all form milestones)
+13. **Group Management** (separate milestone - includes "Display Groups in Animal UI" which handles adding animals to groups in forms)
+
+**Future Features (Not Implementing Now):**
+
+-   Age auto-update over time based on DOB (will need background job or scheduled task)
+-   Physical characteristics dropdown with autocomplete
+-   Advanced form features (collapsible sections, etc.)
+-   Coordinator auto-fill message feature: Auto-fill messages requesting bios and pictures with instructions, auto-tagging current animals or groups
+-   Photo captions (optional field in photo metadata)
+-   Optimistic locking for concurrent edits (if race conditions become an issue)
+
 ---
 
-### Complete Animal Creation Form
+### Update Animal Types and Schema
 
-**Goal:** Expand NewAnimal form to include all animal data attributes from schema.
+**Goal:** Update TypeScript types and database schema to reflect new field requirements.
 
 **Tasks:**
 
-1. Update `src/pages/animals/NewAnimal.tsx`:
-    - Add all optional fields from animals schema:
-        - Basic Info: `name`, `primary_breed`, `physical_characteristics`, `sex`, `spay_neuter_status`, `life_stage`
-        - Dates & Age: `intake_date`, `date_of_birth`, `age_estimate`, `date_available_for_adoption`
-        - Source & Placement: `source`, `intake_type`
-        - Medical: `medical_needs`, `vaccines`, `felv_fiv_test`, `felv_fiv_test_date`
-        - Behavioral: `behavioral_needs`, `socialization_level`
-        - Tags: `tags` (array of text)
-        - Additional: `additional_notes`, `priority`
-    - Group fields into logical sections (Basic Info, Medical, Behavioral, etc.)
-    - Add validation where appropriate
-    - Keep all fields optional as per schema design
-    - Show "Info Missing" indicators for key fields
-2. Add smart data entry features:
-    - Autocomplete for `primary_breed` (show recently used values)
-    - Autocomplete for `source`, `intake_type` (show recently used values)
-    - Tag input with autocomplete from existing tags
-3. Style form for mobile-first design with collapsible sections
-4. Test: Create animal with minimal data, create with full data, verify all fields save correctly
+1. **Update TypeScript types** (`src/types/index.ts`):
+
+    - Create new combined type `SexSpayNeuterStatus` with values: `"female"`, `"male"`, `"spayed_female"`, `"neutered_male"` (field can be left blank/undefined if unknown)
+    - Remove separate `Sex` and `SpayNeuterStatus` types
+    - Update `AnimalStatus` type: Remove `"needs_foster"`, keep: `"in_shelter"`, `"medical_hold"`, `"transferring"`, `"adopted"`, `"in_foster"`
+    - Update `LifeStage` type: Add `"unknown"` option (keep: `"kitten"`, `"adult"`, `"senior"`, `"unknown"`)
+    - Remove from `Animal` interface: `vaccines`, `felv_fiv_test`, `felv_fiv_test_date`, `socialization_level`
+    - Update `Animal` interface: Replace `sex` and `spay_neuter_status` with single `sex_spay_neuter_status?: SexSpayNeuterStatus`
+    - Add `display_placement_request?: boolean` to `Animal` interface
+    - Add `photos?: PhotoMetadata[]` to `Animal` interface (array of photo objects with minimal metadata)
+    - Create `PhotoMetadata` type: `{ url: string, uploaded_by?: string }`
+        - `url`: Photo URL (required)
+        - `uploaded_by`: User/profile ID (optional, only needed for permission checks - fosters can only delete their own photos)
+        - Keep it simple - mirror messaging approach but add minimal metadata for permissions
+        - Timestamps can be derived from file metadata if needed
+        - Captions can be added later if needed
+    - Add `bio?: string` to `Animal` interface (text field for animal biography) - fosters will be able to edit
+    - Keep `additional_notes` (already exists)
+    - Keep `tags` in interface but note it won't be handled in UI yet
+    - Keep `medical_needs` and `behavioral_needs` (already exist)
+
+2. **Create database migration** (if schema changes needed):
+    - Add `sex_spay_neuter_status` column (TEXT, nullable)
+    - Add `display_placement_request` column (BOOLEAN, default false)
+    - Add `photos` column (JSONB, nullable):
+        - Structure: `[{"url": "...", "uploaded_by": "..."}, ...]` - simple array of photo objects
+        - Minimal metadata: just `url` (required) and `uploaded_by` (optional, for permission checks)
+        - Keep it simple - mirror messaging approach (`photo_urls` is just `["url1", "url2"]`) but add `uploaded_by` for permission checks
+        - Timestamps can be derived from file metadata if needed
+        - Captions can be added later if needed
+        - Fosters will be able to edit photos for assigned animals
+    - Add `bio` column (TEXT, nullable) - fosters will be able to edit
+    - Remove `vaccines`, `felv_fiv_test`, `felv_fiv_test_date`, `socialization_level` columns (or mark as deprecated)
+    - Update `status` column CHECK constraint to remove `needs_foster`
+    - Migrate existing `sex` and `spay_neuter_status` data to combined field (if data exists)
+    - **Note:** Migration strategy depends on whether existing data needs to be preserved
 
 **Testing:**
 
--   Can create animal with only required fields (species, status)
--   Can create animal with all optional fields populated
--   All field values save correctly to database
--   Autocomplete suggestions appear for repeatable fields
--   Form is mobile-friendly
+-   TypeScript types compile without errors
+-   Migration runs successfully
+-   Existing code that uses old types is updated (if any)
 
-**Deliverable:** Complete animal creation form working.
+**Deliverable:** Updated types and schema ready for form implementation.
+
+---
+
+### Complete Animal Creation Form - Basic Fields
+
+**Goal:** Add basic required and simple optional fields to the animal creation form.
+
+**Design Decisions:**
+
+1. **Default Status**: Default to `in_shelter` if left blank
+2. **Display Placement Request**: Checkbox that auto-updates when status changes (but persists if custom edited). Simple handling: when status changes, auto-update checkbox, but don't enforce any rules otherwise (allows custom edits). Place checkbox next to status field to make relationship obvious.
+3. **Form Layout**: Single scrollable form (no collapsible sections)
+4. **Complex Fields**: Use text inputs for now (physical characteristics, etc.). Plan to upgrade to dropdowns/autocomplete later.
+5. **Life Stage**: Auto-fill based on age but remain editable. Rollover ages TBD (kitten→adult, adult→senior).
+6. **Age Auto-Update**: Future feature - age will auto-update over time based on DOB. Not implementing now.
+
+**Proposed Field Display Order:**
+
+1. Name (text, optional)
+2. Status (dropdown, required, default: `in_shelter`)
+3. Display Placement Request (checkbox, auto-updates with status) - _Next to status field_
+4. Sex/SpayNeuter Status (combined dropdown, optional) - _Task: Combined Sex/SpayNeuter Field_
+5. Life Stage (dropdown, optional) - _Simple dropdown for now, auto-fill will be added later_
+6. Physical Characteristics (text field, optional) - _Task: Physical Characteristics_
+7. Date of Birth (date picker, optional) - _Task: Date and Age Fields_
+8. Age Estimate (text with format helper, optional) - _Task: Date and Age Fields_
+9. Priority (toggle)
+10. Medical Needs (textarea, optional) - _Task: Medical and Behavioral Needs_
+11. Behavioral Needs (textarea, optional) - _Task: Medical and Behavioral Needs_
+12. Additional Notes (textarea, optional)
+13. Bio (textarea, optional) - _Last entry in form, fosters will be able to edit later_
+14. Tags (skip for now - not handling in UI yet)
+
+**Tasks:**
+
+1. **Update `src/pages/animals/NewAnimal.tsx`** with basic fields:
+
+    - **Name** (text input, optional) - already exists
+    - **Status** (dropdown, required):
+        - Options: `in_shelter`, `medical_hold`, `transferring`, `adopted`, `in_foster`
+        - Remove `needs_foster` option
+        - Default: `in_shelter` if left blank
+    - **Display Placement Request** (checkbox, optional):
+        - Boolean field to control if animal appears on placement request page
+        - Place next to Status field (same row or adjacent)
+        - Auto-update logic: When status changes, automatically update checkbox (simple rule: `true` for `in_shelter`, `false` for others)
+        - But allow manual editing - if user manually changes checkbox, persist that value even if status changes later
+        - Implementation: Track if checkbox was manually edited (use a flag or compare current value to auto-calculated value)
+        - Default: `false` (or auto-calculated based on initial status)
+    - **Life Stage** (dropdown, optional):
+        - Options: `kitten`, `adult`, `senior`, `unknown`
+        - Include "Select..." placeholder option
+        - Simple dropdown for now (no auto-fill logic yet - will be added in separate task after date/age fields)
+    - **Additional Notes** (textarea, optional):
+        - Multi-line text input for general notes
+    - **Bio** (textarea, optional):
+        - Multi-line text input for animal biography
+        - Last field in form
+        - Fosters will be able to edit this field later (dedicated milestone)
+    - **Priority** (toggle, optional) - already exists
+    - **Note:** "Add to Group" feature will be added in "Display Groups in Animal UI" milestone (part of Group Management phase) - keeping Basic Fields focused on core animal data only
+
+2. **Form layout**:
+
+    - Single scrollable form (no collapsible sections)
+    - Mobile-first responsive design
+    - Clear field labels and spacing
+    - Status and Display Placement Request should be visually grouped (same row on desktop, adjacent on mobile)
+
+3. **Validation**:
+    - Status is required (already enforced)
+    - All other fields optional
+
+**Testing:**
+
+-   Can create animal with only status (required field)
+-   Can create animal with all basic fields populated
+-   All field values save correctly to database
+-   Form is mobile-friendly
+-   Status dropdown doesn't include "needs_foster"
+
+**Deliverable:** Basic animal creation form with core fields working.
+
+---
+
+### Complete Animal Creation Form - Combined Sex/SpayNeuter Field
+
+**Goal:** Add combined sex and spay/neuter status field to animal creation form.
+
+**Tasks:**
+
+1. **Update `src/pages/animals/NewAnimal.tsx`**:
+
+    - Add "Sex/SpayNeuter Status" dropdown field
+    - Options: `female`, `male`, `spayed_female`, `neutered_male`
+    - Include "Select..." placeholder option (can be left blank)
+    - Field is optional (can be left blank if unknown)
+    - Store value in `sex_spay_neuter_status` field
+
+2. **Update form submission**:
+    - Map dropdown value to database field correctly
+    - Handle empty/unknown values appropriately
+
+**Testing:**
+
+-   Can select each option from dropdown
+-   Value saves correctly to database
+-   Field is optional (can create animal without it)
+-   Works on mobile devices
+
+**Deliverable:** Combined sex/spay-neuter field working in creation form.
+
+---
+
+### Complete Animal Creation Form - Date and Age Fields
+
+**Goal:** Add date of birth and age estimate fields with bidirectional auto-fill logic.
+
+**Tasks:**
+
+1. **Update `src/pages/animals/NewAnimal.tsx`**:
+
+    - Add "Date of Birth" field (date picker, optional)
+    - Add "Age Estimate" field (text input with format helper, optional)
+    - Age format: "X years", "X months", "X weeks" (e.g., "3 years", "4 months", "6 weeks")
+
+2. **Implement bidirectional auto-fill logic**:
+
+    - When user enters Date of Birth:
+        - Calculate age from DOB to today
+        - Format age: Use weeks if < 16 weeks, months if < 1 year, years if >= 1 year
+        - Auto-populate Age Estimate field (read-only or editable)
+    - When user enters Age Estimate:
+        - Parse age string (handle "X years", "X months", "X weeks" formats)
+        - Calculate estimated Date of Birth (today minus age)
+        - Auto-populate Date of Birth field (read-only or editable)
+    - **Rollover logic**: Weeks until 16 weeks (4 months), then months until 1 year, then years
+    - Handle edge cases: Invalid date formats, invalid age formats, future dates
+
+3. **Age format helper/validation**:
+
+    - Show placeholder: "e.g., 3 years, 4 months, 6 weeks"
+    - Validate format on blur or submit
+    - Show error message for invalid formats
+
+**Testing:**
+
+-   Entering DOB auto-fills age estimate correctly
+-   Entering age estimate auto-fills DOB correctly
+-   Age formatting works correctly (weeks/months/years)
+-   Rollover at 16 weeks works correctly
+-   Invalid formats show appropriate errors
+-   Both fields are optional
+-   Works on mobile devices
+
+**Deliverable:** Date and age fields with bidirectional auto-fill working.
+
+---
+
+### Complete Animal Creation Form - Life Stage Auto-Fill
+
+**Goal:** Auto-fill life stage based on age/DOB, but keep field editable.
+
+**Rollover Ages:**
+
+-   **Kitten to Adult**: 4 months
+-   **Adult to Senior**: 11 years
+
+**Tasks:**
+
+1. **Update `src/pages/animals/NewAnimal.tsx`**:
+
+    - Add auto-fill logic for Life Stage field:
+        - When Date of Birth is entered: Calculate age, determine life stage based on rollover ages, auto-populate Life Stage dropdown
+        - When Age Estimate is entered: Parse age, determine life stage based on rollover ages, auto-populate Life Stage dropdown
+        - Life Stage field remains editable (user can override auto-filled value)
+        - If age cannot be determined or is unknown, leave Life Stage as "unknown" or empty
+
+2. **Life stage calculation logic**:
+
+    - Use rollover ages:
+        - If age < 4 months: "kitten"
+        - If age >= 4 months AND age < 11 years: "adult"
+        - If age >= 11 years: "senior"
+        - If age cannot be determined: "unknown" or leave empty
+    - Handle edge cases: Invalid dates, invalid age formats, future dates
+    - **Note:** This feature should be implemented before age auto-update over time feature
+
+3. **Update behavior**:
+
+    - Auto-fill happens when DOB or Age Estimate changes
+    - User can manually change Life Stage after auto-fill
+    - Manual changes persist (don't re-auto-fill if user has edited)
+
+**Testing:**
+
+-   Entering DOB auto-fills life stage correctly based on age
+-   Entering age estimate auto-fills life stage correctly
+-   Life stage rollover logic works correctly (kitten→adult, adult→senior)
+-   Life stage field remains editable after auto-fill
+-   Manual edits to life stage persist
+-   Works on mobile devices
+
+**Deliverable:** Life stage auto-fill working with editable override.
+
+---
+
+### Complete Animal Creation Form - Photo Upload
+
+**Goal:** Add photo upload functionality to animal creation form for coordinators.
+
+**Note:** This is a complex feature that requires storage setup. It's implemented as a separate milestone before editing to keep the creation form manageable. If Photo Uploads for Animals and Groups phase components don't exist yet, create minimal photo upload functionality for this milestone. Components can be refactored later when Photo Uploads phase is complete.
+
+**Tasks:**
+
+1. **Reuse photo upload infrastructure** (from Photo Sharing in Messages phase):
+
+    - Use existing `photos` storage bucket (unified bucket for all photos)
+    - Use existing `uploadPhoto()` utility function or create animal-specific version
+    - Path structure: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}`
+    - Configure file size limits: **max 8MB per photo**
+    - Configure allowed file types (jpg, jpeg, png, webp)
+
+2. **Add photo upload UI to NewAnimal form**:
+
+    - Add photo selection/upload section in form
+    - Use reusable `PhotoUpload` component (from Photo Uploads for Animals and Groups phase) if available
+    - **If component doesn't exist yet**: Create minimal photo upload UI for this milestone (can be refactored later)
+    - Allow selecting multiple photos (max 10 photos per animal)
+    - Show preview thumbnails of selected photos
+    - Allow removing photos from selection before upload
+    - Show upload progress during creation
+    - Handle upload errors gracefully
+
+3. **Store photos with metadata**:
+
+    - When animal is created, upload photos to Supabase Storage
+    - Store photo metadata in `photos` JSONB column:
+        - Structure: `[{"url": "...", "uploaded_by": "..."}, ...]` - simple structure
+        - Include `url` (required) - photo URL from Supabase Storage
+        - Include `uploaded_by` (optional) - user/profile ID for permission checks (fosters can only delete their own photos)
+        - Keep it simple - mirror messaging approach but add minimal metadata for permissions
+    - Handle case where photo uploads fail (don't fail entire animal creation, but show error)
+
+4. **Photo upload flow**:
+    - User selects photos in form
+    - Photos are uploaded when form is submitted (along with animal creation)
+    - Show "Uploading photos..." indicator during upload
+    - If all uploads succeed: Create animal with photos
+    - If some uploads fail: Create animal with successful photos, show error for failed ones
+    - If all uploads fail: Still create animal, show error message
+
+**Testing:**
+
+-   Can select multiple photos in creation form
+-   Photo previews appear correctly
+-   Can remove photos from selection
+-   Photos upload successfully when animal is created
+-   Photo metadata is stored correctly (url, uploaded_by)
+-   Failed photo uploads don't prevent animal creation
+-   Error messages are clear and helpful
+-   Works on mobile devices
+
+**Deliverable:** Photo upload working in animal creation form with proper storage and metadata.
+
+---
+
+### Complete Animal Creation Form - Medical and Behavioral Needs
+
+**Goal:** Add medical needs and behavioral needs textarea sections to animal creation form.
+
+**Tasks:**
+
+1. **Update `src/pages/animals/NewAnimal.tsx`**:
+
+    - Add "Medical Needs" section (textarea, optional):
+        - Multi-line text input for medical history, conditions, medications, special care
+        - Placeholder text: "Enter medical needs, conditions, medications, or special care requirements..."
+    - Add "Behavioral Needs" section (textarea, optional):
+        - Multi-line text input for behavioral notes, training needs, etc.
+        - Placeholder text: "Enter behavioral notes, training needs, or other behavioral information..."
+
+2. **Form layout**:
+    - Group these as separate sections or clearly labeled fields
+    - Adequate height for textareas (e.g., 4-6 rows)
+    - Mobile-friendly sizing
+
+**Testing:**
+
+-   Can enter multi-line text in both fields
+-   Text saves correctly to database
+-   Fields are optional
+-   Works on mobile devices
+-   Textareas are appropriately sized
+
+**Deliverable:** Medical and behavioral needs fields working in creation form.
+
+---
+
+### Complete Animal Creation Form - Physical Characteristics
+
+**Goal:** Add physical characteristics field to animal creation form.
+
+**Tasks:**
+
+1. **Update `src/pages/animals/NewAnimal.tsx`**:
+
+    - Add "Physical Characteristics" field (text input, optional):
+        - Simple text input field (no dropdown/autocomplete for now)
+        - Plan to upgrade to dropdown with "Add new" option later if needed
+        - Placeholder: "e.g., orange tabby, long-haired, white paws"
+
+2. **Form layout**:
+    - Clear label and spacing
+    - Consistent with other text fields
+
+**Testing:**
+
+-   Can enter text in field
+-   Value saves correctly to database
+-   Field is optional
+-   Works on mobile devices
+
+**Deliverable:** Physical characteristics field working in creation form.
+
+**Note:** Physical characteristics dropdown with "most common first" can be added later if needed. Starting with simple text field for faster implementation.
 
 ---
 
 ### Animal Editing for Coordinators
 
-**Goal:** Enable coordinators to edit existing animals with all data attributes.
+**Goal:** Enable coordinators to edit existing animals with all data attributes, including photos and bio.
 
 **Tasks:**
 
-1. Create `src/pages/animals/EditAnimal.tsx`:
+1. **Create `src/pages/animals/EditAnimal.tsx`**:
+
     - Fetch animal by ID from URL params
     - Pre-populate form with existing animal data
-    - Include all fields from NewAnimal form
+    - Include all fields from NewAnimal form (including bio)
+    - Include photo management:
+        - Display existing photos in gallery
+        - Allow uploading new photos
+        - Allow deleting existing photos
+        - Show photo info (uploaded_by if available, for permission checks)
+    - Include group membership management:
+        - Display current group membership (if animal is in a group)
+        - Show group name with link to group detail page
+        - Allow removing animal from group (set `group_id` to null)
+        - Allow adding animal to existing group (dropdown to select group)
+        - Allow creating new group and adding animal to it (inline form or modal)
+        - **Note:** Full group management features handled in Group Management milestone
     - Handle loading and error states
     - Update animal in database on submit
     - Redirect to animal detail page after successful update
-2. Create route `/animals/:id/edit` (coordinator-only)
-3. Add "Edit" button to AnimalDetail page (coordinator-only)
-4. Update RLS policies if needed to ensure only coordinators can update
-5. Test: Coordinator can edit animals, fosters cannot
+
+2. **Photo management in edit form**:
+
+    - Reuse `PhotoUpload` and `PhotoGallery` components (from Photo Uploads for Animals and Groups phase)
+    - Display existing photos with thumbnails
+    - Allow adding new photos (upload to storage, add to photos array)
+    - Allow deleting photos (remove from array, optionally delete from storage)
+    - Update `photos` JSONB array with new/removed photos
+
+3. **Create route `/animals/:id/edit`** (coordinator-only)
+
+4. **Add "Edit" button to AnimalDetail page** (coordinator-only)
+
+5. **Update RLS policies** if needed to ensure only coordinators can update
+
+6. **Handle race conditions** (simple approach):
+
+    - If two coordinators edit the same animal simultaneously, last write wins (simple overwrite)
+    - No locking mechanism - this is acceptable as it's not a critical failure and won't happen often
+    - If needed in future, can add optimistic locking with version numbers or timestamps
+    - For now: Simple overwrite is sufficient
+
+7. **Test**: Coordinator can edit animals, fosters cannot
 
 **Testing:**
 
 -   Coordinator can access edit page for animals
--   All fields pre-populate correctly
+-   All fields pre-populate correctly (including bio)
+-   Existing photos display correctly
+-   Can upload new photos
+-   Can delete existing photos
 -   Changes save to database
+-   Photo metadata updates correctly
 -   Foster cannot access edit page
 -   Navigation works correctly
+-   Concurrent edits result in last write wins (acceptable behavior)
 
-**Deliverable:** Animal editing working for coordinators.
+**Deliverable:** Animal editing working for coordinators with full field support including photos and bio.
+
+**Note on Race Conditions:** Simple overwrite approach is used. If two users edit simultaneously, the last save wins. This is acceptable as it's not a critical failure and concurrent edits are rare. Future enhancement could add optimistic locking if needed.
+
+---
+
+### Copy Data from Animal Feature
+
+**Goal:** Allow coordinators to copy data from an existing animal when creating a new animal, pre-filling the form with most fields (except name).
+
+**Priority:** High - This is a really nice feature that should be prioritized.
+
+**Tasks:**
+
+1. **Add "Copy from Animal" button/selector to NewAnimal form**:
+
+    - Add a button or dropdown near the top of the form: "Copy data from existing animal"
+    - When clicked, show a modal or dropdown to search/select an animal
+    - Use existing animal search/select component if available, or create simple search
+    - Filter by organization (only show animals from same organization)
+
+2. **Copy logic**:
+
+    - When animal is selected, copy the following fields to form:
+        - Status (but allow editing)
+        - Display Placement Request
+        - Sex/SpayNeuter Status
+        - Life Stage
+        - Physical Characteristics
+        - Date of Birth
+        - Age Estimate
+        - Priority
+        - Medical Needs
+        - Behavioral Needs
+        - Additional Notes
+        - Bio
+    - **Do NOT copy**: Name (must be unique, user should enter new name)
+    - **Do NOT copy**: Photos (photos are specific to each animal)
+    - **Do NOT copy**: Tags (if implemented later)
+    - Pre-fill form fields with copied values
+    - All fields remain editable after copying
+
+3. **User experience**:
+
+    - After selecting animal, form fields populate automatically
+    - Show a brief success message or visual indicator that data was copied
+    - User can edit any copied field before submitting
+    - If user navigates away and comes back, copied data is lost (form resets)
+
+4. **Implementation notes**:
+
+    - Use React Query to fetch selected animal data
+    - Handle loading state while fetching animal data
+    - Handle error state if animal fetch fails
+    - Ensure copied data respects organization boundaries
+
+**Testing:**
+
+-   Can search and select an animal to copy from
+-   All appropriate fields are copied to form
+-   Name field is NOT copied (remains empty)
+-   Copied fields are editable
+-   Can submit form with copied data
+-   Only shows animals from same organization
+-   Works on mobile devices
+
+**Deliverable:** Copy data from animal feature working, allowing quick creation of similar animals.
+
+---
+
+### Foster Photo & Bio Editing
+
+**Goal:** Allow fosters to edit photos and bio for animals assigned to them. This is the ONLY field that fosters can edit on animals.
+
+**Note:** This is a dedicated milestone because photos and bio are the only fields fosters can edit. This provides a clear, focused editing experience for fosters without giving them access to other animal data. Requires photo upload functionality and editing infrastructure to exist.
+
+**Tasks:**
+
+1. **Create foster editing interface** (`src/pages/animals/FosterEditAnimal.tsx` or similar):
+
+    - Fetch animal by ID from URL params
+    - Verify animal is assigned to current foster (`current_foster_id` matches user's profile ID)
+    - If not assigned, show error message and redirect
+    - Display animal name and basic info (read-only)
+    - Show editable sections: Photos and Bio only
+
+2. **Photo editing for fosters**:
+
+    - Display existing photos in gallery (read-only view with metadata)
+    - Allow uploading new photos:
+        - Use existing `PhotoUpload` component
+        - Upload to Supabase Storage: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}`
+        - Add photo metadata to `photos` JSONB array: `{"url": "...", "uploaded_by": "..."}`
+        - Include `uploaded_by` as foster's profile ID (for permission checks)
+    - Allow deleting only their own photos:
+        - Check if `uploaded_by` matches current user's profile ID
+        - Only show delete button on photos uploaded by current foster
+        - Remove photo from `photos` array (optionally delete from storage)
+        - Coordinators can delete any photo (handled in coordinator edit form)
+
+3. **Bio editing for fosters**:
+
+    - Display current bio in textarea (editable)
+    - Allow editing bio text
+    - Save bio to `bio` column in database
+    - Show character count or length indicator (optional)
+
+4. **Permission checks**:
+
+    - Verify animal is assigned to foster before allowing edit
+    - Check `current_foster_id` matches user's profile ID
+    - Only allow editing photos and bio (all other fields read-only)
+    - Show clear indication that this is a limited editing view
+
+5. **UI/UX considerations**:
+
+    - Make it clear this is a "foster editing" view (different from coordinator edit)
+    - Show animal name and key info at top (read-only)
+    - Clearly separate editable sections (Photos, Bio)
+    - Show success message after save
+    - Handle errors gracefully
+
+6. **Create route** `/animals/:id/foster-edit` (foster-only, requires assignment)
+
+7. **Add "Edit Photos & Bio" button** to AnimalDetail page:
+
+    - Only visible to fosters
+    - Only visible if animal is assigned to current foster
+    - Button text: "Edit Photos & Bio" or similar
+
+8. **Update RLS policies** if needed:
+    - Fosters can update `photos` and `bio` columns for assigned animals
+    - Fosters cannot update other fields
+
+**Testing:**
+
+-   Foster can access edit page for assigned animals
+-   Foster cannot access edit page for unassigned animals
+-   Can upload new photos (photos appear in gallery)
+-   Can delete own photos (cannot delete others' photos)
+-   Can edit bio text
+-   Changes save to database correctly
+-   Photo metadata includes correct `uploaded_by` value
+-   Coordinator cannot access foster edit page (uses coordinator edit instead)
+-   All other fields are read-only
+-   Works on mobile devices
+
+**Deliverable:** Foster photo and bio editing working with proper permission controls.
+
+**Note:** This is the only editing capability fosters have for animals. All other fields are managed by coordinators.
+
+---
+
+### Update Animal Preview Card & Detail Page
+
+**Goal:** Update `AnimalCard` (preview card) and `AnimalDetail` page to display all new animal fields. This milestone is done after all form milestones are complete so we can update both components once with all fields available.
+
+**Design Decision:** Update after all form milestones (easier, do it once) rather than incrementally. This allows us to:
+
+-   See all fields together and make better design decisions
+-   Update both components in one pass
+-   Test the complete experience with all fields
+
+**Proposed Preview Card Fields (AnimalCard):**
+
+The preview card should show minimal, scannable information for quick browsing:
+
+1. **Photo thumbnail** (if available) - first photo from `photos` array, or placeholder
+2. **Name** - already exists
+3. **Status** - already exists (with badge styling)
+4. **Group indicator** - if animal is in a group, show group name with link to group detail page
+5. **Life Stage** - new field (kitten/adult/senior) - quick visual indicator
+6. **Sex/SpayNeuter Status** - updated field (replaces old `sex` field)
+7. **Priority badge** - already exists (if high priority)
+8. **Age estimate** - new field (if available, e.g., "3 years", "4 months") - compact display
+
+**Optional considerations:**
+
+-   Physical characteristics (if short enough, truncate if long)
+-   Group indicator badge (if animal is in a group)
+
+**Proposed Detail Page Fields (AnimalDetail):**
+
+The detail page should show all fields organized in logical sections:
+
+1. **Header Section:**
+
+    - Name
+    - Status badge
+    - Priority badge (if high priority)
+    - Edit button (coordinators only)
+    - "Edit Photos & Bio" button (fosters, if assigned)
+
+2. **Photo Gallery Section:**
+
+    - Display all photos from `photos` array
+    - Use `PhotoGallery` component (from Photo Uploads phase)
+    - Show upload UI if user has permission
+
+3. **Basic Information Section:**
+
+    - Status
+    - Display Placement Request (if true, show indicator)
+    - Sex/SpayNeuter Status
+    - Life Stage
+    - Physical Characteristics
+    - Date of Birth
+    - Age Estimate
+
+4. **Care Information Section:**
+
+    - Medical Needs
+    - Behavioral Needs
+    - Priority indicator
+
+5. **Additional Information Section:**
+
+    - Bio (if available)
+    - Additional Notes
+    - Tags (if implemented)
+
+6. **Metadata Section (optional, coordinators only):**
+    - Created at
+    - Updated at
+    - Current foster (if assigned)
+
+**Tasks:**
+
+1. **Update `AnimalCard` component** (`src/components/animals/AnimalCard.tsx`):
+
+    - Add photo thumbnail (first photo from `photos` array, or placeholder)
+    - Add group display: if animal is in a group (`group_id` exists), show group name with link to group detail page
+        - Display as badge or text with link: "In group: [Group Name]" → links to `/groups/:id`
+        - Only show if `group_id` is set
+    - Update to use new `sex_spay_neuter_status` field (replaces `sex`)
+    - Add `life_stage` display
+    - Add `age_estimate` display (compact format)
+    - Update TypeScript interface to include new fields (including `group_id` and group name if available)
+    - Handle missing/optional fields gracefully (don't show empty fields)
+    - Maintain mobile-friendly responsive design
+
+2. **Update `AnimalDetail` page** (`src/pages/animals/AnimalDetail.tsx`):
+
+    - Organize fields into logical sections (Header, Photos, Basic Info, Care Info, Additional Info, Metadata)
+    - Display all new fields:
+        - `sex_spay_neuter_status` (replaces `sex`)
+        - `life_stage`
+        - `physical_characteristics`
+        - `date_of_birth`
+        - `age_estimate`
+        - `medical_needs`
+        - `behavioral_needs`
+        - `bio`
+        - `additional_notes`
+        - `photos` (photo gallery)
+        - `display_placement_request` (indicator if true)
+    - Handle missing/optional fields gracefully (don't show empty sections)
+    - Use `PhotoGallery` component for photo display
+    - Add "Edit Photos & Bio" button for fosters (if animal is assigned to them)
+    - Update Edit button to link to edit page (from Enable Animal Editing milestone)
+    - Maintain mobile-friendly responsive design
+
+3. **Update TypeScript types**:
+
+    - Ensure `AnimalCardProps` includes all fields needed for preview
+    - Update `Animal` type usage in `AnimalDetail`
+
+4. **Handle edge cases**:
+    - Animals with no photos (show placeholder)
+    - Animals with no name (already handled)
+    - Missing optional fields (don't display empty sections)
+    - Long text fields (truncate in preview, full in detail)
+
+**Testing:**
+
+-   Preview card displays all new fields correctly
+-   Preview card handles missing fields gracefully
+-   Photo thumbnail appears in preview card (if available)
+-   Detail page displays all fields in organized sections
+-   Detail page handles missing fields gracefully
+-   Photo gallery displays correctly in detail page
+-   Edit buttons appear for correct users (coordinators, assigned fosters)
+-   Mobile layout works correctly for both preview and detail
+-   All fields match form data (verify data flows correctly)
+
+**Deliverable:** Updated AnimalCard and AnimalDetail displaying all new animal fields with proper organization and mobile-friendly design.
+
+**Note on Component Reusability:**
+
+-   Components created here (AnimalCard, AnimalDetail sections) should be designed for reuse
+-   Group preview cards and detail pages will reuse these components (handled in Group Management milestone)
+-   Fosters Needed page will also reuse AnimalCard and GroupCard components
+-   View Animals and View Groups pages will share components but remain separate pages (not combined)
 
 ---
 
@@ -2428,6 +3127,15 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 ### Group Management UI Polish & Edit Functionality
 
 **Goal:** Add missing features to group management UI, including edit functionality, validation, and polish. Note: Basic group management (list, detail, create) was completed in Minimal Group Management UI.
+
+**Component Reusability:**
+
+-   Reuse components from Animal Preview Card & Detail Page milestone where possible
+-   Group preview cards should reuse AnimalCard/GroupCard patterns
+-   Group detail pages should reuse sections/components from AnimalDetail
+-   Share components with Fosters Needed page and View Animals/View Groups pages
+-   Design components to be reusable across different contexts
+-   Update GroupCard and GroupDetail to display all group fields (similar to animal updates)
 
 **Tasks:**
 
@@ -2678,11 +3386,12 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Configure allowed file types (e.g., jpg, jpeg, png, webp)
 2. **Update database schema:**
     - Add `photos` JSONB column to `animals` table (if not already added):
-        - Structure: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "...", "caption": "..."}, ...]`
-        - Store array of photo objects with metadata (url, uploaded_at, uploaded_by, optional caption)
+        - Structure: `[{"url": "...", "uploaded_by": "..."}, ...]` - simple structure
+        - Minimal metadata: just `url` (required) and `uploaded_by` (optional, for permission checks)
+        - Keep it simple - mirror messaging approach but add `uploaded_by` for permission checks
     - Add `photos` JSONB column to `animal_groups` table:
-        - Same structure as animals: `[{"url": "...", "uploaded_at": "...", "uploaded_by": "...", "caption": "..."}, ...]`
-        - Store array of photo objects with metadata
+        - Same structure as animals: `[{"url": "...", "uploaded_by": "..."}, ...]`
+        - Minimal metadata for consistency
 3. **Create reusable photo upload component:**
     - `src/components/shared/PhotoUpload.tsx` (generic, reusable)
     - File input for selecting photos
@@ -2693,14 +3402,14 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 4. **Create reusable photo gallery component:**
     - `src/components/shared/PhotoGallery.tsx` (generic, reusable)
     - Display photo grid with thumbnails
-    - Show photo metadata (uploaded_at, uploaded_by name)
+    - Show photo info (uploaded_by available if needed for display/permissions)
     - Lightbox/modal for full-size viewing
     - Download button to download full-size photos
     - Handle loading states and broken images
     - Accept props: `photos` (array), `onDelete` (optional, for permission-based deletion)
 5. **Update animal detail page:**
     - Display photo gallery using `PhotoGallery` component
-    - Show uploaded photos with timestamps and uploader names
+    - Show uploaded photos (uploader info available via `uploaded_by` if needed)
     - **Permissions:**
         - Coordinators: can upload new photos, can delete any photo
         - Fosters: can upload photos for assigned animals, can only delete their own photos
@@ -2708,7 +3417,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Show delete button on photos (only for users with permission)
 6. **Update group detail page:**
     - Display photo gallery using `PhotoGallery` component
-    - Show uploaded photos with timestamps and uploader names
+    - Show uploaded photos (uploader info available via `uploaded_by` if needed)
     - **Permissions:**
         - Coordinators: can upload new photos, can delete any photo
         - Fosters: can upload photos for assigned groups, can only delete their own photos
@@ -2766,17 +3475,31 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Goal:** Display animals and groups that need foster placement, allowing fosters to browse and request them.
 
+**Component Reusability:**
+
+-   Reuse AnimalCard and GroupCard components from View Animals and View Groups pages
+-   Share search and filter components across all list pages
+-   Both fosters and coordinators can view this page (same components, different permissions)
+-   Design for consistency with View Animals and View Groups pages
+
 **Tasks:**
 
 1. **Create Fosters Needed page** (`src/pages/fosters/FostersNeeded.tsx`):
 
-    - Fetch animals and groups with status `needs_foster` or `available` (filtered by organization)
+    - Fetch animals and groups filtered by:
+        - `display_placement_request = true` (boolean field controls visibility on placement page)
+        - Status determines availability category:
+            - **Available Now**: `status = 'in_shelter'`
+            - **Available Future**: `status IN ('transferring', 'medical_hold')`
+            - **Foster Pending**: Animals/groups where a foster has made a request (tracked via messages with tags)
     - Display animals and groups in a browseable list/grid format
-    - Show key information: name, photos, priority indicator, basic needs
+    - Show key information: name, photos, priority indicator, basic needs, availability category
+    - Group or filter by availability category (Available Now, Available Future, Foster Pending)
     - Use search/filter components from Reusable Search & Filter Component to allow filtering by:
         - Species
         - Priority (high priority animals/groups)
         - Group vs individual animals
+        - Availability category (Available Now, Available Future, Foster Pending)
     - Link to animal/group detail pages for more information
     - Mobile-first responsive design
 
@@ -2858,7 +3581,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - "Approve Request" button/action for coordinators
     - When approved:
         - Assign animal/group to foster (update `current_foster_id` on animal/group)
-        - Update animal/group status (e.g., change from `needs_foster` to `in_foster`)
+        - Update animal/group status (e.g., change from `in_shelter` to `in_foster`)
         - Update foster's assigned animals/groups list
         - Send confirmation message to foster (auto-generated or coordinator can customize)
         - Tag animal/group in confirmation message

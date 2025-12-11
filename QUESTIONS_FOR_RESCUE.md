@@ -529,3 +529,7 @@ I want to avoid a situation where I make an app that you don't use or makes your
 
 notifications 
 and videos
+
+when will weeks roll to months
+life stage roll over
+we need clarification on status, and display
