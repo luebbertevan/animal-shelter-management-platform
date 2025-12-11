@@ -497,3 +497,35 @@
 -   If we implement table views with many rows, do we need pagination, virtual scrolling, or both?
 -   Should we implement database indexes for frequently queried fields (adoption_date, vaccine_due_date, etc.)?
 -   For monthly adoption reports, should we pre-calculate aggregates or calculate on-demand?
+
+
+Main question is narrow the problem to a small solvable mvp.
+Don't try to remodel their entire workflow.
+Current plan is chatting, and foster facing animal data, foster details(maybe)
+
+not replacing the entire google sheets data
+do we want to track animals? (details are in multiple places)
+do we want to replace teh foster placement requests
+
+
+user sign up/login with codes
+
+Fosters
+dashboard with their animals
+
+
+
+expected pain points 
+notifications
+adding another system into your workflow
+lots of information tracking and some duplications
+migration!!!!
+fosters all have to download an app and they have to use it for communication with you.
+might be bugs which will make migration more difficult
+
+I want to avoid a situation where I make an app that you don't use or makes your lives more difficult adds more complexity to your workflow
+
+
+
+notifications 
+and videos

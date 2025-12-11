@@ -4,20 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
+import AnimalCard from "../../components/animals/AnimalCard";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
-
-// Helper function to create a URL-friendly slug from a name
-function createSlug(name: string | undefined | null): string {
-	if (!name || !name.trim()) {
-		return "unnamed-animal";
-	}
-	return name
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with hyphens
-		.replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
-}
 
 export default function AnimalsList() {
 	const { user, profile } = useProtectedAuth();
@@ -69,9 +58,11 @@ export default function AnimalsList() {
 						<Link to="/dashboard" className="block">
 							<Button variant="outline">Back to Dashboard</Button>
 						</Link>
-						<Link to="/animals/new" className="block">
-							<Button>Create New Animal</Button>
-						</Link>
+						{profile.role === "coordinator" && (
+							<Link to="/animals/new" className="block">
+								<Button>Create New Animal</Button>
+							</Link>
+						)}
 					</div>
 				</div>
 
@@ -134,54 +125,9 @@ export default function AnimalsList() {
 
 				{animals.length > 0 && (
 					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{animals.map((animal) => {
-							const slug = createSlug(animal.name);
-							return (
-								<Link
-									key={animal.id}
-									to={`/animals/${animal.id}/${slug}`}
-									className="bg-white rounded-lg shadow-sm p-5 border border-pink-100 hover:shadow-md transition-shadow cursor-pointer block"
-								>
-									<h2 className="text-lg font-semibold text-gray-900 mb-3">
-										{animal.name?.trim() ||
-											"Unnamed Animal"}
-									</h2>
-
-									<div className="space-y-2 text-sm">
-										{animal.status && (
-											<p>
-												<span className="text-gray-500">
-													Status:
-												</span>{" "}
-												<span className="font-medium capitalize">
-													{animal.status.replace(
-														"_",
-														" "
-													)}
-												</span>
-											</p>
-										)}
-										{animal.sex && (
-											<p>
-												<span className="text-gray-500">
-													Sex:
-												</span>{" "}
-												<span className="font-medium capitalize">
-													{animal.sex}
-												</span>
-											</p>
-										)}
-										{animal.priority && (
-											<p>
-												<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-													High Priority
-												</span>
-											</p>
-										)}
-									</div>
-								</Link>
-							);
-						})}
+						{animals.map((animal) => (
+							<AnimalCard key={animal.id} animal={animal} />
+						))}
 					</div>
 				)}
 			</div>

@@ -169,3 +169,50 @@ export async function fetchGroupsByFosterId(
 		);
 	}
 }
+
+export interface FetchAssignedGroupsOptions {
+	// Fields to select. Default: ["id", "name", "description", "priority", "animal_ids"]
+	// Pass "*" to select all fields
+	fields?: string[];
+}
+
+/**
+ * Fetch groups assigned to a specific profile (for Currently Fostering section)
+ * This function fetches groups where current_foster_id matches the profile ID
+ */
+export async function fetchAssignedGroups(
+	profileId: string,
+	organizationId: string,
+	options: FetchAssignedGroupsOptions = {}
+): Promise<AnimalGroup[]> {
+	const { fields = ["id", "name", "description", "priority", "animal_ids"] } =
+		options;
+
+	try {
+		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
+		const { data, error } = await supabase
+			.from("animal_groups")
+			.select(selectFields)
+			.eq("organization_id", organizationId)
+			.eq("current_foster_id", profileId);
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to load assigned groups. Please try again."
+				)
+			);
+		}
+
+		// Return empty array if no groups (this is valid, not an error)
+		return (data || []) as unknown as AnimalGroup[];
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to load assigned groups. Please try again."
+			)
+		);
+	}
+}

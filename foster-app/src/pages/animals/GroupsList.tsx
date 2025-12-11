@@ -5,6 +5,7 @@ import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { AnimalGroup } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
+import GroupCard from "../../components/animals/GroupCard";
 import { fetchGroups } from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
@@ -168,48 +169,13 @@ export default function GroupsList() {
 
 				{groups.length > 0 && (
 					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{groups.map((group) => {
-							return (
-								<Link
-									key={group.id}
-									to={`/groups/${group.id}`}
-									className="bg-white rounded-lg shadow-sm p-5 border border-pink-100 hover:shadow-md transition-shadow cursor-pointer block"
-								>
-									<h2 className="text-lg font-semibold text-gray-900 mb-3">
-										{group.name?.trim() || "Unnamed Group"}
-									</h2>
-
-									<div className="space-y-2 text-sm">
-										{group.description && (
-											<p className="text-gray-600 line-clamp-2">
-												{group.description}
-											</p>
-										)}
-										{group.animalNames &&
-										group.animalNames.length > 0 ? (
-											<p>
-												<span className="font-medium">
-													{group.animalNames.join(
-														", "
-													)}
-												</span>
-											</p>
-										) : (
-											<p className="text-gray-500 italic">
-												No animals in group
-											</p>
-										)}
-										{group.priority && (
-											<p>
-												<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-													High Priority
-												</span>
-											</p>
-										)}
-									</div>
-								</Link>
-							);
-						})}
+						{groups.map((group) => (
+							<GroupCard
+								key={group.id}
+								group={group}
+								animalNames={group.animalNames}
+							/>
+						))}
 					</div>
 				)}
 			</div>
