@@ -1,17 +1,20 @@
 export type UserRole = "coordinator" | "foster";
 
 export type AnimalStatus =
-	| "needs_foster"
 	| "in_foster"
 	| "adopted"
 	| "medical_hold"
 	| "in_shelter"
 	| "transferring"; // Not yet in shelter, being transferred
 
-export type IntakeType = "surrender" | "transfer" | string; // Primarily surrender/transfer, but allow custom
-export type Sex = "male" | "female";
-export type SpayNeuterStatus = "fixed" | "not_fixed";
-export type LifeStage = "kitten" | "adult" | "senior";
+// Combined sex and spay/neuter status type
+export type SexSpayNeuterStatus =
+	| "female"
+	| "male"
+	| "spayed_female"
+	| "neutered_male";
+
+export type LifeStage = "kitten" | "adult" | "senior" | "unknown";
 export type FeLVFIVStatus = "negative" | "positive" | "pending" | "not_tested";
 export type PlacementPriority = "high" | "normal";
 export type PlacementRequestStatus =
@@ -32,8 +35,11 @@ export type AnimalTag =
 	| "special_needs"
 	| string; // Allow custom tags
 
-// Socialization level (range 0-5 or similar)
-export type SocializationLevel = 0 | 1 | 2 | 3 | 4 | 5 | null; // null = unknown/not assessed
+// Photo metadata for animals (minimal metadata for permission checks)
+export interface PhotoMetadata {
+	url: string; // Photo URL (required)
+	uploaded_by?: string; // User/profile ID (optional, needed for permission checks - fosters can only delete their own photos)
+}
 
 // Timestamped media for tracking when photos were added
 export interface TimestampedPhoto {
@@ -51,32 +57,24 @@ export interface Animal {
 	// NOTE: primary_breed might change to tags later for better filtering
 	primary_breed?: string; // Dropdown with custom input
 	physical_characteristics?: string;
-	sex?: Sex;
-	spay_neuter_status?: SpayNeuterStatus;
+	sex_spay_neuter_status?: SexSpayNeuterStatus; // Combined sex and spay/neuter status
 	life_stage?: LifeStage;
 
 	// Dates & Age (all stored as ISO date strings)
-	intake_date?: string; // When animal came in/coming in (combines incoming/intake)
 	date_of_birth?: string; // Rarely available
 	age_estimate?: number; // Estimated age when DOB unknown
-	date_available_for_adoption?: string;
 
-	// Source & Placement
-	source?: string; // Rescue name/source (renamed from 'from' - SQL reserved word)
-	intake_type?: IntakeType;
+	// Placement
 	status: AnimalStatus;
+	display_placement_request?: boolean; // Control if animal appears on placement request page
 	priority?: boolean; // High priority flag for urgent placement needs
 	current_foster_id?: string; // ID of current foster (references User/Foster)
 
 	// Medical (structured as string for now, can be split into tags/arrays later)
 	medical_needs?: string; // Medical history, conditions, medications, special care
-	vaccines?: string; // Could be array later, string for now
-	felv_fiv_test?: FeLVFIVStatus;
-	felv_fiv_test_date?: string; // When test was done or needed
 
 	// Behavioral (structured as string for now, can be split into tags/arrays later)
 	behavioral_needs?: string; // Behavioral notes, training needs, etc.
-	socialization_level?: SocializationLevel; // 0-5 scale, null if unknown
 
 	// Tags for filtering
 	// NOTE: Stored as array for MVP. Could migrate to junction table (animal_tags) for better querying/filtering later
@@ -84,18 +82,14 @@ export interface Animal {
 
 	// Relationships
 	group_id?: string; // If part of a group
-	parent_id?: string; // If has a parent (mom)
-	// NOTE: Stored as array for MVP. Could migrate to junction table (animal_siblings) for more complex relationships later
-	sibling_ids?: string[]; // Related animals
 
-	// Petstablished Sync
-	added_to_petstablished?: boolean;
-	petstablished_sync_needed?: boolean; // Info needs updating
-	petstablished_last_synced?: string;
+	// Photos (array of photo objects with minimal metadata)
+	photos?: PhotoMetadata[]; // Array of photo objects with minimal metadata
 
 	// Notes & Metadata
 	additional_notes?: string;
-	created_by?: string; // User ID who created
+	bio?: string; // Text field for animal biography - fosters will be able to edit
+	created_by?: string; // User ID who created the animal
 	created_at: string; // ISO date string
 	updated_at: string; // ISO date string
 }
@@ -141,7 +135,6 @@ export interface PlacementRequest {
 	location?: string; // "in shelter" or specific location
 
 	// Metadata
-	created_by?: string; // User ID who created
 	created_at: string; // ISO date string
 	updated_at: string; // ISO date string
 }

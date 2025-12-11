@@ -54,6 +54,8 @@ export default defineConfig({
 					},
 					{
 						// Supabase REST API calls
+						// NetworkFirst: Try network first, fall back to cache if offline
+						// Only cache successful responses (200, 204) - never cache errors
 						urlPattern:
 							/^https:\/\/[a-z0-9-]+\.supabase\.co\/rest\/v1\/.*$/i,
 						handler: "NetworkFirst",
@@ -65,7 +67,8 @@ export default defineConfig({
 								maxAgeSeconds: 60 * 5, // 5 minutes
 							},
 							cacheableResponse: {
-								statuses: [0, 200, 204],
+								// Only cache successful responses - never cache errors (4xx, 5xx)
+								statuses: [200, 204],
 							},
 						},
 					},
