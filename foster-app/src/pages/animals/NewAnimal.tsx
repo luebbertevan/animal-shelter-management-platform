@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import Input from "../../components/ui/Input";
@@ -10,7 +11,12 @@ import Textarea from "../../components/ui/Textarea";
 import Button from "../../components/ui/Button";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import NavLinkButton from "../../components/ui/NavLinkButton";
+import Combobox from "../../components/ui/Combobox";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
+import {
+	fetchBreedSuggestions,
+	fetchPhysicalCharacteristicsSuggestions,
+} from "../../lib/animalQueries";
 import type { AnimalStatus, SexSpayNeuterStatus, LifeStage } from "../../types";
 
 export default function NewAnimal() {
@@ -48,6 +54,30 @@ export default function NewAnimal() {
 			setDisplayPlacementRequest(false);
 		}
 	}, [status]);
+
+	// Fetch breed suggestions with React Query (5-minute cache)
+	const { data: breedSuggestions = [], isLoading: isLoadingBreeds } =
+		useQuery<string[]>({
+			queryKey: ["breedSuggestions", profile.organization_id],
+			queryFn: () => fetchBreedSuggestions(profile.organization_id),
+			staleTime: 5 * 60 * 1000, // 5 minutes
+			enabled: !!profile.organization_id,
+		});
+
+	// Fetch physical characteristics suggestions with React Query (5-minute cache)
+	const {
+		data: physicalCharacteristicsSuggestions = [],
+		isLoading: isLoadingPhysicalCharacteristics,
+	} = useQuery<string[]>({
+		queryKey: [
+			"physicalCharacteristicsSuggestions",
+			profile.organization_id,
+		],
+		queryFn: () =>
+			fetchPhysicalCharacteristicsSuggestions(profile.organization_id),
+		staleTime: 5 * 60 * 1000, // 5 minutes
+		enabled: !!profile.organization_id,
+	});
 
 	const statusOptions: { value: AnimalStatus; label: string }[] = [
 		{ value: "in_foster", label: "In Foster" },
@@ -255,24 +285,30 @@ export default function NewAnimal() {
 							disabled={loading}
 						/>
 
-						<Input
+						<Combobox
 							label="Primary Breed"
-							type="text"
 							value={primaryBreed}
-							onChange={(e) => setPrimaryBreed(e.target.value)}
+							onChange={setPrimaryBreed}
+							suggestions={
+								isLoadingBreeds ? [] : breedSuggestions
+							}
 							placeholder="Enter primary breed (optional)"
-							disabled={loading}
+							disabled={loading || isLoadingBreeds}
 						/>
 
-						<Input
+						<Combobox
 							label="Physical Characteristics"
-							type="text"
 							value={physicalCharacteristics}
-							onChange={(e) =>
-								setPhysicalCharacteristics(e.target.value)
+							onChange={setPhysicalCharacteristics}
+							suggestions={
+								isLoadingPhysicalCharacteristics
+									? []
+									: physicalCharacteristicsSuggestions
 							}
 							placeholder="Enter physical characteristics (optional)"
-							disabled={loading}
+							disabled={
+								loading || isLoadingPhysicalCharacteristics
+							}
 						/>
 
 						<Toggle

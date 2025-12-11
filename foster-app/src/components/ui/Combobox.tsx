@@ -54,6 +54,7 @@ export default function Combobox({
 				value={value}
 				onChange={(newValue) => onChange(newValue ?? "")}
 				disabled={disabled}
+				immediate
 			>
 				<div className="relative">
 					<ComboboxInput
