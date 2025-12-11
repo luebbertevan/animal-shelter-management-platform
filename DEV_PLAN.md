@@ -2505,51 +2505,78 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 2. **Create reusable Combobox component** (`src/components/ui/Combobox.tsx`):
 
+    - This component will be reused for both Primary Breed and Physical Characteristics fields
     - Use Headless UI `Combobox` component
     - Props: `label`, `value`, `onChange`, `suggestions`, `placeholder`, `disabled`, `error`
-    - Style to match existing form components (use Tailwind classes)
+    - Style to match existing form components:
+        - Extract shared style constants (border colors, focus colors, etc.) to match Input/Select components
+        - Use same Tailwind classes: `border-pink-300`, `focus:border-pink-500`, `focus:ring-pink-500`
+        - Style input field, dropdown container, option items, and hover states consistently
     - Support keyboard navigation (arrow keys, enter, escape)
     - Show suggestions dropdown when user types or clicks
     - Allow selecting from suggestions or typing custom value
+    - Handle empty suggestions array gracefully (show empty dropdown, still allow custom input)
     - Mobile-friendly (close on blur, touch-friendly interactions)
+    - Component must be generic/reusable - suggestions array passed as prop, no hardcoded field-specific logic
 
-3. **Create breed suggestions query function** (`src/lib/animalQueries.ts`):
+3. **Create shared field suggestions helper function** (`src/lib/animalQueries.ts`):
+
+    - Create generic helper: `fetchFieldSuggestions(organizationId: string, fieldName: string, limit: number = 20): Promise<string[]>`
+    - Query: Fetch all values for specified field where `organization_id` matches and field is not NULL
+    - Client-side processing (shared logic):
+        - Count frequency of each exact value (case-sensitive matching)
+        - Sort by frequency (descending), then alphabetically
+        - Return top N unique values (default 20)
+    - This shared function handles the common logic for both fields
+
+4. **Create breed suggestions query function** (`src/lib/animalQueries.ts`):
 
     - Function: `fetchBreedSuggestions(organizationId: string): Promise<string[]>`
-    - Query: Get DISTINCT `primary_breed` values for organization, grouped and ordered by frequency (COUNT), limit to top 20
-    - Filter out NULL values
-    - Handle case normalization (lowercase for comparison, preserve original case for display)
-    - Return array of unique breed strings
+    - Implementation: Call `fetchFieldSuggestions(organizationId, 'primary_breed', 20)`
+    - Public API wrapper for breed-specific suggestions
+    - Return array of unique breed strings sorted by frequency (most frequent first)
 
-4. **Create physical characteristics suggestions query function** (`src/lib/animalQueries.ts`):
+5. **Create physical characteristics suggestions query function** (`src/lib/animalQueries.ts`):
 
     - Function: `fetchPhysicalCharacteristicsSuggestions(organizationId: string): Promise<string[]>`
-    - Query: Get DISTINCT `physical_characteristics` values for organization, grouped and ordered by frequency, limit to top 20
-    - Filter out NULL values
+    - Implementation: Call `fetchFieldSuggestions(organizationId, 'physical_characteristics', 20)`
+    - Public API wrapper for characteristics-specific suggestions
     - For MVP, exact text matching only (no parsing or splitting)
-    - Return array of unique characteristic strings
+    - Return array of unique characteristic strings sorted by frequency (most frequent first)
 
-5. **Update `src/pages/animals/NewAnimal.tsx`**:
+6. **Update `src/pages/animals/NewAnimal.tsx`**:
 
-    - Add React Query hooks to fetch suggestions for both fields using `useQuery`
+    - Add React Query hooks to fetch suggestions for both Primary Breed and Physical Characteristics fields using `useQuery`
     - Configure React Query with 5-minute cache (stale-while-revalidate pattern)
     - Handle loading and error states (show loading spinner or fallback gracefully)
-    - Replace text Input components with Combobox components
-    - Pass suggestions array as prop to each Combobox
+    - Replace Primary Breed text Input component with reusable Combobox component
+    - Replace Physical Characteristics text Input component with reusable Combobox component
+    - Pass appropriate suggestions array as prop to each Combobox instance
+    - Each Combobox instance uses the same reusable component but with different suggestions data
     - Handle custom values on form submission (no special handling needed - save as-is)
 
-6. **SQL Query Implementation:**
-    - Use Supabase query builder: `.select('primary_breed').eq('organization_id', orgId).not('primary_breed', 'is', null)`
-    - Use `.order()` with aggregation or post-process results to count frequencies
-    - Alternative: Use RPC function if aggregation is complex
-    - Return unique values sorted by frequency (most common first)
+7. **SQL Query Implementation:**
+    - Use Supabase query builder (same pattern as existing `animalQueries.ts` functions):
+        - Example: `supabase.from('animals').select('primary_breed').eq('organization_id', orgId).not('primary_breed', 'is', null)`
+        - Fetch all matching rows (simple query, no aggregation in SQL)
+    - Process results client-side in TypeScript:
+        - Count frequency of each exact value (case-sensitive)
+        - Sort by frequency (descending), then alphabetically
+        - Take top 20
+    - Why client-side processing: Supabase query builder doesn't easily support GROUP BY with COUNT and ORDER BY in a single query. Client-side processing is simpler and avoids needing RPC functions or raw SQL.
 
 **Design decisions:**
 
 -   **Suggestion limit:** Top 20 most common values
--   **Case handling:** Case-insensitive matching when filtering suggestions, preserve original case from database
+-   **Case handling:**
+    -   Use exact values as stored in database (case-sensitive matching)
+    -   Headless UI handles case-insensitive filtering when user types
+    -   Users typically select from dropdown after first entry, so values will match exactly
+-   **Sorting:** Most frequent values appear first, then alphabetically for ties
 -   **Custom values:** Always allowed - user can type anything not in suggestions
--   **Empty state:** Show placeholder text, show suggestions when user starts typing or clicks dropdown arrow
+-   **Empty state:**
+    -   If suggestions array is empty or query fails: Show placeholder text, dropdown shows "No suggestions" or remains empty, component still allows custom input
+    -   If suggestions exist: Show suggestions when user starts typing or clicks dropdown arrow
 -   **Caching:** React Query cache with 5-minute stale time (stale-while-revalidate)
 -   **Performance:** Query runs on form mount, results cached. Acceptable if suggestions are slightly stale.
 
