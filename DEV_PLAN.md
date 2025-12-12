@@ -3014,103 +3014,183 @@ The preview card should show minimal, scannable information for quick browsing:
 
 ### Update Animal Detail Page
 
-**Goal:** Update `AnimalDetail` page to display all new animal fields organized in logical sections.
+**Goal:** Update `AnimalDetail` page to display all animal fields in the same order as the creation form, with clear indicators for blank fields.
 
 **Dependencies:**
 
 -   **Complete Animal Creation Form - Photo Upload** - Photos are now available in the `photos` array
+-   **Update Animal Preview Card** - For consistent field display patterns
 
-**Proposed Detail Page Fields (AnimalDetail):**
+**Design Decisions:**
 
-The detail page should show all fields organized in logical sections:
+1. **Field Order:** Display fields in the exact same order as the `NewAnimal` form to maintain consistency:
 
-1. **Header Section:**
+    1. Name
+    2. Photos
+    3. Status + Display Placement Request (grouped together)
+    4. Sex
+    5. Date of Birth + Age Estimate (grouped together)
+    6. Life Stage
+    7. Primary Breed
+    8. Physical Characteristics
+    9. High Priority (toggle indicator)
+    10. Medical Needs
+    11. Behavioral Needs
+    12. Additional Notes
+    13. Adoption Bio
 
-    - Name
-    - Status badge
-    - Priority badge (if high priority)
-    - Edit button (coordinators only)
-    - "Edit Photos & Bio" button (fosters, if assigned)
+2. **Blank Field Display:**
 
-2. **Photo Gallery Section:**
+    - Show all fields regardless of whether they have values
+    - For blank/empty fields, display a de-emphasized indicator (e.g., "Not provided" in gray/italic text)
+    - This makes it clear what information is missing vs. what information exists
+    - Follows the spec requirement: "Unknown/missing information is de-emphasized or shown at the bottom of detail views"
 
-    - Display all photos from `photos` array
-    - Use photo display component (from Photo Uploads phase)
-    - Show upload UI if user has permission
+3. **Group Indicator:**
 
-3. **Basic Information Section:**
+    - Display group information (if animal is in a group) directly under the name
+    - Show as a link to the group detail page: "In group: [Group Name]"
+    - Navigate to group detail page on click
+    - Only display if `group_id` exists
 
-    - Status
-    - Display Placement Request (if true, show indicator)
-    - Sex/SpayNeuter Status
-    - Life Stage
-    - Physical Characteristics
-    - Date of Birth
-    - Age Estimate
+4. **Header Actions:**
 
-4. **Care Information Section:**
+    - Edit button (coordinators only) - links to edit page (from Animal Editing for Coordinators milestone)
+        - **Note:** Edit page doesn't exist yet, but button can be added and linked later
+    - "Edit Photos & Bio" button (fosters, if animal is assigned to them) - links to foster edit page (from Foster Photo & Bio Editing milestone)
+        - **Note:** Foster edit page doesn't exist yet, but button can be added and linked later
+    - Priority badge (if high priority) - displayed as a badge in the header
 
-    - Medical Needs
-    - Behavioral Needs
-    - Priority indicator
+5. **Photo Display:**
 
-5. **Additional Information Section:**
+    **Layout:**
 
-    - Bio (if available)
-    - Additional Notes
-    - Tags (if implemented)
+    - Use same layout as PhotoUpload component: `flex flex-wrap gap-2` (flexbox wrap, not grid)
+    - Photos wrap to new lines as needed, maintaining consistent spacing
+    - This matches the create form for visual consistency
 
-6. **Metadata Section (optional, coordinators only):**
-    - Created at
-    - Updated at
-    - Current foster (if assigned)
+    **Photo Thumbnails:**
+
+    - Size: `w-20 h-20` (80px x 80px) - same as PhotoUpload component
+    - Object fit: `object-cover` to fill the square while maintaining aspect ratio (may crop)
+    - Border: `border border-gray-300` - same as PhotoUpload component
+    - Border radius: `rounded` - same as PhotoUpload component
+    - Cursor: `cursor-pointer` to indicate photos are clickable (for lightbox)
+    - Hover effect: Optional subtle effect to indicate clickability (e.g., `hover:opacity-90`)
+    - Loading state: Show spinner or skeleton while photos load
+    - Error state: Show placeholder icon if photo fails to load
+    - **Key difference from PhotoUpload:** No remove button (read-only view), clicking opens lightbox instead
+
+    **Lightbox Integration:**
+
+    - Clicking a photo opens the PhotoLightbox component (reuse from `src/components/messaging/PhotoLightbox.tsx`)
+    - Extract photo URLs from `photos` array (map `photo.url` from `PhotoMetadata[]`)
+    - Pass current photo index to lightbox based on which photo was clicked
+    - PhotoLightbox supports:
+        - Full-screen viewing with black background
+        - Navigation between photos (arrow buttons, keyboard arrows)
+        - Photo counter (e.g., "1 of 5")
+        - Close button (X button, Escape key, or click outside)
+        - Keyboard navigation (Arrow keys, Escape)
+        - Loading spinner for images
+        - Responsive sizing (full screen on mobile, centered with margins on desktop)
+
+    **Empty State:**
+
+    - If no photos, show placeholder with de-emphasized text (e.g., "No photos provided")
+
+6. **Age Display:**
+
+    - If `date_of_birth` exists, calculate and display age using `calculateAgeFromDOB()` utility
+    - If `date_of_birth` is missing but `age_value` and `age_unit` exist, display as "Age Estimate: [value] [unit]"
+    - If both are missing, show "Not provided"
+
+7. **Metadata Section (coordinators only):**
+    - Display at the bottom: Created at, Updated at, Current foster (if assigned)
+    - Always visible at the bottom (not collapsible)
+    - Only show if user is coordinator
 
 **Tasks:**
 
-1. **Update `AnimalDetail` page** (`src/pages/animals/AnimalDetail.tsx`):
+1. **Create field display utility/component** (do this first for reusability):
 
-    - Organize fields into logical sections (Header, Photos, Basic Info, Care Info, Additional Info, Metadata)
-    - Display all new fields:
-        - `sex_spay_neuter_status` (replaces `sex`)
-        - `life_stage`
-        - `physical_characteristics`
-        - `date_of_birth`
-        - Age (calculated from `date_of_birth` on-demand using `calculateAgeFromDOB()` utility)
-        - `medical_needs`
-        - `behavioral_needs`
-        - `bio`
-        - `additional_notes`
-        - `photos` (photo gallery)
-        - `display_placement_request` (indicator if true)
-    - Handle missing/optional fields gracefully (don't show empty sections)
-    - Use photo display component for photo gallery
-    - Add "Edit Photos & Bio" button for fosters (if animal is assigned to them)
-    - Update Edit button to link to edit page (from Animal Editing for Coordinators milestone)
-    - Maintain mobile-friendly responsive design
+    - Create a reusable component or utility function for displaying field/value pairs with blank field handling
+    - Example: `<FieldDisplay label="Name" value={animal.name} />` or similar
+    - Handles the "Not provided" display logic consistently
+    - Can be used throughout the AnimalDetail page
 
-2. **Update TypeScript types**:
+2. **Update TypeScript types** (ensure types are correct before implementation):
 
     - Update `Animal` type usage in `AnimalDetail`
     - Ensure all fields are properly typed
+    - Include `group_id` and `group_name` if available
 
-3. **Handle edge cases**:
+3. **Update `AnimalDetail` page** (`src/pages/animals/AnimalDetail.tsx`):
 
-    - Animals with no photos (show placeholder or empty state)
-    - Animals with no name (already handled)
-    - Missing optional fields (don't display empty sections)
-    - Long text fields (full display in detail page)
+    - Display all fields in the exact order listed above
+    - Use FieldDisplay component for consistent field/value display
+    - For each field:
+        - Show the field label
+        - If value exists: display the value
+        - If value is blank/empty/null: display de-emphasized "Not provided" text
+    - Display group indicator directly under name if `group_id` exists (link to group detail page, navigates on click)
+    - Display status as a colored badge/chip in the header
+    - Display all photos using same layout as PhotoUpload component:
+        - Use `flex flex-wrap gap-2` layout
+        - Photo size: `w-20 h-20` (80px x 80px)
+        - Styling: `object-cover rounded border border-gray-300`
+        - Add `cursor-pointer` and hover effect to indicate clickability
+        - Clicking a photo opens PhotoLightbox (no remove button, read-only view)
+    - Integrate PhotoLightbox component (reuse from `src/components/messaging/PhotoLightbox.tsx`):
+        - Import `PhotoLightbox` from `src/components/messaging/PhotoLightbox.tsx`
+        - Extract photo URLs from `photos` array (map `photo.url` from `PhotoMetadata[]`)
+        - Add state for lightbox open/close and current photo index
+        - Add click handlers to photo thumbnails to open lightbox
+        - Pass photo URLs array, initial index, and open/close handlers to PhotoLightbox
+    - Show loading states while photos load
+    - Show error placeholder if photo fails to load
+    - Show empty state placeholder if no photos
+    - Calculate and display age from `date_of_birth` if available
+    - Display age estimate if `date_of_birth` is missing but `age_value`/`age_unit` exist
+    - Add Edit button for coordinators (links to edit page - can be placeholder link for now)
+    - Add "Edit Photos & Bio" button for fosters (if assigned - can be placeholder link for now)
+    - Display priority badge in header if high priority
+    - Display metadata section for coordinators at the bottom (created_at, updated_at, current_foster) - always visible
+    - Handle edge cases:
+        - Animals with no photos (show placeholder with "No photos" message)
+        - Animals with no name (already handled: "Unnamed Animal")
+        - All optional fields (show "Not provided" for each)
+        - Long text fields (full display, allow scrolling if needed)
+        - Animals in groups (fetch and display group name)
+        - Age calculation edge cases (future dates, invalid dates)
+    - Maintain mobile-friendly responsive design
+
+    - Animals with no photos (show placeholder with "No photos" message)
+    - Animals with no name (already handled: "Unnamed Animal")
+    - All optional fields (show "Not provided" for each)
+    - Long text fields (full display, allow scrolling if needed)
+    - Animals in groups (fetch and display group name)
+    - Age calculation edge cases (future dates, invalid dates)
 
 **Testing:**
 
--   Detail page displays all fields in organized sections
--   Detail page handles missing fields gracefully
--   Photo gallery displays correctly in detail page
+-   Detail page displays all fields in the same order as the form
+-   Blank fields display "Not provided" in de-emphasized style
+-   Fields with values display correctly
+-   Group indicator displays under name and navigates to group detail page on click
+-   Status displays as a colored badge in the header
+-   Photo grid displays correctly with responsive columns (max 5 for large screens)
+-   Clicking a photo opens PhotoLightbox with navigation working
+-   PhotoLightbox navigation (arrows, keyboard) works correctly
+-   PhotoLightbox closes correctly (X button, Escape key, click outside)
+-   Age calculation displays correctly (from DOB or estimate)
 -   Edit buttons appear for correct users (coordinators, assigned fosters)
--   Age calculation displays correctly
+-   Priority badge displays in header when applicable
+-   Metadata section displays for coordinators only at the bottom (always visible)
 -   Mobile layout works correctly
 -   All fields match form data (verify data flows correctly)
 
-**Deliverable:** Updated AnimalDetail page displaying all new animal fields with proper organization and mobile-friendly design.
+**Deliverable:** Updated AnimalDetail page displaying all animal fields in form order with clear blank field indicators and proper organization.
 
 **Note on Component Reusability:**
 
