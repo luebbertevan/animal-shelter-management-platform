@@ -231,3 +231,76 @@ export function calculateDOBFromAge(value: number, unit: AgeUnit): string {
 	const day = String(dobDate.getDate()).padStart(2, "0");
 	return `${year}-${month}-${day}`;
 }
+
+/**
+ * Calculates life stage from date of birth.
+ * Uses age calculation to determine life stage.
+ *
+ * Life stage thresholds:
+ * - < 1 year: "kitten"
+ * - >= 1 year and < 11 years: "adult"
+ * - >= 11 years: "senior"
+ * - If age cannot be determined: "unknown"
+ *
+ * @param dob - Date of birth as ISO date string
+ * @returns Life stage string, or "unknown" if age cannot be determined
+ */
+export function calculateLifeStageFromDOB(
+	dob: string
+): "kitten" | "adult" | "senior" | "unknown" {
+	if (!dob) {
+		return "unknown";
+	}
+
+	const ageResult = calculateAgeFromDOB(dob);
+	if (!ageResult) {
+		return "unknown";
+	}
+
+	return calculateLifeStageFromAge(ageResult.value, ageResult.unit);
+}
+
+/**
+ * Calculates life stage from age value and unit.
+ *
+ * Life stage thresholds:
+ * - < 1 year: "kitten"
+ * - >= 1 year and < 11 years: "adult"
+ * - >= 11 years: "senior"
+ *
+ * @param value - The numeric age value
+ * @param unit - The age unit (days, weeks, months, or years)
+ * @returns Life stage string
+ */
+export function calculateLifeStageFromAge(
+	value: number,
+	unit: AgeUnit
+): "kitten" | "adult" | "senior" | "unknown" {
+	if (value <= 0 || isNaN(value)) {
+		return "unknown";
+	}
+
+	// Convert age to years for comparison
+	const daysPerUnit = {
+		days: 1,
+		weeks: DAYS_PER_WEEK,
+		months: DAYS_PER_MONTH,
+		years: DAYS_PER_YEAR,
+	};
+
+	const totalDays = value * daysPerUnit[unit];
+	const years = totalDays / DAYS_PER_YEAR;
+
+	// >= 11 years: senior
+	if (years >= 11) {
+		return "senior";
+	}
+
+	// >= 1 year and < 11 years: adult
+	if (years >= 1) {
+		return "adult";
+	}
+
+	// < 1 year: kitten
+	return "kitten";
+}
