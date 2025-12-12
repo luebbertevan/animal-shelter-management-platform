@@ -3032,6 +3032,168 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Note:** This is a dedicated milestone because photos and bio are the only fields fosters can edit. This provides a clear, focused editing experience for fosters without giving them access to other animal data. Requires photo upload functionality and editing infrastructure to exist.
 
+**Design Decisions Needed: Foster Photo UI/UX and Storage**
+
+**Problem:** Fosters should only have permission to add/remove their own photos. This raises several UI/UX and storage design questions that need to be decided before implementation.
+
+**Decision 1: How should foster photos be displayed in the UI?**
+
+**Option 1A: Unified gallery with visual indicators**
+
+-   All photos (coordinator + foster) displayed together in one gallery
+-   Visual indicators show photo source:
+    -   Badge/label showing "Uploaded by [Name]" or "Coordinator" vs "Foster"
+    -   Different border color or icon for foster photos
+    -   Timestamp visible for each photo
+-   **UI Behavior:**
+    -   Fosters see all photos but can only delete their own (delete button only on their photos)
+    -   Coordinators see all photos and can delete any
+    -   Photos sorted chronologically (newest first or oldest first)
+-   **Pros:**
+    -   Simple, unified view - all photos in one place
+    -   Foster photos can be used for animal previews/thumbnails
+    -   Easy to see photo history chronologically
+    -   Clear visual distinction shows who uploaded what
+-   **Cons:**
+    -   Fosters see coordinator photos they can't interact with (might be confusing)
+    -   No way to filter by source (coordinator vs foster)
+    -   Mixed purposes (adoption photos + foster updates) in same view
+
+**Option 1B: Separate sections/tabs**
+
+-   Two distinct sections: "Coordinator Photos" and "Foster Photos"
+-   Or tabs: "All Photos" | "Coordinator Photos" | "Foster Photos"
+-   **UI Behavior:**
+    -   Fosters only see "Foster Photos" section (can add/delete their own)
+    -   Coordinators see both sections (can manage both)
+    -   Each section has its own upload/delete controls
+-   **Pros:**
+    -   Clear separation of photo types
+    -   Fosters only see what they can interact with
+    -   Coordinators can easily filter/review foster photos separately
+    -   Less confusion about permissions
+-   **Cons:**
+    -   More complex UI (multiple sections to manage)
+    -   Foster photos might not be easily used for animal previews
+    -   Requires separate upload components or filtering logic
+
+**Option 1C: "Animal Photos" vs "Adoption Photos" sections**
+
+-   Two distinct sections with different purposes:
+    -   **"Animal Photos"** - Official animal documentation photos (coordinator-only editing)
+    -   **"Adoption Photos"** - Photos for adoption listings (both fosters and coordinators can edit)
+-   **UI Behavior:**
+    -   "Animal Photos" section: Only coordinators can add/delete (used for previews, documentation)
+    -   "Adoption Photos" section: Both fosters and coordinators can add/delete (used for adoption listings)
+    -   Fosters see both sections but can only edit "Adoption Photos"
+    -   Coordinators can manage both sections
+-   **Pros:**
+    -   Clear purpose separation (documentation vs adoption marketing)
+    -   Fosters can contribute to adoption photos without affecting official animal photos
+    -   Animal photos remain coordinator-controlled for consistency
+    -   Adoption photos can be curated separately
+-   **Cons:**
+    -   Foster photos are NOT used for animal previews/thumbnails (only "Animal Photos" section)
+    -   Foster photos don't benefit from preview/thumbnail behavior
+    -   More complex UI with two distinct sections
+    -   May be confusing which section to use for what purpose
+    -   Requires separate storage or clear tagging to distinguish sections
+
+**Decision 2: Should foster photos require coordinator approval?**
+
+**Option 2A: Immediate visibility (no approval)**
+
+-   Foster photos appear immediately after upload
+-   **UI Behavior:**
+    -   Photo shows up in gallery right away
+    -   Can be used for previews immediately
+-   **Pros:**
+    -   Faster workflow - fosters see their photos immediately
+    -   Simpler implementation
+-   **Cons:**
+    -   No quality control - undesirable photos visible immediately
+    -   Coordinators can't review before photos are public
+
+**Option 2B: Approval required (coordinator review)**
+
+-   Foster photos marked as "pending" until coordinator approves
+-   **UI Behavior:**
+    -   Fosters see their photos in "Pending" section
+    -   Coordinators see pending photos in review queue
+    -   Approved photos move to main gallery
+-   **Pros:**
+    -   Quality control - coordinators can review before photos are visible
+    -   Prevents inappropriate photos from being displayed
+-   **Cons:**
+    -   More complex workflow
+    -   Delayed visibility for fosters
+    -   Requires approval UI for coordinators
+
+**Decision 3: Storage structure (affects UI implementation)**
+
+**Option 3A: Same `photos` array (unified storage)**
+
+-   All photos in single JSONB array: `photos: PhotoMetadata[]`
+-   Use `uploaded_by` field to distinguish coordinator vs foster photos
+-   **UI Impact:**
+    -   Filter by `uploaded_by` to show coordinator vs foster photos
+    -   Single gallery component with filtering
+    -   Can easily show all photos together or filtered
+-   **Pros:**
+    -   Simpler database schema
+    -   Flexible UI - can show unified or filtered views
+    -   Easy to use foster photos for previews
+-   **Cons:**
+    -   Requires filtering logic in UI
+    -   All photos mixed in one array
+
+**Option 3B: Separate `foster_photos` array**
+
+-   Two arrays: `photos: PhotoMetadata[]` (coordinator) and `foster_photos: PhotoMetadata[]` (foster)
+-   **UI Impact:**
+    -   Two separate gallery components or sections
+    -   Clear separation in UI matches data structure
+    -   Easier to implement approval workflow (separate pending array)
+-   **Pros:**
+    -   Clear data separation
+    -   Easier to implement approval workflow
+    -   Fosters only interact with their section
+-   **Cons:**
+    -   More complex schema
+    -   Harder to show unified chronological view
+    -   May need separate components
+
+**Recommended Approach (to be confirmed with organization):**
+
+1. **UI Display:** Option 1A (unified gallery with visual indicators) - simpler, all photos visible, clear who uploaded what
+2. **Approval:** Option 2A (immediate visibility) - faster workflow, coordinators can delete if needed
+3. **Storage:** Option 3A (same array) - simpler, flexible, can filter in UI if needed
+
+**Alternative Approaches:**
+
+**If approval needed:**
+
+1. **UI Display:** Option 1B (separate sections) - clearer separation
+2. **Approval:** Option 2B (approval required) - quality control
+3. **Storage:** Option 3B (separate arrays) - matches UI separation, easier approval workflow
+
+**If purpose-based separation needed (documentation vs adoption):**
+
+1. **UI Display:** Option 1C ("Animal Photos" vs "Adoption Photos") - clear purpose separation
+2. **Approval:** Option 2A (immediate visibility) or 2B (approval) - depends on organization preference
+3. **Storage:** Option 3B (separate arrays) - `photos` for Animal Photos, `adoption_photos` for Adoption Photos
+4. **Note:** This approach means foster photos won't be used for animal previews/thumbnails (only Animal Photos section)
+
+**Decision Required:** Organization needs to decide:
+
+-   Do foster photos need coordinator approval before being visible?
+-   Should fosters see coordinator photos (even if read-only)?
+-   Should photos be displayed together, in separate sections by uploader, or by purpose (Animal Photos vs Adoption Photos)?
+-   How important is using foster photos for animal previews/thumbnails? (If important, unified gallery or separate by uploader works; if not, purpose-based separation is viable)
+-   What is the primary purpose of foster-uploaded photos? (Adoption listings, updates, or general documentation?)
+
+**Note:** These decisions affect UI components, data structure, and user workflows. Should be made before starting the Foster Photo & Bio Editing milestone.
+
 **Tasks:**
 
 1. **Create foster editing interface** (`src/pages/animals/FosterEditAnimal.tsx` or similar):
