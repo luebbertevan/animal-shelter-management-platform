@@ -2385,7 +2385,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 5. Life Stage (dropdown, optional) - _Simple dropdown for now, auto-fill will be added later_
 6. Physical Characteristics (text field, optional) - _Task: Physical Characteristics_
 7. Date of Birth (date picker, optional) - _Task: Date and Age Fields_
-8. Age Estimate (text with format helper, optional) - _Task: Date and Age Fields_
+8. Age Estimate (number input + unit dropdown: weeks/months/years, optional) - _Task: Date and Age Fields_
 9. Priority (toggle)
 10. Medical Needs (textarea, optional) - _Task: Medical and Behavioral Needs_
 11. Behavioral Needs (textarea, optional) - _Task: Medical and Behavioral Needs_
@@ -2605,46 +2605,103 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Complete Animal Creation Form - Date and Age Fields
 
-**Goal:** Add date of birth and age estimate fields with bidirectional auto-fill logic.
+**Goal:** Add date of birth and age estimate fields with bidirectional auto-fill logic. Store only DOB in database; calculate age on-demand from DOB using date math.
+
+**Storage Strategy:**
+
+-   **Database:** Only store `date_of_birth` (TIMESTAMPTZ, optional). No `age_estimate` field needed.
+-   **Display:** Always calculate age on-demand from DOB using actual calendar date math (date difference), then format in appropriate unit (weeks/months/years).
+-   **Form:** Age and DOB are tied - if one is set, the other is calculated. Both fields remain editable after auto-fill.
 
 **Tasks:**
 
-1. **Update `src/pages/animals/NewAnimal.tsx`**:
+1. **Create shared age utility functions** (`src/lib/ageUtils.ts`):
+
+    - Define unit constants once at the top (DRY principle): `DAYS_PER_WEEK = 7`, `DAYS_PER_MONTH = 30.44`, `DAYS_PER_YEAR = 365.25`
+    - `rolloverAge(value: number, unit: "days" | "weeks" | "months" | "years"): { value: number, unit: "days" | "weeks" | "months" | "years" }`
+        - Converts age to appropriate unit (e.g., 24 months → 2 years, 16 weeks → 4 months, 7 days → 1 week)
+        - Rollover rules: 7+ days → weeks, 16+ weeks → months, 365+ days → years (uses 365 threshold for cleaner rollover)
+        - Returns integer values (rounded) for cleaner display
+    - `calculateAgeFromDOB(dob: string): { value: number, unit: "days" | "weeks" | "months" | "years" }`
+        - Calculates age from DOB to today using actual calendar date math via JavaScript Date methods
+        - Uses Date.getFullYear(), Date.getMonth(), Date.getDate() for accurate calendar calculations
+        - Handles leap years and varying month lengths automatically (no averaging)
+        - Determines appropriate unit: < 7 days → days, >= 7 days and < 16 weeks → weeks, >= 16 weeks and < 1 year → months, >= 1 year → years
+        - Returns integer values (rounded) for display
+    - `calculateDOBFromAge(value: number, unit: "days" | "weeks" | "months" | "years"): string`
+        - Calculates estimated DOB from age using day multipliers (for form input only)
+        - Uses average multipliers since this is an estimate: weeks = 7 days, months = 30.44 days, years = 365.25 days
+        - Returns ISO date string (YYYY-MM-DD format)
+
+2. **Update database schema** (if needed):
+
+    - Verify `date_of_birth` field exists in `animals` table (should already exist)
+    - No `age_estimate` field needed (remove if it exists, or leave unused)
+
+3. **Update `src/pages/animals/NewAnimal.tsx`**:
 
     - Add "Date of Birth" field (date picker, optional)
-    - Add "Age Estimate" field (text input with format helper, optional)
-    - Age format: "X years", "X months", "X weeks" (e.g., "3 years", "4 months", "6 weeks")
+    - Add "Age Estimate" field (number input + unit dropdown, optional):
+        - Number input: Integer value (e.g., 3, 24, 16)
+        - Unit dropdown: Options "days", "weeks", "months", "years"
+        - Default unit: "days" (to handle very young animals)
+        - Layout: Number input and dropdown on same row (side-by-side)
+        - Both fields are required if age estimate is provided (must have both number and unit)
+    - Form submission: Store only `date_of_birth` (calculate from age input if age was entered)
 
-2. **Implement bidirectional auto-fill logic**:
+4. **Implement auto-rollover logic** (on blur):
 
-    - When user enters Date of Birth:
-        - Calculate age from DOB to today
-        - Format age: Use weeks if < 16 weeks, months if < 1 year, years if >= 1 year
-        - Auto-populate Age Estimate field (read-only or editable)
-    - When user enters Age Estimate:
-        - Parse age string (handle "X years", "X months", "X weeks" formats)
-        - Calculate estimated Date of Birth (today minus age)
-        - Auto-populate Date of Birth field (read-only or editable)
-    - **Rollover logic**: Weeks until 16 weeks (4 months), then months until 1 year, then years
-    - Handle edge cases: Invalid date formats, invalid age formats, future dates
+    - When age field loses focus, use `rolloverAge()` utility function
+    - Check if rollover is needed:
+        - 7 days or more → Convert to weeks (e.g., 7 days → 1 week)
+        - 16 weeks or more → Convert to months (e.g., 16 weeks → 4 months)
+        - 365 days or more → Convert to years (e.g., 365 days → 1 year, 24 months → 2 years)
+    - Apply rollover automatically when field loses focus (onBlur)
+    - Update both number and unit fields when rollover occurs
+    - Examples:
+        - User enters: 24 months, leaves field → Auto-changes to: 2 years
+        - User enters: 16 weeks, leaves field → Auto-changes to: 4 months
+        - User enters: 104 weeks, leaves field → Auto-changes to: 2 years
 
-3. **Age format helper/validation**:
+5. **Implement bidirectional auto-fill logic** (on blur):
 
-    - Show placeholder: "e.g., 3 years, 4 months, 6 weeks"
-    - Validate format on blur or submit
-    - Show error message for invalid formats
+    - **DOB → Age Estimate** (when DOB field loses focus):
+        - Use `calculateAgeFromDOB()` utility function (uses actual calendar date math)
+        - Auto-populate Age Estimate number and unit fields
+        - Both fields remain editable after auto-fill
+    - **Age Estimate → DOB** (when age number or unit field loses focus):
+        - Use `calculateDOBFromAge()` utility function (uses day multipliers: 7, 30.44, 365.25)
+        - Auto-populate Date of Birth field
+        - Field remains editable after auto-fill
+    - **Important**: All auto-fill happens on blur (onBlur events), NOT while typing
+    - This prevents annoying auto-updates while user is still entering data
+    - Handle edge cases: Invalid dates, future dates, negative ages
+
+6. **Validation**:
+
+    - Date of Birth: Validate date format, prevent future dates
+    - Age Estimate: Number must be positive integer, unit must be selected
+    - Show error messages for invalid inputs on blur
+    - Both fields are optional (can leave empty)
 
 **Testing:**
 
--   Entering DOB auto-fills age estimate correctly
--   Entering age estimate auto-fills DOB correctly
--   Age formatting works correctly (weeks/months/years)
--   Rollover at 16 weeks works correctly
--   Invalid formats show appropriate errors
+-   Entering DOB and leaving field → Auto-fills age estimate with correct unit (using date math)
+-   Entering age estimate and leaving field → Auto-fills DOB correctly (using day multipliers)
+-   Auto-rollover works: 24 months → 2 years (on blur)
+-   Auto-rollover works: 16 weeks → 4 months (on blur)
+-   Auto-rollover works: 104 weeks → 2 years (on blur)
+-   Auto-fill does NOT happen while typing (only on blur)
+-   Age number input accepts only integers
+-   Unit dropdown shows correct options
+-   Both fields remain editable after auto-fill
+-   Form submission stores only `date_of_birth` (not age_estimate)
+-   Invalid dates show appropriate errors
+-   Future dates are prevented/rejected
 -   Both fields are optional
--   Works on mobile devices
+-   Works on mobile devices (number input shows numeric keyboard)
 
-**Deliverable:** Date and age fields with bidirectional auto-fill working.
+**Deliverable:** Date and age fields with bidirectional auto-fill working. Only DOB stored in database. Age calculated on-demand using shared utility functions.
 
 ---
 
@@ -2659,27 +2716,36 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Tasks:**
 
-1. **Update `src/pages/animals/NewAnimal.tsx`**:
+1. **Create or update shared age utility functions** (`src/lib/ageUtils.ts`):
+
+    - `calculateLifeStageFromDOB(dob: string): "kitten" | "adult" | "senior" | "unknown"`
+        - Calculates age from DOB using `calculateAgeFromDOB()`, then determines life stage
+        - Uses rollover ages: < 4 months = kitten, >= 4 months and < 11 years = adult, >= 11 years = senior
+    - `calculateLifeStageFromAge(value: number, unit: "weeks" | "months" | "years"): "kitten" | "adult" | "senior" | "unknown"`
+        - Determines life stage directly from age value and unit
+        - Uses same rollover ages as above
+
+2. **Update `src/pages/animals/NewAnimal.tsx`**:
 
     - Add auto-fill logic for Life Stage field:
-        - When Date of Birth is entered: Calculate age, determine life stage based on rollover ages, auto-populate Life Stage dropdown
-        - When Age Estimate is entered: Parse age, determine life stage based on rollover ages, auto-populate Life Stage dropdown
+        - When Date of Birth is entered: Use `calculateLifeStageFromDOB()`, auto-populate Life Stage dropdown
+        - When Age Estimate is entered: Use `calculateLifeStageFromAge()`, auto-populate Life Stage dropdown
         - Life Stage field remains editable (user can override auto-filled value)
         - If age cannot be determined or is unknown, leave Life Stage as "unknown" or empty
 
-2. **Life stage calculation logic**:
+3. **Life stage calculation logic**:
 
-    - Use rollover ages:
+    - Use rollover ages (implemented in utility functions):
         - If age < 4 months: "kitten"
         - If age >= 4 months AND age < 11 years: "adult"
         - If age >= 11 years: "senior"
         - If age cannot be determined: "unknown" or leave empty
-    - Handle edge cases: Invalid dates, invalid age formats, future dates
-    - **Note:** This feature should be implemented before age auto-update over time feature
+    - Handle edge cases: Invalid dates, future dates
+    - Reuses age calculation logic from Date and Age Fields milestone
 
-3. **Update behavior**:
+4. **Update behavior**:
 
-    - Auto-fill happens when DOB or Age Estimate changes
+    - Auto-fill happens on blur when DOB or Age Estimate fields lose focus
     - User can manually change Life Stage after auto-fill
     - Manual changes persist (don't re-auto-fill if user has edited)
 
@@ -2849,7 +2915,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Life Stage
         - Physical Characteristics
         - Date of Birth
-        - Age Estimate
+        - Age (calculated from Date of Birth on-demand)
         - Priority
         - Medical Needs
         - Behavioral Needs
@@ -2993,7 +3059,7 @@ The preview card should show minimal, scannable information for quick browsing:
 5. **Life Stage** - new field (kitten/adult/senior) - quick visual indicator
 6. **Sex/SpayNeuter Status** - updated field (replaces old `sex` field)
 7. **Priority badge** - already exists (if high priority)
-8. **Age estimate** - new field (if available, e.g., "3 years", "4 months") - compact display
+8. **Age** - calculated from `date_of_birth` on-demand (if available, e.g., "3 years", "4 months") - compact display
 
 **Optional considerations:**
 
@@ -3055,7 +3121,7 @@ The detail page should show all fields organized in logical sections:
         - Only show if `group_id` is set
     - Update to use new `sex_spay_neuter_status` field (replaces `sex`)
     - Add `life_stage` display
-    - Add `age_estimate` display (compact format)
+    - Add age display (calculated from `date_of_birth` on-demand, compact format like "3 years" or "4 months")
     - Update TypeScript interface to include new fields (including `group_id` and group name if available)
     - Handle missing/optional fields gracefully (don't show empty fields)
     - Maintain mobile-friendly responsive design
@@ -3068,7 +3134,7 @@ The detail page should show all fields organized in logical sections:
         - `life_stage`
         - `physical_characteristics`
         - `date_of_birth`
-        - `age_estimate`
+        - Age (calculated from `date_of_birth` on-demand using `calculateAgeFromDOB()` utility)
         - `medical_needs`
         - `behavioral_needs`
         - `bio`

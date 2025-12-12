@@ -60,9 +60,8 @@ export interface Animal {
 	sex_spay_neuter_status?: SexSpayNeuterStatus; // Combined sex and spay/neuter status
 	life_stage?: LifeStage;
 
-	// Dates & Age (all stored as ISO date strings)
-	date_of_birth?: string; // Rarely available
-	age_estimate?: number; // Estimated age when DOB unknown
+	// Dates & Age
+	date_of_birth?: string; // ISO date string. Age is calculated on-demand from DOB
 
 	// Placement
 	status: AnimalStatus;
