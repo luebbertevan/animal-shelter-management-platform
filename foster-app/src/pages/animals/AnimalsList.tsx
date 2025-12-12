@@ -7,6 +7,7 @@ import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import AnimalCard from "../../components/animals/AnimalCard";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
+import { supabase } from "../../lib/supabase";
 
 export default function AnimalsList() {
 	const { user, profile } = useProtectedAuth();
@@ -19,13 +20,71 @@ export default function AnimalsList() {
 		refetch,
 	} = useQuery({
 		queryKey: ["animals", user.id, profile.organization_id],
-		queryFn: () => {
-			return fetchAnimals(profile.organization_id, {
-				fields: ["id", "name", "status", "sex", "priority"],
+		queryFn: async () => {
+			const animals = await fetchAnimals(profile.organization_id, {
+				fields: [
+					"id",
+					"name",
+					"status",
+					"sex_spay_neuter_status",
+					"priority",
+					"photos",
+					"date_of_birth",
+					"group_id",
+				],
 				orderBy: "created_at",
 				orderDirection: "desc",
 				checkOffline: true,
 			});
+
+			// Fetch group names for animals that are in groups
+			// Get unique group IDs first to minimize queries
+			const groupIds = [
+				...new Set(
+					animals
+						.map((a) => a.group_id)
+						.filter((id): id is string => !!id)
+				),
+			];
+
+			// Fetch all groups at once
+			const groupsMap = new Map<string, string>();
+			if (groupIds.length > 0) {
+				try {
+					const { data: groups, error: groupsError } = await supabase
+						.from("animal_groups")
+						.select("id, name")
+						.in("id", groupIds);
+
+					if (groupsError) {
+						console.error("Error fetching groups:", groupsError);
+					} else {
+						if (groups) {
+							groups.forEach((group) => {
+								if (group.id && group.name) {
+									groupsMap.set(group.id, group.name);
+								}
+							});
+						}
+					}
+				} catch (error) {
+					console.error("Error fetching groups:", error);
+				}
+			}
+
+			// Map animals with their group names
+			const animalsWithGroups = animals.map((animal) => {
+				if (animal.group_id) {
+					const groupName = groupsMap.get(animal.group_id);
+					return {
+						...animal,
+						group_name: groupName,
+					};
+				}
+				return animal;
+			});
+
+			return animalsWithGroups;
 		},
 	});
 
@@ -33,7 +92,7 @@ export default function AnimalsList() {
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
-			<div className="max-w-5xl mx-auto">
+			<div className="w-full">
 				<div className="mb-6">
 					<div className="flex items-center justify-between mb-4">
 						<div>
@@ -124,7 +183,7 @@ export default function AnimalsList() {
 				)}
 
 				{animals.length > 0 && (
-					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+					<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 						{animals.map((animal) => (
 							<AnimalCard key={animal.id} animal={animal} />
 						))}
