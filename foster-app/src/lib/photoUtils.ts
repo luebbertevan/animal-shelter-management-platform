@@ -94,11 +94,105 @@ export async function uploadPhoto(
 				);
 			}
 			if (
-				error.message.includes("quota") ||
-				error.message.includes("storage")
+				error.message.includes("permission") ||
+				error.message.includes("policy")
 			) {
 				throw new Error(
-					"Storage quota exceeded. Please contact support."
+					"Permission denied. You don't have access to upload photos to this location."
+				);
+			}
+			if (
+				error.message.includes("network") ||
+				error.message.includes("fetch")
+			) {
+				throw new Error(
+					"Network error. Please check your connection and try again."
+				);
+			}
+
+			// Generic error
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to upload photo. Please try again."
+				)
+			);
+		}
+
+		if (!data) {
+			throw new Error("Upload succeeded but no data returned");
+		}
+
+		// Get public URL for the uploaded file
+		const {
+			data: { publicUrl },
+		} = supabase.storage.from("photos").getPublicUrl(storagePath);
+
+		if (!publicUrl) {
+			throw new Error("Failed to get public URL for uploaded photo");
+		}
+
+		return publicUrl;
+	} catch (error) {
+		// Re-throw validation errors as-is (from validateFile function)
+		if (
+			error instanceof Error &&
+			(error.message.includes("exceeds") ||
+				error.message.includes("not allowed"))
+		) {
+			throw error;
+		}
+
+		// Re-throw other Error instances as-is
+		if (error instanceof Error) {
+			throw error;
+		}
+
+		// Unknown error type - wrap in Error
+		throw new Error(
+			"An unexpected error occurred during photo upload. Please try again."
+		);
+	}
+}
+
+/**
+ * Uploads a photo for an animal to Supabase Storage
+ * @param file - The file to upload
+ * @param organizationId - The organization ID (UUID string)
+ * @param animalId - The animal ID (UUID string)
+ * @returns Promise resolving to the public URL of the uploaded photo
+ * @throws Error if upload fails or file is invalid
+ */
+export async function uploadAnimalPhoto(
+	file: File,
+	organizationId: string,
+	animalId: string
+): Promise<string> {
+	// Validate file before attempting upload
+	validateFile(file);
+
+	// Generate unique filename with timestamp
+	const timestamp = Date.now();
+	const uniqueFilename = generateUniqueFilename(file.name);
+	const filenameWithTimestamp = `${timestamp}_${uniqueFilename}`;
+
+	// Construct storage path: {organization_id}/animals/{animal_id}/{timestamp}_{uuid}_{filename}
+	const storagePath = `${organizationId}/animals/${animalId}/${filenameWithTimestamp}`;
+
+	try {
+		// Upload file to Supabase Storage
+		const { data, error } = await supabase.storage
+			.from("photos")
+			.upload(storagePath, file, {
+				cacheControl: "3600", // Cache for 1 hour
+				upsert: false, // Don't overwrite existing files
+			});
+
+		if (error) {
+			// Handle specific error types
+			if (error.message.includes("File size exceeds")) {
+				throw new Error(
+					"File size exceeds the maximum allowed size of 8MB"
 				);
 			}
 			if (

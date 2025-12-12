@@ -25,6 +25,8 @@ import {
 	calculateLifeStageFromAge,
 	type AgeUnit,
 } from "../../lib/ageUtils";
+import { uploadAnimalPhoto } from "../../lib/photoUtils";
+import PhotoUpload from "../../components/animals/PhotoUpload";
 import type { AnimalStatus, SexSpayNeuterStatus, LifeStage } from "../../types";
 
 export default function NewAnimal() {
@@ -53,6 +55,11 @@ export default function NewAnimal() {
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
+	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
+	const [uploadingPhotos, setUploadingPhotos] = useState(false);
+	const [photoUploadError, setPhotoUploadError] = useState<string | null>(
+		null
+	);
 
 	// Auto-update display_placement_request when status changes
 	useEffect(() => {
@@ -521,6 +528,105 @@ export default function NewAnimal() {
 				// No error but no data returned (unexpected)
 				setSubmitError("Animal was not created. Please try again.");
 			} else {
+				// Animal created successfully - now upload photos if any
+				const animalId = insertedData.id;
+				const photoMetadata: Array<{
+					url: string;
+					uploaded_by: string;
+				}> = [];
+
+				if (selectedPhotos.length > 0) {
+					setUploadingPhotos(true);
+					setPhotoUploadError(null);
+
+					try {
+						// Upload all photos in parallel
+						const uploadPromises = selectedPhotos.map(
+							async (
+								file
+							): Promise<{
+								success: boolean;
+								url?: string;
+								error?: unknown;
+							}> => {
+								try {
+									const url = await uploadAnimalPhoto(
+										file,
+										profile.organization_id,
+										animalId
+									);
+									return { success: true, url };
+								} catch (err) {
+									return { success: false, error: err };
+								}
+							}
+						);
+
+						const uploadResults = await Promise.all(uploadPromises);
+
+						// Separate successful and failed uploads
+						const successfulUploads: string[] = [];
+						const failedUploads: number = uploadResults.filter(
+							(result) => !result.success
+						).length;
+
+						uploadResults.forEach((result) => {
+							if (result.success && result.url) {
+								successfulUploads.push(result.url);
+								photoMetadata.push({
+									url: result.url,
+									uploaded_by: user.id,
+								});
+							}
+						});
+
+						setUploadingPhotos(false);
+
+						// Update animal with photo metadata (even if some failed)
+						if (photoMetadata.length > 0) {
+							const { error: updateError } = await supabase
+								.from("animals")
+								.update({ photos: photoMetadata })
+								.eq("id", animalId);
+
+							if (updateError) {
+								console.error(
+									"Error updating animal with photos:",
+									updateError
+								);
+								// Don't fail the whole operation - photos are uploaded even if metadata update fails
+							}
+						}
+
+						// Show appropriate messages based on upload results
+						if (failedUploads === selectedPhotos.length) {
+							// All photos failed
+							setPhotoUploadError(
+								`Animal created successfully, but all ${failedUploads} photo${
+									failedUploads !== 1 ? "s" : ""
+								} failed to upload. You can add photos later via the edit form.`
+							);
+						} else if (failedUploads > 0) {
+							// Some photos failed
+							setPhotoUploadError(
+								`Animal created successfully. ${failedUploads} photo${
+									failedUploads !== 1 ? "s" : ""
+								} failed to upload, but ${
+									successfulUploads.length
+								} photo${
+									successfulUploads.length !== 1 ? "s" : ""
+								} uploaded successfully.`
+							);
+						}
+					} catch (err) {
+						console.error("Error uploading photos:", err);
+						setUploadingPhotos(false);
+						setPhotoUploadError(
+							"Animal created successfully, but photo upload failed. "
+						);
+					}
+				}
+
 				// Success - data exists and no error
 				setSuccessMessage("Animal created successfully!");
 
@@ -542,6 +648,7 @@ export default function NewAnimal() {
 			);
 		} finally {
 			setLoading(false);
+			setUploadingPhotos(false);
 		}
 	};
 
@@ -565,6 +672,19 @@ export default function NewAnimal() {
 							placeholder="Enter animal name (optional)"
 							disabled={loading}
 						/>
+
+						<PhotoUpload
+							maxPhotos={10}
+							onPhotosChange={setSelectedPhotos}
+							disabled={loading || uploadingPhotos}
+							error={photoUploadError}
+						/>
+
+						{uploadingPhotos && (
+							<div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-600 text-sm flex items-center gap-2">
+								<span>Uploading photos...</span>
+							</div>
+						)}
 
 						{/* Status and Display Placement Request grouped together */}
 						<div className="space-y-4">
@@ -777,8 +897,15 @@ export default function NewAnimal() {
 						)}
 
 						<div className="flex gap-4">
-							<Button type="submit" disabled={loading}>
-								{loading ? "Creating..." : "Create Animal"}
+							<Button
+								type="submit"
+								disabled={loading || uploadingPhotos}
+							>
+								{uploadingPhotos
+									? "Uploading photos..."
+									: loading
+									? "Creating..."
+									: "Create Animal"}
 							</Button>
 						</div>
 					</form>

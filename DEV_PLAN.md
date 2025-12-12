@@ -2766,30 +2766,96 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Goal:** Add photo upload functionality to animal creation form for coordinators.
 
-**Note:** This is a complex feature that requires storage setup. It's implemented as a separate milestone before editing to keep the creation form manageable. If Photo Uploads for Animals and Groups phase components don't exist yet, create minimal photo upload functionality for this milestone. Components can be refactored later when Photo Uploads phase is complete.
+**Design Decisions:**
+
+1. **Photo upload position in form:**
+
+    - Place photo upload section **immediately after the Name field** (commonly used field, early in form)
+
+2. **Component reusability:**
+
+    - Create a reusable `PhotoUpload` component that can be used in both creation and edit forms
+    - Component should accept props for:
+        - `maxPhotos` (default: 10)
+        - `onPhotosChange` callback (receives array of File objects)
+        - `existingPhotos` (for edit form - array of photo URLs/metadata)
+        - `onRemovePhoto` (for edit form - to remove existing photos)
+        - `disabled` state
+    - This allows reuse in EditAnimal form later while keeping the component flexible
+
+3. **Upload timing (following messaging precedent):**
+
+    - **Upload photos on form submission** (not on selection)
+    - Photos are selected and stored in component state with preview thumbnails
+    - Upload happens when user clicks "Create Animal" button
+    - This matches the messaging photo upload UX pattern
+
+4. **Failed upload handling:**
+
+    - **Failed uploads should NOT block animal creation**
+    - If all photos fail: Create animal without photos, show error message
+    - If some photos fail: Create animal with successful photos, show error for failed ones
+    - This ensures animal creation isn't blocked by network/storage issues
+    - User can always add photos later via edit form
+
+5. **Photo upload UX (following messaging precedent):**
+
+    - Show preview thumbnails immediately after selection (using `URL.createObjectURL`)
+    - Display file size on each thumbnail
+    - Allow removing photos from selection before upload (X button on thumbnail)
+    - Show "Uploading photos..." indicator during upload
+    - Validate files on selection (size, type) - show errors immediately
+    - Max 10 photos, 8MB per photo
+    - Allowed types: jpeg, jpg, png, webp
+
+6. **Storage path structure:**
+    - Use existing `uploadPhoto()` utility but create animal-specific wrapper
+    - Path: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}`
+    - Note: `animal_id` is only available after animal creation, so:
+        - Store selected files in state during form
+        - After animal is created, upload photos with the new `animal_id`
+        - If upload fails, animal still exists (can add photos via edit later)
 
 **Tasks:**
 
 1. **Reuse photo upload infrastructure** (from Photo Sharing in Messages phase):
 
     - Use existing `photos` storage bucket (unified bucket for all photos)
-    - Use existing `uploadPhoto()` utility function or create animal-specific version
+    - Create animal-specific wrapper around `uploadPhoto()` utility (from `photoUtils.ts`)
+    - New function: `uploadAnimalPhoto(file, organizationId, animalId)`
     - Path structure: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}`
+    - Reuse existing validation (file size, type) from `photoUtils.ts`
     - Configure file size limits: **max 8MB per photo**
     - Configure allowed file types (jpg, jpeg, png, webp)
 
-2. **Add photo upload UI to NewAnimal form**:
+2. **Create reusable PhotoUpload component**:
 
-    - Add photo selection/upload section in form
-    - Use reusable `PhotoUpload` component (from Photo Uploads for Animals and Groups phase) if available
-    - **If component doesn't exist yet**: Create minimal photo upload UI for this milestone (can be refactored later)
-    - Allow selecting multiple photos (max 10 photos per animal)
-    - Show preview thumbnails of selected photos
-    - Allow removing photos from selection before upload
+    - Create `src/components/animals/PhotoUpload.tsx` (reusable for creation and edit)
+    - Component props:
+        - `maxPhotos` (default: 10)
+        - `onPhotosChange` callback (receives array of File objects)
+        - `existingPhotos` (optional, for edit form - array of `{url, uploaded_by}` objects)
+        - `onRemovePhoto` (optional, for edit form - callback with photo URL/index)
+        - `disabled` state
+    - Features:
+        - File input with multiple selection
+        - Immediate preview thumbnails (using `URL.createObjectURL`)
+        - Show file size on each thumbnail
+        - Remove button (X) on each thumbnail
+        - Validation on selection (size, type) with error messages
+        - Max photos limit enforcement
+        - Clean up object URLs on unmount
+
+3. **Add photo upload UI to NewAnimal form**:
+
+    - Place photo upload section **immediately after the Name field**
+    - Use `PhotoUpload` component
+    - Store selected photos in form state (array of File objects)
+    - Display preview thumbnails in form
     - Show upload progress during creation
     - Handle upload errors gracefully
 
-3. **Store photos with metadata**:
+4. **Store photos with metadata**:
 
     - When animal is created, upload photos to Supabase Storage
     - Store photo metadata in `photos` JSONB column:
@@ -2799,13 +2865,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Keep it simple - mirror messaging approach but add minimal metadata for permissions
     - Handle case where photo uploads fail (don't fail entire animal creation, but show error)
 
-4. **Photo upload flow**:
-    - User selects photos in form
-    - Photos are uploaded when form is submitted (along with animal creation)
+5. **Photo upload flow**:
+    - User selects photos in form (photos stored in state with previews)
+    - On form submission:
+        1. Create animal first (get `animal_id`)
+        2. Upload photos using the new `animal_id` in storage path
+        3. Update animal record with photo metadata
     - Show "Uploading photos..." indicator during upload
-    - If all uploads succeed: Create animal with photos
-    - If some uploads fail: Create animal with successful photos, show error for failed ones
-    - If all uploads fail: Still create animal, show error message
+    - **Failed uploads do NOT block animal creation:**
+        - If all uploads succeed: Animal created with all photos
+        - If some uploads fail: Animal created with successful photos, show error for failed ones
+        - If all uploads fail: Animal still created (without photos), show error message
+    - User can add photos later via edit form if upload fails
 
 **Testing:**
 
@@ -2851,7 +2922,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 2. **Photo management in edit form**:
 
-    - Reuse `PhotoUpload` and `PhotoGallery` components (from Photo Uploads for Animals and Groups phase)
+    - Use or create `PhotoUpload` and `PhotoGallery` components for photo management
     - Display existing photos with thumbnails
     - Allow adding new photos (upload to storage, add to photos array)
     - Allow deleting photos (remove from array, optionally delete from storage)

@@ -533,3 +533,20 @@ and videos
 when will weeks roll to months
 life stage roll over
 we need clarification on status, and display
+
+
+bug in the primary breed adnn  physical characteristics form. can't enter
+
+future feature might be favoriting a photo it apear first (photo for the preview)
+
+im realising that we should actually be tracking uploaded_at timestamp. it is helpful to coordinators to know when the photo was uploaded to know if the picture is old. 
+we don't really need to track that for messages but we can if it is easier to standerdize. 
+also i can delete all current data so don't worry about updating current data
+
+
+
+also i am realizing that fosters should only have permission to add/remove their own photos.  they are kinda different. we need to make some design decisions about this later add a note about this to the dev plan section about fosters editing adoption photos. we don't really need to worry about this now becuase the edit animal page wil only be coordinator facing the foster page will be different. the important question is does the org want foster added photos to be in the same place as normal animal photos or seperate. 
+option one: in the same place. pros, simplier. can be displayed with author and timestamp for clarity. foster photos can we used for thngs like animal picture previews (useful if there are origionally no photos of the animals or to display the most recent ones)
+cons: photos specifically for adoptions are mixed into the same place. older photos and new photos are mixed. fosters can't edit coordinators photos which might be confusing for them. foster photos can't checked by coordinators in case they upload something undesirable 
+
+option two seperate them which might be the simplest option and has the opisite pros and cons.
