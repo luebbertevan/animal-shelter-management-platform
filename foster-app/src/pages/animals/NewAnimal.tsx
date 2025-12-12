@@ -27,7 +27,12 @@ import {
 } from "../../lib/ageUtils";
 import { uploadAnimalPhoto } from "../../lib/photoUtils";
 import PhotoUpload from "../../components/animals/PhotoUpload";
-import type { AnimalStatus, SexSpayNeuterStatus, LifeStage } from "../../types";
+import type {
+	AnimalStatus,
+	SexSpayNeuterStatus,
+	LifeStage,
+	PhotoMetadata,
+} from "../../types";
 
 export default function NewAnimal() {
 	const navigate = useNavigate();
@@ -530,10 +535,7 @@ export default function NewAnimal() {
 			} else {
 				// Animal created successfully - now upload photos if any
 				const animalId = insertedData.id;
-				const photoMetadata: Array<{
-					url: string;
-					uploaded_by: string;
-				}> = [];
+				const photoMetadata: PhotoMetadata[] = [];
 
 				if (selectedPhotos.length > 0) {
 					setUploadingPhotos(true);
@@ -575,6 +577,7 @@ export default function NewAnimal() {
 								successfulUploads.push(result.url);
 								photoMetadata.push({
 									url: result.url,
+									uploaded_at: new Date().toISOString(),
 									uploaded_by: user.id,
 								});
 							}

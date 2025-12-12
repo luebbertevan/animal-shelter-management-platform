@@ -35,9 +35,10 @@ export type AnimalTag =
 	| "special_needs"
 	| string; // Allow custom tags
 
-// Photo metadata for animals (minimal metadata for permission checks)
+// Photo metadata for animals (includes timestamp for tracking when photos were added)
 export interface PhotoMetadata {
 	url: string; // Photo URL (required)
+	uploaded_at: string; // ISO date string (required) - when photo was uploaded
 	uploaded_by?: string; // User/profile ID (optional, needed for permission checks - fosters can only delete their own photos)
 }
 
@@ -82,8 +83,8 @@ export interface Animal {
 	// Relationships
 	group_id?: string; // If part of a group
 
-	// Photos (array of photo objects with minimal metadata)
-	photos?: PhotoMetadata[]; // Array of photo objects with minimal metadata
+	// Photos (array of photo objects with metadata including timestamp)
+	photos?: PhotoMetadata[]; // Array of photo objects with url, uploaded_at, and uploaded_by
 
 	// Notes & Metadata
 	additional_notes?: string;

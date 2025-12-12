@@ -4780,3 +4780,60 @@ At the end of these milestones, you should have:
 **When to implement:** After MVP launch, when storage costs become a concern or abuse is detected.
 
 ---
+
+### Automatic Photo Cleanup on Record Deletion
+
+**Goal:** Automatically delete photos from storage when animals or messages are deleted, regardless of how the deletion happens (app, SQL, table editor).
+
+**Problem:** Currently, deleting records from the database doesn't remove associated photos from Supabase Storage, creating orphaned files that waste storage space and could pose privacy/security concerns.
+
+**Solution:** Database triggers + Edge Function approach
+
+-   Create PostgreSQL triggers that fire on DELETE for `animals` and `messages` tables
+-   Triggers call Supabase Edge Function via `pg_net` extension
+-   Edge Function deletes photos from storage using the deleted record's ID and organization_id
+-   Works for all deletion methods (app code, SQL queries, Supabase table editor)
+
+**Implementation Tasks:**
+
+1. **Create Supabase Edge Function:**
+
+    - Location: `supabase/functions/cleanup-photos/index.ts`
+    - Accepts: `{ animalId?, organizationId, conversationId? }`
+    - Lists files in storage path: `{organizationId}/animals/{animalId}/` or `{organizationId}/messages/{conversationId}/`
+    - Deletes all files in that path
+    - Returns success/error status
+
+2. **Enable pg_net extension:**
+
+    - Add to migration: `CREATE EXTENSION IF NOT EXISTS pg_net;`
+    - Allows PostgreSQL to make HTTP calls to Edge Functions
+
+3. **Create trigger functions:**
+
+    - `cleanup_animal_photos_on_delete()` - fires after animal deletion
+    - `cleanup_message_photos_on_delete()` - fires after message deletion (or conversation deletion)
+    - Functions extract `OLD.id` and `OLD.organization_id` from deleted row
+    - Call Edge Function asynchronously via `net.http_post()`
+
+4. **Create triggers:**
+
+    - `cleanup_animal_photos` trigger on `animals` table (AFTER DELETE)
+    - `cleanup_message_photos` trigger on `messages` table (AFTER DELETE)
+    - Optionally: trigger on `conversations` table to clean up all message photos when conversation is deleted
+
+5. **Error handling:**
+    - Edge Function failures shouldn't block record deletion
+    - Log errors for monitoring
+    - Consider retry logic for transient failures
+
+**Current Workaround:**
+
+-   Manual deletion: Delete photos from Supabase Storage dashboard when deleting records via table editor
+-   Application-level cleanup: Delete photos in app code before deleting records (covers most use cases but not direct database deletions)
+
+**When to implement:** When storage management becomes important (around same time as Photo Retention Policy), or when manual cleanup becomes too burdensome. This is a "nice to have" that prevents orphaned files but isn't critical for MVP.
+
+**Note:** Application-level cleanup (deleting photos before deleting records in app code) covers most use cases, but doesn't work for direct database deletions via SQL or table editor. This automatic approach ensures cleanup happens regardless of deletion method.
+
+---
