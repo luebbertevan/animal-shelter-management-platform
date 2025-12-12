@@ -2766,30 +2766,96 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Goal:** Add photo upload functionality to animal creation form for coordinators.
 
-**Note:** This is a complex feature that requires storage setup. It's implemented as a separate milestone before editing to keep the creation form manageable. If Photo Uploads for Animals and Groups phase components don't exist yet, create minimal photo upload functionality for this milestone. Components can be refactored later when Photo Uploads phase is complete.
+**Design Decisions:**
+
+1. **Photo upload position in form:**
+
+    - Place photo upload section **immediately after the Name field** (commonly used field, early in form)
+
+2. **Component reusability:**
+
+    - Create a reusable `PhotoUpload` component that can be used in both creation and edit forms
+    - Component should accept props for:
+        - `maxPhotos` (default: 10)
+        - `onPhotosChange` callback (receives array of File objects)
+        - `existingPhotos` (for edit form - array of photo URLs/metadata)
+        - `onRemovePhoto` (for edit form - to remove existing photos)
+        - `disabled` state
+    - This allows reuse in EditAnimal form later while keeping the component flexible
+
+3. **Upload timing (following messaging precedent):**
+
+    - **Upload photos on form submission** (not on selection)
+    - Photos are selected and stored in component state with preview thumbnails
+    - Upload happens when user clicks "Create Animal" button
+    - This matches the messaging photo upload UX pattern
+
+4. **Failed upload handling:**
+
+    - **Failed uploads should NOT block animal creation**
+    - If all photos fail: Create animal without photos, show error message
+    - If some photos fail: Create animal with successful photos, show error for failed ones
+    - This ensures animal creation isn't blocked by network/storage issues
+    - User can always add photos later via edit form
+
+5. **Photo upload UX (following messaging precedent):**
+
+    - Show preview thumbnails immediately after selection (using `URL.createObjectURL`)
+    - Display file size on each thumbnail
+    - Allow removing photos from selection before upload (X button on thumbnail)
+    - Show "Uploading photos..." indicator during upload
+    - Validate files on selection (size, type) - show errors immediately
+    - Max 10 photos, 8MB per photo
+    - Allowed types: jpeg, jpg, png, webp
+
+6. **Storage path structure:**
+    - Use existing `uploadPhoto()` utility but create animal-specific wrapper
+    - Path: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}`
+    - Note: `animal_id` is only available after animal creation, so:
+        - Store selected files in state during form
+        - After animal is created, upload photos with the new `animal_id`
+        - If upload fails, animal still exists (can add photos via edit later)
 
 **Tasks:**
 
 1. **Reuse photo upload infrastructure** (from Photo Sharing in Messages phase):
 
     - Use existing `photos` storage bucket (unified bucket for all photos)
-    - Use existing `uploadPhoto()` utility function or create animal-specific version
+    - Create animal-specific wrapper around `uploadPhoto()` utility (from `photoUtils.ts`)
+    - New function: `uploadAnimalPhoto(file, organizationId, animalId)`
     - Path structure: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}`
+    - Reuse existing validation (file size, type) from `photoUtils.ts`
     - Configure file size limits: **max 8MB per photo**
     - Configure allowed file types (jpg, jpeg, png, webp)
 
-2. **Add photo upload UI to NewAnimal form**:
+2. **Create reusable PhotoUpload component**:
 
-    - Add photo selection/upload section in form
-    - Use reusable `PhotoUpload` component (from Photo Uploads for Animals and Groups phase) if available
-    - **If component doesn't exist yet**: Create minimal photo upload UI for this milestone (can be refactored later)
-    - Allow selecting multiple photos (max 10 photos per animal)
-    - Show preview thumbnails of selected photos
-    - Allow removing photos from selection before upload
+    - Create `src/components/animals/PhotoUpload.tsx` (reusable for creation and edit)
+    - Component props:
+        - `maxPhotos` (default: 10)
+        - `onPhotosChange` callback (receives array of File objects)
+        - `existingPhotos` (optional, for edit form - array of `{url, uploaded_by}` objects)
+        - `onRemovePhoto` (optional, for edit form - callback with photo URL/index)
+        - `disabled` state
+    - Features:
+        - File input with multiple selection
+        - Immediate preview thumbnails (using `URL.createObjectURL`)
+        - Show file size on each thumbnail
+        - Remove button (X) on each thumbnail
+        - Validation on selection (size, type) with error messages
+        - Max photos limit enforcement
+        - Clean up object URLs on unmount
+
+3. **Add photo upload UI to NewAnimal form**:
+
+    - Place photo upload section **immediately after the Name field**
+    - Use `PhotoUpload` component
+    - Store selected photos in form state (array of File objects)
+    - Display preview thumbnails in form
     - Show upload progress during creation
     - Handle upload errors gracefully
 
-3. **Store photos with metadata**:
+4. **Store photos with metadata**:
 
     - When animal is created, upload photos to Supabase Storage
     - Store photo metadata in `photos` JSONB column:
@@ -2799,13 +2865,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
         - Keep it simple - mirror messaging approach but add minimal metadata for permissions
     - Handle case where photo uploads fail (don't fail entire animal creation, but show error)
 
-4. **Photo upload flow**:
-    - User selects photos in form
-    - Photos are uploaded when form is submitted (along with animal creation)
+5. **Photo upload flow**:
+    - User selects photos in form (photos stored in state with previews)
+    - On form submission:
+        1. Create animal first (get `animal_id`)
+        2. Upload photos using the new `animal_id` in storage path
+        3. Update animal record with photo metadata
     - Show "Uploading photos..." indicator during upload
-    - If all uploads succeed: Create animal with photos
-    - If some uploads fail: Create animal with successful photos, show error for failed ones
-    - If all uploads fail: Still create animal, show error message
+    - **Failed uploads do NOT block animal creation:**
+        - If all uploads succeed: Animal created with all photos
+        - If some uploads fail: Animal created with successful photos, show error for failed ones
+        - If all uploads fail: Animal still created (without photos), show error message
+    - User can add photos later via edit form if upload fails
 
 **Testing:**
 
@@ -2851,7 +2922,7 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 2. **Photo management in edit form**:
 
-    - Reuse `PhotoUpload` and `PhotoGallery` components (from Photo Uploads for Animals and Groups phase)
+    - Use or create `PhotoUpload` and `PhotoGallery` components for photo management
     - Display existing photos with thumbnails
     - Allow adding new photos (upload to storage, add to photos array)
     - Allow deleting photos (remove from array, optionally delete from storage)
@@ -2960,6 +3031,168 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Goal:** Allow fosters to edit photos and bio for animals assigned to them. This is the ONLY field that fosters can edit on animals.
 
 **Note:** This is a dedicated milestone because photos and bio are the only fields fosters can edit. This provides a clear, focused editing experience for fosters without giving them access to other animal data. Requires photo upload functionality and editing infrastructure to exist.
+
+**Design Decisions Needed: Foster Photo UI/UX and Storage**
+
+**Problem:** Fosters should only have permission to add/remove their own photos. This raises several UI/UX and storage design questions that need to be decided before implementation.
+
+**Decision 1: How should foster photos be displayed in the UI?**
+
+**Option 1A: Unified gallery with visual indicators**
+
+-   All photos (coordinator + foster) displayed together in one gallery
+-   Visual indicators show photo source:
+    -   Badge/label showing "Uploaded by [Name]" or "Coordinator" vs "Foster"
+    -   Different border color or icon for foster photos
+    -   Timestamp visible for each photo
+-   **UI Behavior:**
+    -   Fosters see all photos but can only delete their own (delete button only on their photos)
+    -   Coordinators see all photos and can delete any
+    -   Photos sorted chronologically (newest first or oldest first)
+-   **Pros:**
+    -   Simple, unified view - all photos in one place
+    -   Foster photos can be used for animal previews/thumbnails
+    -   Easy to see photo history chronologically
+    -   Clear visual distinction shows who uploaded what
+-   **Cons:**
+    -   Fosters see coordinator photos they can't interact with (might be confusing)
+    -   No way to filter by source (coordinator vs foster)
+    -   Mixed purposes (adoption photos + foster updates) in same view
+
+**Option 1B: Separate sections/tabs**
+
+-   Two distinct sections: "Coordinator Photos" and "Foster Photos"
+-   Or tabs: "All Photos" | "Coordinator Photos" | "Foster Photos"
+-   **UI Behavior:**
+    -   Fosters only see "Foster Photos" section (can add/delete their own)
+    -   Coordinators see both sections (can manage both)
+    -   Each section has its own upload/delete controls
+-   **Pros:**
+    -   Clear separation of photo types
+    -   Fosters only see what they can interact with
+    -   Coordinators can easily filter/review foster photos separately
+    -   Less confusion about permissions
+-   **Cons:**
+    -   More complex UI (multiple sections to manage)
+    -   Foster photos might not be easily used for animal previews
+    -   Requires separate upload components or filtering logic
+
+**Option 1C: "Animal Photos" vs "Adoption Photos" sections**
+
+-   Two distinct sections with different purposes:
+    -   **"Animal Photos"** - Official animal documentation photos (coordinator-only editing)
+    -   **"Adoption Photos"** - Photos for adoption listings (both fosters and coordinators can edit)
+-   **UI Behavior:**
+    -   "Animal Photos" section: Only coordinators can add/delete (used for previews, documentation)
+    -   "Adoption Photos" section: Both fosters and coordinators can add/delete (used for adoption listings)
+    -   Fosters see both sections but can only edit "Adoption Photos"
+    -   Coordinators can manage both sections
+-   **Pros:**
+    -   Clear purpose separation (documentation vs adoption marketing)
+    -   Fosters can contribute to adoption photos without affecting official animal photos
+    -   Animal photos remain coordinator-controlled for consistency
+    -   Adoption photos can be curated separately
+-   **Cons:**
+    -   Foster photos are NOT used for animal previews/thumbnails (only "Animal Photos" section)
+    -   Foster photos don't benefit from preview/thumbnail behavior
+    -   More complex UI with two distinct sections
+    -   May be confusing which section to use for what purpose
+    -   Requires separate storage or clear tagging to distinguish sections
+
+**Decision 2: Should foster photos require coordinator approval?**
+
+**Option 2A: Immediate visibility (no approval)**
+
+-   Foster photos appear immediately after upload
+-   **UI Behavior:**
+    -   Photo shows up in gallery right away
+    -   Can be used for previews immediately
+-   **Pros:**
+    -   Faster workflow - fosters see their photos immediately
+    -   Simpler implementation
+-   **Cons:**
+    -   No quality control - undesirable photos visible immediately
+    -   Coordinators can't review before photos are public
+
+**Option 2B: Approval required (coordinator review)**
+
+-   Foster photos marked as "pending" until coordinator approves
+-   **UI Behavior:**
+    -   Fosters see their photos in "Pending" section
+    -   Coordinators see pending photos in review queue
+    -   Approved photos move to main gallery
+-   **Pros:**
+    -   Quality control - coordinators can review before photos are visible
+    -   Prevents inappropriate photos from being displayed
+-   **Cons:**
+    -   More complex workflow
+    -   Delayed visibility for fosters
+    -   Requires approval UI for coordinators
+
+**Decision 3: Storage structure (affects UI implementation)**
+
+**Option 3A: Same `photos` array (unified storage)**
+
+-   All photos in single JSONB array: `photos: PhotoMetadata[]`
+-   Use `uploaded_by` field to distinguish coordinator vs foster photos
+-   **UI Impact:**
+    -   Filter by `uploaded_by` to show coordinator vs foster photos
+    -   Single gallery component with filtering
+    -   Can easily show all photos together or filtered
+-   **Pros:**
+    -   Simpler database schema
+    -   Flexible UI - can show unified or filtered views
+    -   Easy to use foster photos for previews
+-   **Cons:**
+    -   Requires filtering logic in UI
+    -   All photos mixed in one array
+
+**Option 3B: Separate `foster_photos` array**
+
+-   Two arrays: `photos: PhotoMetadata[]` (coordinator) and `foster_photos: PhotoMetadata[]` (foster)
+-   **UI Impact:**
+    -   Two separate gallery components or sections
+    -   Clear separation in UI matches data structure
+    -   Easier to implement approval workflow (separate pending array)
+-   **Pros:**
+    -   Clear data separation
+    -   Easier to implement approval workflow
+    -   Fosters only interact with their section
+-   **Cons:**
+    -   More complex schema
+    -   Harder to show unified chronological view
+    -   May need separate components
+
+**Recommended Approach (to be confirmed with organization):**
+
+1. **UI Display:** Option 1A (unified gallery with visual indicators) - simpler, all photos visible, clear who uploaded what
+2. **Approval:** Option 2A (immediate visibility) - faster workflow, coordinators can delete if needed
+3. **Storage:** Option 3A (same array) - simpler, flexible, can filter in UI if needed
+
+**Alternative Approaches:**
+
+**If approval needed:**
+
+1. **UI Display:** Option 1B (separate sections) - clearer separation
+2. **Approval:** Option 2B (approval required) - quality control
+3. **Storage:** Option 3B (separate arrays) - matches UI separation, easier approval workflow
+
+**If purpose-based separation needed (documentation vs adoption):**
+
+1. **UI Display:** Option 1C ("Animal Photos" vs "Adoption Photos") - clear purpose separation
+2. **Approval:** Option 2A (immediate visibility) or 2B (approval) - depends on organization preference
+3. **Storage:** Option 3B (separate arrays) - `photos` for Animal Photos, `adoption_photos` for Adoption Photos
+4. **Note:** This approach means foster photos won't be used for animal previews/thumbnails (only Animal Photos section)
+
+**Decision Required:** Organization needs to decide:
+
+-   Do foster photos need coordinator approval before being visible?
+-   Should fosters see coordinator photos (even if read-only)?
+-   Should photos be displayed together, in separate sections by uploader, or by purpose (Animal Photos vs Adoption Photos)?
+-   How important is using foster photos for animal previews/thumbnails? (If important, unified gallery or separate by uploader works; if not, purpose-based separation is viable)
+-   What is the primary purpose of foster-uploaded photos? (Adoption listings, updates, or general documentation?)
+
+**Note:** These decisions affect UI components, data structure, and user workflows. Should be made before starting the Foster Photo & Bio Editing milestone.
 
 **Tasks:**
 
@@ -4707,5 +4940,62 @@ At the end of these milestones, you should have:
 -   **Note:** Animal/group photos are kept forever (documentation), only message photos have retention limits
 
 **When to implement:** After MVP launch, when storage costs become a concern or abuse is detected.
+
+---
+
+### Automatic Photo Cleanup on Record Deletion
+
+**Goal:** Automatically delete photos from storage when animals or messages are deleted, regardless of how the deletion happens (app, SQL, table editor).
+
+**Problem:** Currently, deleting records from the database doesn't remove associated photos from Supabase Storage, creating orphaned files that waste storage space and could pose privacy/security concerns.
+
+**Solution:** Database triggers + Edge Function approach
+
+-   Create PostgreSQL triggers that fire on DELETE for `animals` and `messages` tables
+-   Triggers call Supabase Edge Function via `pg_net` extension
+-   Edge Function deletes photos from storage using the deleted record's ID and organization_id
+-   Works for all deletion methods (app code, SQL queries, Supabase table editor)
+
+**Implementation Tasks:**
+
+1. **Create Supabase Edge Function:**
+
+    - Location: `supabase/functions/cleanup-photos/index.ts`
+    - Accepts: `{ animalId?, organizationId, conversationId? }`
+    - Lists files in storage path: `{organizationId}/animals/{animalId}/` or `{organizationId}/messages/{conversationId}/`
+    - Deletes all files in that path
+    - Returns success/error status
+
+2. **Enable pg_net extension:**
+
+    - Add to migration: `CREATE EXTENSION IF NOT EXISTS pg_net;`
+    - Allows PostgreSQL to make HTTP calls to Edge Functions
+
+3. **Create trigger functions:**
+
+    - `cleanup_animal_photos_on_delete()` - fires after animal deletion
+    - `cleanup_message_photos_on_delete()` - fires after message deletion (or conversation deletion)
+    - Functions extract `OLD.id` and `OLD.organization_id` from deleted row
+    - Call Edge Function asynchronously via `net.http_post()`
+
+4. **Create triggers:**
+
+    - `cleanup_animal_photos` trigger on `animals` table (AFTER DELETE)
+    - `cleanup_message_photos` trigger on `messages` table (AFTER DELETE)
+    - Optionally: trigger on `conversations` table to clean up all message photos when conversation is deleted
+
+5. **Error handling:**
+    - Edge Function failures shouldn't block record deletion
+    - Log errors for monitoring
+    - Consider retry logic for transient failures
+
+**Current Workaround:**
+
+-   Manual deletion: Delete photos from Supabase Storage dashboard when deleting records via table editor
+-   Application-level cleanup: Delete photos in app code before deleting records (covers most use cases but not direct database deletions)
+
+**When to implement:** When storage management becomes important (around same time as Photo Retention Policy), or when manual cleanup becomes too burdensome. This is a "nice to have" that prevents orphaned files but isn't critical for MVP.
+
+**Note:** Application-level cleanup (deleting photos before deleting records in app code) covers most use cases, but doesn't work for direct database deletions via SQL or table editor. This automatic approach ensures cleanup happens regardless of deletion method.
 
 ---

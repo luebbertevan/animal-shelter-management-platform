@@ -533,3 +533,10 @@ and videos
 when will weeks roll to months
 life stage roll over
 we need clarification on status, and display
+
+
+bug in the primary breed adnn  physical characteristics form. can't enter
+
+future feature might be favoriting a photo it apear first (photo for the preview)
+
+
