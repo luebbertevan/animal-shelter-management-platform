@@ -21,6 +21,8 @@ import {
 	rolloverAge,
 	calculateAgeFromDOB,
 	calculateDOBFromAge,
+	calculateLifeStageFromDOB,
+	calculateLifeStageFromAge,
 	type AgeUnit,
 } from "../../lib/ageUtils";
 import type { AnimalStatus, SexSpayNeuterStatus, LifeStage } from "../../types";
@@ -135,6 +137,8 @@ export default function NewAnimal() {
 			setAgeValue("");
 			setAgeUnit(""); // Clear unit to reset to "Select unit"
 			setDobWasManuallyCleared(true);
+			// Clear life stage when DOB is cleared
+			setLifeStage("");
 			setErrors((prev) => {
 				const newErrors = { ...prev };
 				delete newErrors.dateOfBirth;
@@ -176,10 +180,16 @@ export default function NewAnimal() {
 		if (ageResult) {
 			setAgeValue(ageResult.value);
 			setAgeUnit(ageResult.unit);
+
+			// Auto-fill life stage whenever DOB changes
+			const calculatedLifeStage = calculateLifeStageFromDOB(dob);
+			setLifeStage(calculatedLifeStage);
 		} else {
 			// Invalid date - clear age fields
 			setAgeValue("");
 			setAgeUnit("");
+			// Clear life stage
+			setLifeStage("");
 		}
 	};
 
@@ -296,6 +306,13 @@ export default function NewAnimal() {
 				if (ageFromDOB) {
 					setAgeValue(ageFromDOB.value);
 					setAgeUnit(ageFromDOB.unit);
+
+					// Auto-fill life stage when DOB is set from age
+					const calculatedLifeStage = calculateLifeStageFromAge(
+						ageFromDOB.value,
+						ageFromDOB.unit
+					);
+					setLifeStage(calculatedLifeStage);
 					return; // Exit early since we've recalculated from DOB
 				}
 			}
@@ -362,6 +379,13 @@ export default function NewAnimal() {
 			if (ageFromDOB) {
 				setAgeValue(ageFromDOB.value);
 				setAgeUnit(ageFromDOB.unit);
+
+				// Auto-fill life stage when DOB is set from age unit change
+				const calculatedLifeStage = calculateLifeStageFromAge(
+					ageFromDOB.value,
+					ageFromDOB.unit
+				);
+				setLifeStage(calculatedLifeStage);
 				return; // Exit early since we've recalculated from DOB
 			}
 		}
@@ -576,16 +600,6 @@ export default function NewAnimal() {
 							disabled={loading}
 						/>
 
-						<Select
-							label="Life Stage"
-							value={lifeStage}
-							onChange={(e) =>
-								setLifeStage(e.target.value as LifeStage | "")
-							}
-							options={lifeStageOptions}
-							disabled={loading}
-						/>
-
 						{/* Date of Birth and Age Estimate */}
 						<div className="space-y-4">
 							<Input
@@ -663,6 +677,19 @@ export default function NewAnimal() {
 								)}
 							</div>
 						</div>
+
+						<Select
+							label="Life Stage"
+							value={lifeStage}
+							onChange={(e) => {
+								const newLifeStage = e.target.value as
+									| LifeStage
+									| "";
+								setLifeStage(newLifeStage);
+							}}
+							options={lifeStageOptions}
+							disabled={loading}
+						/>
 
 						<Combobox
 							label="Primary Breed"
