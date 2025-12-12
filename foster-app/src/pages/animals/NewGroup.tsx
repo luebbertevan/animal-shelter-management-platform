@@ -134,12 +134,33 @@ export default function NewGroup() {
 			} else if (!insertedData) {
 				setSubmitError("Group was not created. Please try again.");
 			} else {
-				setSuccessMessage("Group created successfully!");
+				// Update all selected animals to set their group_id
+				const { error: updateError } = await supabase
+					.from("animals")
+					.update({ group_id: insertedData.id })
+					.in("id", selectedAnimalIds)
+					.eq("organization_id", profile.organization_id);
 
-				// Redirect to group detail page after a brief delay
-				setTimeout(() => {
-					navigate(`/groups/${insertedData.id}`, { replace: true });
-				}, 1500);
+				if (updateError) {
+					console.error(
+						"Error updating animals with group_id:",
+						updateError
+					);
+					// Note: Group was created successfully, but animals weren't updated
+					// This is a partial success - we should still show success but warn user
+					setSubmitError(
+						"Group was created, but failed to update animals. Please manually assign animals to the group."
+					);
+				} else {
+					setSuccessMessage("Group created successfully!");
+
+					// Redirect to group detail page after a brief delay
+					setTimeout(() => {
+						navigate(`/groups/${insertedData.id}`, {
+							replace: true,
+						});
+					}, 1500);
+				}
 			}
 		} catch (err) {
 			console.error("Unexpected error:", err);
