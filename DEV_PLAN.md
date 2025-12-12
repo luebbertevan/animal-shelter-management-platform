@@ -2618,17 +2618,17 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 1. **Create shared age utility functions** (`src/lib/ageUtils.ts`):
 
     - Define unit constants once at the top (DRY principle): `DAYS_PER_WEEK = 7`, `DAYS_PER_MONTH = 30.44`, `DAYS_PER_YEAR = 365.25`
-    - `rolloverAge(value: number, unit: "weeks" | "months" | "years"): { value: number, unit: "weeks" | "months" | "years" }`
-        - Converts age to appropriate unit (e.g., 24 months → 2 years, 16 weeks → 4 months)
-        - Rollover rules: 16+ weeks → months, 365+ days → years (uses 365 threshold for cleaner rollover)
+    - `rolloverAge(value: number, unit: "days" | "weeks" | "months" | "years"): { value: number, unit: "days" | "weeks" | "months" | "years" }`
+        - Converts age to appropriate unit (e.g., 24 months → 2 years, 16 weeks → 4 months, 7 days → 1 week)
+        - Rollover rules: 7+ days → weeks, 16+ weeks → months, 365+ days → years (uses 365 threshold for cleaner rollover)
         - Returns integer values (rounded) for cleaner display
-    - `calculateAgeFromDOB(dob: string): { value: number, unit: "weeks" | "months" | "years" }`
+    - `calculateAgeFromDOB(dob: string): { value: number, unit: "days" | "weeks" | "months" | "years" }`
         - Calculates age from DOB to today using actual calendar date math via JavaScript Date methods
         - Uses Date.getFullYear(), Date.getMonth(), Date.getDate() for accurate calendar calculations
         - Handles leap years and varying month lengths automatically (no averaging)
-        - Determines appropriate unit: < 16 weeks → weeks, >= 4 months and < 1 year → months, >= 1 year → years
+        - Determines appropriate unit: < 7 days → days, >= 7 days and < 16 weeks → weeks, >= 16 weeks and < 1 year → months, >= 1 year → years
         - Returns integer values (rounded) for display
-    - `calculateDOBFromAge(value: number, unit: "weeks" | "months" | "years"): string`
+    - `calculateDOBFromAge(value: number, unit: "days" | "weeks" | "months" | "years"): string`
         - Calculates estimated DOB from age using day multipliers (for form input only)
         - Uses average multipliers since this is an estimate: weeks = 7 days, months = 30.44 days, years = 365.25 days
         - Returns ISO date string (YYYY-MM-DD format)
@@ -2643,7 +2643,8 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Add "Date of Birth" field (date picker, optional)
     - Add "Age Estimate" field (number input + unit dropdown, optional):
         - Number input: Integer value (e.g., 3, 24, 16)
-        - Unit dropdown: Options "weeks", "months", "years"
+        - Unit dropdown: Options "days", "weeks", "months", "years"
+        - Default unit: "days" (to handle very young animals)
         - Layout: Number input and dropdown on same row (side-by-side)
         - Both fields are required if age estimate is provided (must have both number and unit)
     - Form submission: Store only `date_of_birth` (calculate from age input if age was entered)
@@ -2652,9 +2653,9 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
     - When age field loses focus, use `rolloverAge()` utility function
     - Check if rollover is needed:
+        - 7 days or more → Convert to weeks (e.g., 7 days → 1 week)
         - 16 weeks or more → Convert to months (e.g., 16 weeks → 4 months)
-        - 12 months or more → Convert to years (e.g., 24 months → 2 years)
-        - 52 weeks or more → Convert to years (e.g., 104 weeks → 2 years)
+        - 365 days or more → Convert to years (e.g., 365 days → 1 year, 24 months → 2 years)
     - Apply rollover automatically when field loses focus (onBlur)
     - Update both number and unit fields when rollover occurs
     - Examples:

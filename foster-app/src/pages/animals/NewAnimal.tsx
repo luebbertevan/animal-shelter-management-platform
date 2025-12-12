@@ -17,6 +17,12 @@ import {
 	fetchBreedSuggestions,
 	fetchPhysicalCharacteristicsSuggestions,
 } from "../../lib/animalQueries";
+import {
+	rolloverAge,
+	calculateAgeFromDOB,
+	calculateDOBFromAge,
+	type AgeUnit,
+} from "../../lib/ageUtils";
 import type { AnimalStatus, SexSpayNeuterStatus, LifeStage } from "../../types";
 
 export default function NewAnimal() {
@@ -37,6 +43,10 @@ export default function NewAnimal() {
 	const [additionalNotes, setAdditionalNotes] = useState("");
 	const [bio, setBio] = useState("");
 	const [priority, setPriority] = useState(false);
+	const [dateOfBirth, setDateOfBirth] = useState("");
+	const [ageValue, setAgeValue] = useState<number | "">("");
+	const [ageUnit, setAgeUnit] = useState<AgeUnit | "">("");
+	const [dobWasManuallyCleared, setDobWasManuallyCleared] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
@@ -106,11 +116,286 @@ export default function NewAnimal() {
 		{ value: "unknown", label: "Unknown" },
 	];
 
+	// Get today's date in YYYY-MM-DD format for date input max attribute
+	// Normalize to midnight to prevent selecting today or future dates
+	const getTodayDateString = (): string => {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const year = today.getFullYear();
+		const month = String(today.getMonth() + 1).padStart(2, "0");
+		const day = String(today.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	};
+
+	// Handle DOB change - calculate age from DOB immediately
+	const handleDOBChange = (dob: string) => {
+		if (!dob) {
+			// DOB was manually cleared by user
+			setDateOfBirth("");
+			setAgeValue("");
+			setAgeUnit(""); // Clear unit to reset to "Select unit"
+			setDobWasManuallyCleared(true);
+			setErrors((prev) => {
+				const newErrors = { ...prev };
+				delete newErrors.dateOfBirth;
+				delete newErrors.ageValue;
+				return newErrors;
+			});
+			return;
+		}
+
+		setDateOfBirth(dob);
+		setDobWasManuallyCleared(false);
+
+		// Validate: prevent future dates (normalize to midnight for comparison)
+		const dobDate = new Date(dob);
+		const today = new Date();
+		dobDate.setHours(0, 0, 0, 0);
+		today.setHours(0, 0, 0, 0);
+		if (dobDate > today) {
+			setErrors((prev) => ({
+				...prev,
+				dateOfBirth: "Date of birth cannot be in the future",
+			}));
+			setDateOfBirth("");
+			setAgeValue("");
+			setAgeUnit(""); // Clear unit to reset to "Select unit"
+			return;
+		}
+
+		// Clear any previous DOB errors
+		setErrors((prev) => {
+			const newErrors = { ...prev };
+			delete newErrors.dateOfBirth;
+			delete newErrors.ageValue;
+			return newErrors;
+		});
+
+		// Calculate age from DOB immediately
+		const ageResult = calculateAgeFromDOB(dob);
+		if (ageResult) {
+			setAgeValue(ageResult.value);
+			setAgeUnit(ageResult.unit);
+		} else {
+			// Invalid date - clear age fields
+			setAgeValue("");
+			setAgeUnit("");
+		}
+	};
+
+	// Handle DOB field blur - only for validation
+	const handleDOBBlur = () => {
+		if (!dateOfBirth) {
+			return;
+		}
+
+		// Validate: prevent future dates (normalize to midnight for comparison)
+		const dobDate = new Date(dateOfBirth);
+		const today = new Date();
+		dobDate.setHours(0, 0, 0, 0);
+		today.setHours(0, 0, 0, 0);
+		if (dobDate > today) {
+			setErrors((prev) => ({
+				...prev,
+				dateOfBirth: "Date of birth cannot be in the future",
+			}));
+			setDateOfBirth("");
+			setAgeValue("");
+			setAgeUnit(""); // Clear unit to reset to "Select unit"
+			return;
+		}
+
+		// Clear any previous DOB errors
+		setErrors((prev) => {
+			const newErrors = { ...prev };
+			delete newErrors.dateOfBirth;
+			return newErrors;
+		});
+	};
+
+	// Handle age number change - just update value, rollover on blur
+	const handleAgeValueChange = (value: string) => {
+		// Parse the value immediately
+		if (value === "") {
+			setAgeValue("");
+		} else {
+			const cleaned = value.replace(/[^0-9]/g, "");
+			if (cleaned !== "") {
+				const num = parseInt(cleaned, 10);
+				if (!isNaN(num) && num >= 0) {
+					setAgeValue(num);
+				}
+			} else {
+				setAgeValue("");
+			}
+		}
+
+		// Clear age errors while typing
+		setErrors((prev) => {
+			const newErrors = { ...prev };
+			delete newErrors.ageValue;
+			return newErrors;
+		});
+	};
+
+	// Handle age number field blur - calculate DOB if needed, then apply rollover to display
+	const handleAgeValueBlur = () => {
+		// Don't do anything if no unit selected
+		if (!ageUnit) {
+			return;
+		}
+
+		if (ageValue === "" || ageValue <= 0) {
+			// Clear DOB if age is invalid (only if DOB wasn't manually entered)
+			if (!dobWasManuallyCleared) {
+				setDateOfBirth("");
+			}
+			setErrors((prev) => {
+				const newErrors = { ...prev };
+				delete newErrors.ageValue;
+				return newErrors;
+			});
+			return;
+		}
+
+		// Clear any previous age errors
+		setErrors((prev) => {
+			const newErrors = { ...prev };
+			delete newErrors.ageValue;
+			return newErrors;
+		});
+
+		// If user manually cleared DOB but has now entered age value (and unit is already selected),
+		// reset the flag to allow DOB calculation (user clearly wants to recalculate DOB)
+		// We know ageUnit exists because we return early if it doesn't
+		if (
+			dobWasManuallyCleared &&
+			typeof ageValue === "number" &&
+			ageValue > 0
+		) {
+			setDobWasManuallyCleared(false);
+		}
+
+		// Always recalculate DOB from the user's age input (unless DOB was manually cleared)
+		// When user changes age, we need to update DOB to match the new age
+		if (!dobWasManuallyCleared) {
+			const calculatedDOB = calculateDOBFromAge(ageValue, ageUnit);
+			if (calculatedDOB) {
+				setDateOfBirth(calculatedDOB);
+				setDobWasManuallyCleared(false);
+				// Clear any DOB errors since we calculated it
+				setErrors((prev) => {
+					const newErrors = { ...prev };
+					delete newErrors.dateOfBirth;
+					return newErrors;
+				});
+
+				// Recalculate age from DOB (the source of truth) instead of using rollover
+				// This ensures the displayed age matches the actual calendar age from DOB
+				const ageFromDOB = calculateAgeFromDOB(calculatedDOB);
+				if (ageFromDOB) {
+					setAgeValue(ageFromDOB.value);
+					setAgeUnit(ageFromDOB.unit);
+					return; // Exit early since we've recalculated from DOB
+				}
+			}
+		}
+
+		// Fallback: Apply rollover to display only (only if DOB couldn't be calculated or was manually cleared)
+		const rolledOver = rolloverAge(ageValue, ageUnit);
+		setAgeValue(rolledOver.value);
+		setAgeUnit(rolledOver.unit);
+	};
+
+	// Handle age unit change - calculate DOB from entered value, then apply rollover to display
+	const handleAgeUnitChange = (newUnit: AgeUnit | "") => {
+		// If unit is cleared, clear DOB
+		if (!newUnit) {
+			setAgeUnit("");
+			setDateOfBirth("");
+			setDobWasManuallyCleared(false);
+			return;
+		}
+
+		if (ageValue === "" || ageValue <= 0) {
+			setAgeUnit(newUnit);
+			return;
+		}
+
+		// If user manually cleared DOB but has now entered age value and selected unit,
+		// reset the flag to allow DOB calculation (user clearly wants to recalculate DOB)
+		if (dobWasManuallyCleared) {
+			setAgeUnit(newUnit);
+			// If user has entered an age value, reset flag and continue to calculate DOB
+			if (typeof ageValue === "number" && ageValue > 0) {
+				setDobWasManuallyCleared(false);
+				// Continue below to calculate DOB
+			} else {
+				// No age value yet, just update unit and return
+				setDobWasManuallyCleared(false);
+				return;
+			}
+		}
+
+		// Clear any previous age errors
+		setErrors((prev) => {
+			const newErrors = { ...prev };
+			delete newErrors.ageValue;
+			return newErrors;
+		});
+
+		// Calculate DOB from entered value (this is the source of truth)
+		const calculatedDOB = calculateDOBFromAge(ageValue, newUnit as AgeUnit);
+		if (calculatedDOB) {
+			setDateOfBirth(calculatedDOB);
+			setDobWasManuallyCleared(false);
+			// Clear any DOB errors since we calculated it
+			setErrors((prev) => {
+				const newErrors = { ...prev };
+				delete newErrors.dateOfBirth;
+				return newErrors;
+			});
+
+			// Recalculate age from DOB (the source of truth) instead of using rollover
+			// This ensures the displayed age matches the actual calendar age from DOB
+			const ageFromDOB = calculateAgeFromDOB(calculatedDOB);
+			if (ageFromDOB) {
+				setAgeValue(ageFromDOB.value);
+				setAgeUnit(ageFromDOB.unit);
+				return; // Exit early since we've recalculated from DOB
+			}
+		}
+	};
+
 	const validateForm = (): boolean => {
 		const newErrors: Record<string, string> = {};
 
-		// Status always has a default value, so no validation needed
-		// Add other validation rules here as needed
+		// Validate date of birth (if provided)
+		if (dateOfBirth) {
+			const dobDate = new Date(dateOfBirth);
+			const today = new Date();
+			// Normalize to midnight for comparison
+			dobDate.setHours(0, 0, 0, 0);
+			today.setHours(0, 0, 0, 0);
+
+			// Check if date is valid
+			if (isNaN(dobDate.getTime())) {
+				newErrors.dateOfBirth = "Invalid date format";
+			} else if (dobDate > today) {
+				newErrors.dateOfBirth = "Date of birth cannot be in the future";
+			}
+		}
+
+		// Validate age estimate (only if user has manually entered age)
+		// Don't validate if age was auto-filled from DOB (ageValue will be set when DOB is set)
+		// Only validate if user has selected a unit AND entered a value (or tried to)
+		// If ageValue is empty but unit is selected, that's fine - user might be typing
+		// Only show error on form submission if there's an invalid state
+		if (ageValue !== "" && ageValue <= 0) {
+			newErrors.ageValue = "Age must be a positive number";
+		} else if (ageValue !== "" && !Number.isInteger(ageValue)) {
+			newErrors.ageValue = "Age must be a whole number";
+		}
 
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
@@ -177,6 +462,22 @@ export default function NewAnimal() {
 			// Add boolean fields
 			animalData.priority = priority;
 			animalData.display_placement_request = displayPlacementRequest;
+
+			// Add date_of_birth (calculate from age if age provided and DOB not provided)
+			let finalDOB: string | null = null;
+			if (dateOfBirth) {
+				finalDOB = dateOfBirth;
+			} else if (ageValue !== "" && ageValue > 0 && ageUnit) {
+				// Calculate DOB from age estimate (only if unit is selected)
+				const calculatedDOB = calculateDOBFromAge(ageValue, ageUnit);
+				if (calculatedDOB) {
+					finalDOB = calculatedDOB;
+				}
+			}
+
+			if (finalDOB) {
+				animalData.date_of_birth = finalDOB;
+			}
 
 			const { data: insertedData, error: insertError } = await supabase
 				.from("animals")
@@ -264,7 +565,7 @@ export default function NewAnimal() {
 						</div>
 
 						<Select
-							label="Sex/SpayNeuter Status"
+							label="Sex"
 							value={sexSpayNeuterStatus}
 							onChange={(e) =>
 								setSexSpayNeuterStatus(
@@ -284,6 +585,84 @@ export default function NewAnimal() {
 							options={lifeStageOptions}
 							disabled={loading}
 						/>
+
+						{/* Date of Birth and Age Estimate */}
+						<div className="space-y-4">
+							<Input
+								label="Date of Birth"
+								type="date"
+								value={dateOfBirth}
+								onChange={(e) =>
+									handleDOBChange(e.target.value)
+								}
+								onBlur={handleDOBBlur}
+								max={getTodayDateString()}
+								disabled={loading}
+								error={errors.dateOfBirth}
+							/>
+
+							<div>
+								<label className="block text-sm font-medium text-gray-700 mb-1">
+									Age Estimate
+								</label>
+								<div className="flex gap-2">
+									<div className="flex-1">
+										<input
+											type="number"
+											min="0"
+											step="1"
+											value={ageValue}
+											onChange={(e) =>
+												handleAgeValueChange(
+													e.target.value
+												)
+											}
+											onKeyDown={(e) => {
+												// Prevent "e", "E", "+", ".", "-" from being entered
+												if (
+													e.key === "e" ||
+													e.key === "E" ||
+													e.key === "+" ||
+													e.key === "." ||
+													e.key === "-"
+												) {
+													e.preventDefault();
+												}
+											}}
+											onBlur={handleAgeValueBlur}
+											placeholder="Enter age"
+											disabled={loading}
+											className={`w-full px-3 py-2 border ${
+												errors.ageValue
+													? "border-red-300 focus:border-red-500 focus:ring-red-500"
+													: "border-pink-300 focus:border-pink-500 focus:ring-pink-500"
+											} rounded-md shadow-sm focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed`}
+										/>
+									</div>
+									<select
+										value={ageUnit}
+										onChange={(e) =>
+											handleAgeUnitChange(
+												e.target.value as AgeUnit | ""
+											)
+										}
+										disabled={loading}
+										className="px-3 py-2 border border-pink-300 focus:border-pink-500 focus:ring-pink-500 rounded-md shadow-sm focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white"
+									>
+										<option value="">Select unit</option>
+										<option value="days">Days</option>
+										<option value="weeks">Weeks</option>
+										<option value="months">Months</option>
+										<option value="years">Years</option>
+									</select>
+								</div>
+								{errors.ageValue && (
+									<p className="mt-1 text-sm text-red-600">
+										{errors.ageValue}
+									</p>
+								)}
+							</div>
+						</div>
 
 						<Combobox
 							label="Primary Breed"
