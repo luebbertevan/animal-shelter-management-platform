@@ -9,6 +9,7 @@ import Button from "../../components/ui/Button";
 import FieldDisplay from "../../components/animals/FieldDisplay";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
 import { fetchAnimalById } from "../../lib/animalQueries";
+import { fetchFosterById } from "../../lib/fosterQueries";
 import { isOffline } from "../../lib/errorUtils";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 import { supabase } from "../../lib/supabase";
@@ -143,6 +144,30 @@ export default function AnimalDetail() {
 			return data.name || null;
 		},
 		enabled: !!animal?.group_id,
+	});
+
+	// Fetch foster name if animal has a current foster
+	const { data: fosterName, isLoading: isLoadingFosterName } = useQuery<
+		string | null,
+		Error
+	>({
+		queryKey: ["foster", animal?.current_foster_id],
+		queryFn: async () => {
+			if (!animal?.current_foster_id) {
+				return null;
+			}
+			try {
+				const foster = await fetchFosterById(
+					animal.current_foster_id,
+					profile.organization_id
+				);
+				return foster.full_name || foster.email || null;
+			} catch (error) {
+				console.error("Error fetching foster:", error);
+				return null;
+			}
+		},
+		enabled: !!animal?.current_foster_id,
 	});
 
 	if (isLoading) {
@@ -412,26 +437,61 @@ export default function AnimalDetail() {
 
 						{/* Metadata Section (coordinators only) */}
 						{isCoordinator && (
-							<div className="pt-6 border-t border-gray-200 space-y-2">
-								<div className="space-y-2 text-sm">
+							<div className="pt-6 border-t border-gray-200 space-y-2 text-base">
+								{animal.current_foster_id && (
 									<div>
 										<span className="text-gray-500">
-											Created at:{" "}
+											Current foster:{" "}
 										</span>
-										<span className="text-gray-900">
-											{new Date(
-												animal.created_at
-											).toLocaleString(undefined, {
-												year: "numeric",
-												month: "numeric",
-												day: "numeric",
-												hour: "2-digit",
-												minute: "2-digit",
-											})}
-										</span>
+										{isLoadingFosterName ? (
+											<span className="text-gray-400">
+												Loading...
+											</span>
+										) : fosterName ? (
+											<Link
+												to={`/fosters/${animal.current_foster_id}`}
+												className="text-pink-600 hover:text-pink-700 hover:underline"
+											>
+												{fosterName}
+											</Link>
+										) : (
+											<span className="text-gray-400">
+												Unknown
+											</span>
+										)}
 									</div>
-									{animal.updated_at !==
-										animal.created_at && (
+								)}
+								<div>
+									<span className="text-gray-500">
+										Created at:{" "}
+									</span>
+									<span className="text-gray-900">
+										{new Date(
+											animal.created_at
+										).toLocaleString(undefined, {
+											year: "numeric",
+											month: "numeric",
+											day: "numeric",
+											hour: "2-digit",
+											minute: "2-digit",
+										})}
+									</span>
+								</div>
+								{(() => {
+									// Check if updated_at exists and is different from created_at
+									if (!animal.updated_at) {
+										return null;
+									}
+									const updatedTime = new Date(
+										animal.updated_at
+									).getTime();
+									const createdTime = new Date(
+										animal.created_at
+									).getTime();
+									if (updatedTime === createdTime) {
+										return null;
+									}
+									return (
 										<div>
 											<span className="text-gray-500">
 												Updated at:{" "}
@@ -448,18 +508,8 @@ export default function AnimalDetail() {
 												})}
 											</span>
 										</div>
-									)}
-									{animal.current_foster_id && (
-										<div>
-											<span className="text-gray-500">
-												Current foster:{" "}
-											</span>
-											<span className="text-gray-900">
-												{animal.current_foster_id}
-											</span>
-										</div>
-									)}
-								</div>
+									);
+								})()}
 							</div>
 						)}
 					</div>
@@ -469,6 +519,7 @@ export default function AnimalDetail() {
 			{/* Photo Lightbox */}
 			{photoUrls.length > 0 && (
 				<PhotoLightbox
+					key={`${lightboxIndex}-${lightboxOpen}`}
 					photos={photoUrls}
 					initialIndex={lightboxIndex}
 					isOpen={lightboxOpen}

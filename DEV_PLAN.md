@@ -3261,18 +3261,18 @@ The preview card should show minimal, scannable information for quick browsing:
     - Include `uploaded_at: new Date().toISOString()` when adding new photos
     - Update `photos` JSONB array with new/removed photos
 
-3. **Create route `/animals/:id/edit`** (coordinator-only) ✅ **COMPLETED**
+3. **Create route `/animals/:id/edit`** (coordinator-only) 
 
     - Route added to `App.tsx`
     - Placeholder `EditAnimal.tsx` component created (will be fully implemented in task 1)
 
-4. **Add "Edit" button to AnimalDetail page** (coordinator-only) ✅ **COMPLETED**
+4. **Add "Edit" button to AnimalDetail page** (coordinator-only) 
 
     - Edit button added to AnimalDetail page
     - Button navigates to `/animals/:id/edit` route
     - Only visible to coordinators
 
-5. **Update RLS policies** if needed to ensure only coordinators can update ✅ **ALREADY CONFIGURED**
+5. **Update RLS policies** if needed to ensure only coordinators can update 
 
     - RLS policies are already set up correctly
     - Policy "Coordinators can update animals in their organization" exists in `20250120140000_update_rls_for_organization_isolation.sql`

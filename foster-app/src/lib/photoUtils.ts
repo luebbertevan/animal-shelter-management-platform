@@ -256,3 +256,198 @@ export async function uploadAnimalPhoto(
 		);
 	}
 }
+
+/**
+ * Deletes all photos in an animal's folder from Supabase Storage
+ * This ensures the entire folder is cleaned up, including any orphaned files
+ * @param animalId - The animal ID (UUID string)
+ * @param organizationId - The organization ID (UUID string)
+ * @returns Promise that resolves when deletion is complete
+ * @throws Error if deletion fails
+ */
+export async function deleteAnimalFolder(
+	animalId: string,
+	organizationId: string
+): Promise<void> {
+	try {
+		const folderPath = `${organizationId}/animals/${animalId}`;
+
+		// List all files in the folder
+		const { data: files, error: listError } = await supabase.storage
+			.from("photos")
+			.list(folderPath, {
+				limit: 1000,
+				offset: 0,
+				sortBy: { column: "name", order: "asc" },
+			});
+
+		if (listError) {
+			// If folder doesn't exist or we can't list it, that's okay
+			if (
+				listError.message.includes("not found") ||
+				listError.message.includes("does not exist")
+			) {
+				return;
+			}
+			throw new Error(
+				`Failed to list files in animal folder: ${listError.message}`
+			);
+		}
+
+		if (!files || files.length === 0) {
+			// Folder is already empty, nothing to delete
+			return;
+		}
+
+		// Build full paths for all files
+		const filePaths = files.map((file) => `${folderPath}/${file.name}`);
+
+		// Delete all files at once
+		const { data: deletedFiles, error: deleteError } =
+			await supabase.storage.from("photos").remove(filePaths);
+
+		if (deleteError) {
+			throw new Error(
+				`Failed to delete files from animal folder: ${deleteError.message}`
+			);
+		}
+
+		// Verify deletion succeeded
+		if (!deletedFiles || deletedFiles.length === 0) {
+			throw new Error(
+				`Failed to delete animal folder - no files were deleted. ` +
+					`This might be due to RLS policies. Folder: ${folderPath}`
+			);
+		}
+	} catch (error) {
+		if (error instanceof Error) {
+			throw error;
+		}
+		throw new Error(
+			"An unexpected error occurred while deleting the animal folder."
+		);
+	}
+}
+
+/**
+ * Deletes a photo from Supabase Storage
+ * @param photoUrl - The public URL of the photo to delete
+ * @param organizationId - The organization ID (UUID string)
+ * @returns Promise that resolves when deletion is complete
+ * @throws Error if deletion fails
+ */
+export async function deleteAnimalPhoto(
+	photoUrl: string,
+	organizationId: string
+): Promise<void> {
+	try {
+		// Extract the storage path from the public URL
+		// Public URLs are in format: https://[project].supabase.co/storage/v1/object/public/photos/{path}
+		// We need to extract the path part after /photos/
+		const urlParts = photoUrl.split("/photos/");
+		if (urlParts.length !== 2) {
+			throw new Error(`Invalid photo URL format: ${photoUrl}`);
+		}
+
+		// Extract path and remove any query parameters (e.g., ?t=timestamp)
+		// Also decode URL encoding if present
+		let storagePath = urlParts[1].split("?")[0];
+		try {
+			storagePath = decodeURIComponent(storagePath);
+		} catch {
+			// If decoding fails, use original path
+		}
+
+		// Verify the path belongs to the organization's animals folder
+		if (!storagePath.startsWith(`${organizationId}/animals/`)) {
+			throw new Error(
+				`Photo does not belong to this organization's animals. Path: ${storagePath}, Expected org: ${organizationId}, Full URL: ${photoUrl}`
+			);
+		}
+
+		// Delete the file from Supabase Storage
+		const { data, error } = await supabase.storage
+			.from("photos")
+			.remove([storagePath]);
+
+		if (error) {
+			// Handle specific error types
+			if (
+				error.message.includes("permission") ||
+				error.message.includes("policy") ||
+				error.message.includes("row-level security") ||
+				error.message.includes("RLS")
+			) {
+				throw new Error(
+					`Permission denied. You don't have access to delete this photo. Error: ${error.message}. ` +
+						`This might be due to RLS policies. Path: ${storagePath}, Organization: ${organizationId}`
+				);
+			}
+			if (
+				error.message.includes("network") ||
+				error.message.includes("fetch")
+			) {
+				throw new Error(
+					"Network error. Please check your connection and try again."
+				);
+			}
+
+			// If file doesn't exist, that's okay (already deleted)
+			if (
+				error.message.includes("not found") ||
+				error.message.includes("does not exist")
+			) {
+				// Silently succeed - file is already gone
+				return;
+			}
+
+			// Generic error
+			throw new Error(
+				getErrorMessage(
+					error,
+					`Failed to delete photo. Error: ${error.message}`
+				)
+			);
+		}
+
+		// Verify deletion succeeded
+		// Supabase returns an array of deleted file names in the data field
+		// If data is empty, the deletion likely failed
+		if (!data || !Array.isArray(data) || data.length === 0) {
+			throw new Error(
+				`Photo deletion failed - no files were deleted. ` +
+					`This might be due to RLS policies blocking the deletion. ` +
+					`Path: ${storagePath}`
+			);
+		}
+
+		// Verify our file is in the deleted list
+		const fileName = storagePath.split("/").pop();
+		const deletedFileNames = data.map((item) => {
+			// Supabase returns FileObject with 'name' property, or sometimes just the name string
+			return typeof item === "string" ? item : item.name || item;
+		});
+
+		if (
+			!deletedFileNames.some(
+				(name) => name === fileName || name === storagePath
+			)
+		) {
+			throw new Error(
+				`Photo deletion failed - file was not deleted. ` +
+					`This might be due to RLS policies blocking the deletion. ` +
+					`Path: ${storagePath}`
+			);
+		}
+	} catch (error) {
+		// Re-throw Error instances as-is
+		if (error instanceof Error) {
+			throw error;
+		}
+
+		// Unknown error type - wrap in Error
+		throw new Error(
+			"An unexpected error occurred during photo deletion. Please try again."
+		);
+	}
+}

@@ -42,13 +42,6 @@ export default function PhotoUpload({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
 
-	// Format file size for display
-	const formatFileSize = (bytes: number): string => {
-		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-	};
-
 	// Validate file before adding to selection
 	const validateFile = (file: File): string | null => {
 		// Check file size
@@ -110,8 +103,6 @@ export default function PhotoUpload({
 			setSelectedPhotos((prev) => {
 				const updated = [...prev, ...newPhotos];
 				selectedPhotosRef.current = updated;
-				// Notify parent of file changes
-				onPhotosChange(updated.map((p) => p.file));
 				return updated;
 			});
 		}
@@ -132,8 +123,6 @@ export default function PhotoUpload({
 			}
 			const updated = prev.filter((p) => p.id !== photoId);
 			selectedPhotosRef.current = updated;
-			// Notify parent of file changes
-			onPhotosChange(updated.map((p) => p.file));
 			return updated;
 		});
 	};
@@ -144,6 +133,11 @@ export default function PhotoUpload({
 			onRemovePhoto(photoUrl);
 		}
 	};
+
+	// Notify parent when selectedPhotos changes (but not during render)
+	useEffect(() => {
+		onPhotosChange(selectedPhotos.map((p) => p.file));
+	}, [selectedPhotos, onPhotosChange]);
 
 	// Clean up object URLs when component unmounts
 	useEffect(() => {
@@ -229,9 +223,6 @@ export default function PhotoUpload({
 							>
 								×
 							</button>
-							<div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b">
-								{formatFileSize(photo.file.size)}
-							</div>
 						</div>
 					))}
 				</div>
