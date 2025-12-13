@@ -9,7 +9,7 @@ export interface FosterProfile {
 	id: string;
 	email: string;
 	full_name?: string;
-	role: "foster";
+	role: "foster" | "coordinator";
 	phone_number?: string;
 	full_address?: string;
 	home_inspection?: string;
@@ -33,6 +33,8 @@ export interface FetchFostersOptions {
 	// Whether to check for offline state and throw error if offline with empty data.
 	// Default: false
 	checkOffline?: boolean;
+	// Whether to include coordinators in the results. Default: false
+	includeCoordinators?: boolean;
 }
 
 // Fetch all fosters for an organization
@@ -45,6 +47,7 @@ export async function fetchFosters(
 		orderBy = "full_name",
 		orderDirection = "asc",
 		checkOffline = false,
+		includeCoordinators = false,
 	} = options;
 
 	try {
@@ -52,8 +55,14 @@ export async function fetchFosters(
 		let query = supabase
 			.from("profiles")
 			.select(selectFields)
-			.eq("organization_id", organizationId)
-			.eq("role", "foster");
+			.eq("organization_id", organizationId);
+
+		// Filter by role - either just fosters or both fosters and coordinators
+		if (includeCoordinators) {
+			query = query.in("role", ["foster", "coordinator"]);
+		} else {
+			query = query.eq("role", "foster");
+		}
 
 		// Add ordering if specified
 		if (orderBy) {
@@ -96,7 +105,7 @@ export async function fetchFosters(
 	}
 }
 
-// Fetch a single foster by ID
+// Fetch a single foster or coordinator by ID
 export async function fetchFosterById(
 	fosterId: string,
 	organizationId: string
@@ -107,7 +116,7 @@ export async function fetchFosterById(
 			.select("*")
 			.eq("id", fosterId)
 			.eq("organization_id", organizationId)
-			.eq("role", "foster")
+			.in("role", ["foster", "coordinator"])
 			.single();
 
 		if (fetchError) {

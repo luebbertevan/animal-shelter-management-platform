@@ -1,9 +1,12 @@
-import { useParams, Link } from "react-router-dom";
+import { useMemo } from "react";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Animal, AnimalGroup } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
+import AnimalCard from "../../components/animals/AnimalCard";
+import GroupCard from "../../components/animals/GroupCard";
 import { fetchFosterById } from "../../lib/fosterQueries";
 import { fetchAnimalsByFosterId } from "../../lib/animalQueries";
 import { fetchGroupsByFosterId } from "../../lib/groupQueries";
@@ -29,7 +32,7 @@ export default function FosterDetail() {
 		enabled: !!id && isCoordinator,
 	});
 
-	// Fetch assigned animals
+	// Fetch assigned animals with fields needed for AnimalCard
 	const { data: assignedAnimals = [], isLoading: isLoadingAnimals } =
 		useQuery<Animal[], Error>({
 			queryKey: [
@@ -46,7 +49,16 @@ export default function FosterDetail() {
 					foster.id,
 					profile.organization_id,
 					{
-						fields: ["id", "name", "priority"],
+						fields: [
+							"id",
+							"name",
+							"status",
+							"sex_spay_neuter_status",
+							"priority",
+							"group_id",
+							"photos",
+							"date_of_birth",
+						],
 					}
 				);
 			},
@@ -79,6 +91,28 @@ export default function FosterDetail() {
 	const isLoading = isLoadingFoster || isLoadingAnimals || isLoadingGroups;
 	const isError = isErrorFoster;
 	const error = fosterError;
+
+	// Group prioritization logic: Create a Set of assigned group IDs for quick lookup
+	const assignedGroupIds = useMemo(() => {
+		return new Set(assignedGroups.map((group) => group.id));
+	}, [assignedGroups]);
+
+	// Filter animals: only show animals that are NOT in an assigned group
+	// If an animal is in a group that's assigned to this foster, show the group instead
+	const filteredAnimals = useMemo(() => {
+		return assignedAnimals.filter((animal: Animal) => {
+			// If animal has no group_id, always show it
+			if (!animal.group_id) {
+				return true;
+			}
+			// If animal has a group_id, only show it if that group is NOT assigned to this foster
+			return !assignedGroupIds.has(animal.group_id);
+		});
+	}, [assignedAnimals, assignedGroupIds]);
+
+	// Check if there are any items to display (after filtering)
+	const hasAssignedItems =
+		filteredAnimals.length > 0 || assignedGroups.length > 0;
 
 	if (isLoading) {
 		return (
@@ -160,11 +194,18 @@ export default function FosterDetail() {
 
 				<div className="bg-white rounded-lg shadow-sm p-6 mb-6">
 					<div className="mb-6">
-						<h1 className="text-2xl font-bold text-gray-900 mb-2">
-							{foster.full_name?.trim() ||
-								foster.email ||
-								"Unnamed Foster"}
-						</h1>
+						<div className="flex items-center gap-3 mb-2">
+							<h1 className="text-2xl font-bold text-gray-900">
+								{foster.full_name?.trim() ||
+									foster.email ||
+									"Unnamed Foster"}
+							</h1>
+							{foster.role === "coordinator" && (
+								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+									Coordinator
+								</span>
+							)}
+						</div>
 					</div>
 
 					<div className="space-y-4">
@@ -244,90 +285,31 @@ export default function FosterDetail() {
 					</div>
 				</div>
 
-				{/* Assigned Animals */}
-				{assignedAnimals.length > 0 && (
-					<div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-						<h2 className="text-xl font-semibold text-gray-900 mb-4">
-							Assigned Animals
+				{/* Currently Fostering */}
+				{hasAssignedItems && (
+					<div className="mb-4">
+						<h2 className="text-lg font-semibold text-gray-900 mb-4">
+							Currently Fostering
 						</h2>
-						<div className="space-y-2">
-							{assignedAnimals.map((animal) => {
-								const slug =
-									animal.name
-										?.toLowerCase()
-										.replace(/[^a-z0-9]+/g, "-")
-										.replace(/^-+|-+$/g, "") ||
-									"unnamed-animal";
-								return (
-									<Link
-										key={animal.id}
-										to={`/animals/${animal.id}/${slug}`}
-										className="block p-3 border border-pink-100 rounded-md hover:bg-pink-50 transition-colors"
-									>
-										<div className="flex items-center justify-between">
-											<span className="font-medium text-gray-900">
-												{animal.name?.trim() ||
-													"Unnamed Animal"}
-											</span>
-											{animal.priority && (
-												<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-													High Priority
-												</span>
-											)}
-										</div>
-									</Link>
-								);
-							})}
+						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+							{assignedGroups.map((group) => (
+								<GroupCard key={group.id} group={group} />
+							))}
+							{filteredAnimals.map((animal) => (
+								<AnimalCard key={animal.id} animal={animal} />
+							))}
 						</div>
 					</div>
 				)}
 
-				{/* Assigned Groups */}
-				{assignedGroups.length > 0 && (
+				{!hasAssignedItems && (
 					<div className="bg-white rounded-lg shadow-sm p-6">
-						<h2 className="text-xl font-semibold text-gray-900 mb-4">
-							Assigned Groups
-						</h2>
-						<div className="space-y-2">
-							{assignedGroups.map((group) => {
-								return (
-									<Link
-										key={group.id}
-										to={`/groups/${group.id}`}
-										className="block p-3 border border-pink-100 rounded-md hover:bg-pink-50 transition-colors"
-									>
-										<div className="flex items-center justify-between">
-											<span className="font-medium text-gray-900">
-												{group.name?.trim() ||
-													"Unnamed Group"}
-											</span>
-											{group.priority && (
-												<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-													High Priority
-												</span>
-											)}
-										</div>
-										{group.description && (
-											<p className="text-sm text-gray-600 mt-1 line-clamp-2">
-												{group.description}
-											</p>
-										)}
-									</Link>
-								);
-							})}
-						</div>
+						<p className="text-gray-600">
+							No animals or groups currently assigned to this
+							foster.
+						</p>
 					</div>
 				)}
-
-				{assignedAnimals.length === 0 &&
-					assignedGroups.length === 0 && (
-						<div className="bg-white rounded-lg shadow-sm p-6">
-							<p className="text-gray-600">
-								No animals or groups currently assigned to this
-								foster.
-							</p>
-						</div>
-					)}
 			</div>
 		</div>
 	);

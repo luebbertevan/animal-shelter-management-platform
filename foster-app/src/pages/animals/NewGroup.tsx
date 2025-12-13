@@ -195,6 +195,7 @@ export default function NewGroup() {
 							placeholder="Enter group name (optional - will auto-fill if empty)"
 							disabled={loading}
 							error={errors.name}
+							autoComplete="off"
 						/>
 
 						<Textarea

@@ -3014,103 +3014,183 @@ The preview card should show minimal, scannable information for quick browsing:
 
 ### Update Animal Detail Page
 
-**Goal:** Update `AnimalDetail` page to display all new animal fields organized in logical sections.
+**Goal:** Update `AnimalDetail` page to display all animal fields in the same order as the creation form, with clear indicators for blank fields.
 
 **Dependencies:**
 
 -   **Complete Animal Creation Form - Photo Upload** - Photos are now available in the `photos` array
+-   **Update Animal Preview Card** - For consistent field display patterns
 
-**Proposed Detail Page Fields (AnimalDetail):**
+**Design Decisions:**
 
-The detail page should show all fields organized in logical sections:
+1. **Field Order:** Display fields in the exact same order as the `NewAnimal` form to maintain consistency:
 
-1. **Header Section:**
+    1. Name
+    2. Photos
+    3. Status + Display Placement Request (grouped together)
+    4. Sex
+    5. Date of Birth + Age Estimate (grouped together)
+    6. Life Stage
+    7. Primary Breed
+    8. Physical Characteristics
+    9. High Priority (toggle indicator)
+    10. Medical Needs
+    11. Behavioral Needs
+    12. Additional Notes
+    13. Adoption Bio
 
-    - Name
-    - Status badge
-    - Priority badge (if high priority)
-    - Edit button (coordinators only)
-    - "Edit Photos & Bio" button (fosters, if assigned)
+2. **Blank Field Display:**
 
-2. **Photo Gallery Section:**
+    - Show all fields regardless of whether they have values
+    - For blank/empty fields, display a de-emphasized indicator (e.g., "Not provided" in gray/italic text)
+    - This makes it clear what information is missing vs. what information exists
+    - Follows the spec requirement: "Unknown/missing information is de-emphasized or shown at the bottom of detail views"
 
-    - Display all photos from `photos` array
-    - Use photo display component (from Photo Uploads phase)
-    - Show upload UI if user has permission
+3. **Group Indicator:**
 
-3. **Basic Information Section:**
+    - Display group information (if animal is in a group) directly under the name
+    - Show as a link to the group detail page: "In group: [Group Name]"
+    - Navigate to group detail page on click
+    - Only display if `group_id` exists
 
-    - Status
-    - Display Placement Request (if true, show indicator)
-    - Sex/SpayNeuter Status
-    - Life Stage
-    - Physical Characteristics
-    - Date of Birth
-    - Age Estimate
+4. **Header Actions:**
 
-4. **Care Information Section:**
+    - Edit button (coordinators only) - links to edit page (from Animal Editing for Coordinators milestone)
+        - **Note:** Edit page doesn't exist yet, but button can be added and linked later
+    - "Edit Photos & Bio" button (fosters, if animal is assigned to them) - links to foster edit page (from Foster Photo & Bio Editing milestone)
+        - **Note:** Foster edit page doesn't exist yet, but button can be added and linked later
+    - Priority badge (if high priority) - displayed as a badge in the header
 
-    - Medical Needs
-    - Behavioral Needs
-    - Priority indicator
+5. **Photo Display:**
 
-5. **Additional Information Section:**
+    **Layout:**
 
-    - Bio (if available)
-    - Additional Notes
-    - Tags (if implemented)
+    - Use same layout as PhotoUpload component: `flex flex-wrap gap-2` (flexbox wrap, not grid)
+    - Photos wrap to new lines as needed, maintaining consistent spacing
+    - This matches the create form for visual consistency
 
-6. **Metadata Section (optional, coordinators only):**
-    - Created at
-    - Updated at
-    - Current foster (if assigned)
+    **Photo Thumbnails:**
+
+    - Size: `w-20 h-20` (80px x 80px) - same as PhotoUpload component
+    - Object fit: `object-cover` to fill the square while maintaining aspect ratio (may crop)
+    - Border: `border border-gray-300` - same as PhotoUpload component
+    - Border radius: `rounded` - same as PhotoUpload component
+    - Cursor: `cursor-pointer` to indicate photos are clickable (for lightbox)
+    - Hover effect: Optional subtle effect to indicate clickability (e.g., `hover:opacity-90`)
+    - Loading state: Show spinner or skeleton while photos load
+    - Error state: Show placeholder icon if photo fails to load
+    - **Key difference from PhotoUpload:** No remove button (read-only view), clicking opens lightbox instead
+
+    **Lightbox Integration:**
+
+    - Clicking a photo opens the PhotoLightbox component (reuse from `src/components/messaging/PhotoLightbox.tsx`)
+    - Extract photo URLs from `photos` array (map `photo.url` from `PhotoMetadata[]`)
+    - Pass current photo index to lightbox based on which photo was clicked
+    - PhotoLightbox supports:
+        - Full-screen viewing with black background
+        - Navigation between photos (arrow buttons, keyboard arrows)
+        - Photo counter (e.g., "1 of 5")
+        - Close button (X button, Escape key, or click outside)
+        - Keyboard navigation (Arrow keys, Escape)
+        - Loading spinner for images
+        - Responsive sizing (full screen on mobile, centered with margins on desktop)
+
+    **Empty State:**
+
+    - If no photos, show placeholder with de-emphasized text (e.g., "No photos provided")
+
+6. **Age Display:**
+
+    - If `date_of_birth` exists, calculate and display age using `calculateAgeFromDOB()` utility
+    - If `date_of_birth` is missing but `age_value` and `age_unit` exist, display as "Age Estimate: [value] [unit]"
+    - If both are missing, show "Not provided"
+
+7. **Metadata Section (coordinators only):**
+    - Display at the bottom: Created at, Updated at, Current foster (if assigned)
+    - Always visible at the bottom (not collapsible)
+    - Only show if user is coordinator
 
 **Tasks:**
 
-1. **Update `AnimalDetail` page** (`src/pages/animals/AnimalDetail.tsx`):
+1. **Create field display utility/component** (do this first for reusability):
 
-    - Organize fields into logical sections (Header, Photos, Basic Info, Care Info, Additional Info, Metadata)
-    - Display all new fields:
-        - `sex_spay_neuter_status` (replaces `sex`)
-        - `life_stage`
-        - `physical_characteristics`
-        - `date_of_birth`
-        - Age (calculated from `date_of_birth` on-demand using `calculateAgeFromDOB()` utility)
-        - `medical_needs`
-        - `behavioral_needs`
-        - `bio`
-        - `additional_notes`
-        - `photos` (photo gallery)
-        - `display_placement_request` (indicator if true)
-    - Handle missing/optional fields gracefully (don't show empty sections)
-    - Use photo display component for photo gallery
-    - Add "Edit Photos & Bio" button for fosters (if animal is assigned to them)
-    - Update Edit button to link to edit page (from Animal Editing for Coordinators milestone)
-    - Maintain mobile-friendly responsive design
+    - Create a reusable component or utility function for displaying field/value pairs with blank field handling
+    - Example: `<FieldDisplay label="Name" value={animal.name} />` or similar
+    - Handles the "Not provided" display logic consistently
+    - Can be used throughout the AnimalDetail page
 
-2. **Update TypeScript types**:
+2. **Update TypeScript types** (ensure types are correct before implementation):
 
     - Update `Animal` type usage in `AnimalDetail`
     - Ensure all fields are properly typed
+    - Include `group_id` and `group_name` if available
 
-3. **Handle edge cases**:
+3. **Update `AnimalDetail` page** (`src/pages/animals/AnimalDetail.tsx`):
 
-    - Animals with no photos (show placeholder or empty state)
-    - Animals with no name (already handled)
-    - Missing optional fields (don't display empty sections)
-    - Long text fields (full display in detail page)
+    - Display all fields in the exact order listed above
+    - Use FieldDisplay component for consistent field/value display
+    - For each field:
+        - Show the field label
+        - If value exists: display the value
+        - If value is blank/empty/null: display de-emphasized "Not provided" text
+    - Display group indicator directly under name if `group_id` exists (link to group detail page, navigates on click)
+    - Display status as a colored badge/chip in the header
+    - Display all photos using same layout as PhotoUpload component:
+        - Use `flex flex-wrap gap-2` layout
+        - Photo size: `w-20 h-20` (80px x 80px)
+        - Styling: `object-cover rounded border border-gray-300`
+        - Add `cursor-pointer` and hover effect to indicate clickability
+        - Clicking a photo opens PhotoLightbox (no remove button, read-only view)
+    - Integrate PhotoLightbox component (reuse from `src/components/messaging/PhotoLightbox.tsx`):
+        - Import `PhotoLightbox` from `src/components/messaging/PhotoLightbox.tsx`
+        - Extract photo URLs from `photos` array (map `photo.url` from `PhotoMetadata[]`)
+        - Add state for lightbox open/close and current photo index
+        - Add click handlers to photo thumbnails to open lightbox
+        - Pass photo URLs array, initial index, and open/close handlers to PhotoLightbox
+    - Show loading states while photos load
+    - Show error placeholder if photo fails to load
+    - Show empty state placeholder if no photos
+    - Calculate and display age from `date_of_birth` if available
+    - Display age estimate if `date_of_birth` is missing but `age_value`/`age_unit` exist
+    - Add Edit button for coordinators (links to edit page - can be placeholder link for now)
+    - Add "Edit Photos & Bio" button for fosters (if assigned - can be placeholder link for now)
+    - Display priority badge in header if high priority
+    - Display metadata section for coordinators at the bottom (created_at, updated_at, current_foster) - always visible
+    - Handle edge cases:
+        - Animals with no photos (show placeholder with "No photos" message)
+        - Animals with no name (already handled: "Unnamed Animal")
+        - All optional fields (show "Not provided" for each)
+        - Long text fields (full display, allow scrolling if needed)
+        - Animals in groups (fetch and display group name)
+        - Age calculation edge cases (future dates, invalid dates)
+    - Maintain mobile-friendly responsive design
+
+    - Animals with no photos (show placeholder with "No photos" message)
+    - Animals with no name (already handled: "Unnamed Animal")
+    - All optional fields (show "Not provided" for each)
+    - Long text fields (full display, allow scrolling if needed)
+    - Animals in groups (fetch and display group name)
+    - Age calculation edge cases (future dates, invalid dates)
 
 **Testing:**
 
--   Detail page displays all fields in organized sections
--   Detail page handles missing fields gracefully
--   Photo gallery displays correctly in detail page
+-   Detail page displays all fields in the same order as the form
+-   Blank fields display "Not provided" in de-emphasized style
+-   Fields with values display correctly
+-   Group indicator displays under name and navigates to group detail page on click
+-   Status displays as a colored badge in the header
+-   Photo grid displays correctly with responsive columns (max 5 for large screens)
+-   Clicking a photo opens PhotoLightbox with navigation working
+-   PhotoLightbox navigation (arrows, keyboard) works correctly
+-   PhotoLightbox closes correctly (X button, Escape key, click outside)
+-   Age calculation displays correctly (from DOB or estimate)
 -   Edit buttons appear for correct users (coordinators, assigned fosters)
--   Age calculation displays correctly
+-   Priority badge displays in header when applicable
+-   Metadata section displays for coordinators only at the bottom (always visible)
 -   Mobile layout works correctly
 -   All fields match form data (verify data flows correctly)
 
-**Deliverable:** Updated AnimalDetail page displaying all new animal fields with proper organization and mobile-friendly design.
+**Deliverable:** Updated AnimalDetail page displaying all animal fields in form order with clear blank field indicators and proper organization.
 
 **Note on Component Reusability:**
 
@@ -3216,6 +3296,624 @@ The detail page should show all fields organized in logical sections:
 **Note on Race Conditions:** Simple overwrite approach is used. If two users edit simultaneously, the last save wins. This is acceptable as it's not a critical failure and concurrent edits are rare. Future enhancement could add optimistic locking if needed.
 
 **Note on Group Management:** Group membership management (adding/removing animals from groups) is handled in the "Display Groups in Animal UI" milestone, not in this milestone. This keeps the edit form focused and manageable.
+
+---
+
+### Group Management UI Polish & Edit Functionality
+
+**Goal:** Add missing features to group management UI, including edit functionality, validation, and polish. Note: Basic group management (list, detail, create) was completed in Minimal Group Management UI.
+
+**Component Reusability:**
+
+-   Reuse components from Animal Preview Card & Detail Page milestone where possible
+-   Group preview cards should reuse AnimalCard/GroupCard patterns
+-   Group detail pages should reuse sections/components from AnimalDetail
+-   Share components with Fosters Needed page and View Animals/View Groups pages
+-   Design components to be reusable across different contexts
+-   Update GroupCard and GroupDetail to display all group fields (similar to animal updates)
+
+**Photo Uploads for Groups:**
+
+-   Implement photo upload functionality for groups (similar to animal photo uploads)
+-   Use the same `PhotoUpload` component used for animals
+-   Store photos in `photos` JSONB array on `animal_groups` table
+-   Path structure: `{organization_id}/groups/{group_id}/{timestamp}_{filename}`
+-   Include `uploaded_at` timestamp and `uploaded_by` in photo metadata
+-   Coordinators can upload and delete any group photos
+-   Fosters can upload photos for assigned groups (permission checks required)
+
+**Animal Selection UI:**
+
+-   When selecting animals for groups (in create/edit forms), use `AnimalCard` components or a custom card variant
+-   Display animals in a grid/list format using the same card styling as AnimalsList
+-   Show animal photos, name, age, sex, and other key info in the selection UI
+-   Make it easy to see which animals are already selected
+-   Use search/filter component for finding animals in large lists
+
+**Group Detail Page - Animal Display:**
+
+-   Update `GroupDetail.tsx` to display animals in the group using `AnimalCard` components
+-   Use the same grid layout and styling as `AnimalsList.tsx`
+-   Show all animals in the group with their photos, names, and key information
+-   Allow clicking on animal cards to navigate to animal detail pages
+-   Maintain consistency with how animals are displayed elsewhere in the app
+
+**Tasks:**
+
+1. **Create Edit Group page** (`src/pages/animals/EditGroup.tsx`):
+
+    - Fetch group by ID from URL params
+    - Pre-populate form with existing group data (name, description, priority)
+    - Allow editing `name`, `description`, and `priority`
+    - Allow adding/removing animals from group:
+        - Use `AnimalCard` components or custom card variant for animal selection
+        - Display animals in grid/list format with photos and key info
+        - Use search/filter component (from Reusable Search & Filter Component) for finding animals
+        - Show which animals are already in the group
+    - Implement photo upload functionality:
+        - Use `PhotoUpload` component (same as animal photo uploads)
+        - Allow uploading new photos
+        - Allow deleting existing photos (delete from storage when removed)
+        - Store photos in `photos` JSONB array with `uploaded_at` and `uploaded_by` metadata
+    - Update `animal_groups.animal_ids` array on save
+    - Handle loading and error states
+    - Redirect to group detail page after successful update
+    - Add route `/groups/:id/edit` (coordinator-only)
+
+2. **Add Edit button to GroupDetail page**:
+
+    - Show "Edit" button for coordinators only
+    - Link to edit page
+
+3. **Update GroupDetail page to display animals using AnimalCard**:
+
+    - Display all animals in the group using `AnimalCard` components
+    - Use the same grid layout as `AnimalsList.tsx`: `grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5`
+    - Fetch all necessary animal fields for `AnimalCard` (photos, date_of_birth, etc.)
+    - Make animal cards clickable to navigate to animal detail pages
+    - Show group photos using the same photo display as animal detail pages
+
+4. **Add validation and notifications**:
+
+    - **Duplicate group assignment detection:**
+        - When adding animals to a group, check if animal is already in another group
+        - Show warning notification: "Animal [name] is already in group [group name]. Do you want to move it to this group?"
+        - Allow coordinator to confirm or cancel
+        - If confirmed, remove animal from previous group and add to new group
+        - Show success notification after update
+    - **Empty group validation:**
+        - Warn if trying to save group with no animals
+        - Allow saving empty groups (for future use) but show confirmation
+
+5. **Polish existing group pages**:
+
+    - Improve loading states and error handling
+    - Add better empty states
+    - Improve mobile responsiveness
+    - Add confirmation dialogs for destructive actions (if delete functionality added)
+
+6. **Add missing fields** (if any identified during testing):
+    - Review schema and ensure all relevant fields are displayed/editable
+    - Add any missing fields to forms
+
+**Testing:**
+
+-   Coordinator can edit group name, description, and priority
+-   Coordinator can add/remove animals from existing groups
+-   Duplicate group assignment shows warning and handles correctly
+-   Empty group validation works correctly
+-   Edit page pre-populates with correct data
+-   Changes save correctly to database
+-   Navigation works correctly
+-   Mobile layout is polished
+
+**Deliverable:** Complete group management UI with edit functionality, validation, and polish.
+
+---
+
+### Display Groups in Animal UI
+
+**Goal:** Show group information throughout animal UI and allow adding animals to groups during creation/editing.
+
+**Status:** Partially completed - group display is implemented in AnimalCard and AnimalDetail. Group assignment in forms still needs to be implemented.
+
+**Already Completed:**
+
+-   ✅ `AnimalCard.tsx` - Shows group indicator with link to group detail page
+-   ✅ `AnimalDetail.tsx` - Shows group membership with link to group detail page
+-   ✅ `AnimalsList.tsx` - Fetches and displays group information for animals
+
+**Tasks:**
+
+1. Update `NewAnimal.tsx`:
+    - Add field to select/create group when creating animal
+    - Link animal to selected group on creation
+    - Update `group_id` field when group is selected
+2. Update `EditAnimal.tsx`:
+    - Add field to change group membership
+    - Allow adding animal to existing group or removing from group
+    - Update `group_id` field when group membership changes
+3. Test: Groups display correctly throughout UI, animals can be added to groups during creation
+
+**Testing:**
+
+-   Animal detail shows group membership (✅ already working)
+-   Animals list shows group indicators (✅ already working)
+-   Can create animal and assign to group in one step
+-   Can change group membership when editing animal
+-   Group indicators display correctly in animals list (✅ already working)
+
+**Deliverable:** Group display and assignment working throughout animal UI.
+
+---
+
+### Copy Data from Animal Feature
+
+**Goal:** Allow coordinators to copy data from an existing animal when creating a new animal, pre-filling the form with most fields (excluding name, bio, and photos).
+
+**Dependencies:**
+
+-   **Reusable Search & Filter Component** - Needed for animal search/select UI
+-   **Update Animal Preview Card & Detail Page** - Needed for animal list/preview cards
+-   **Display Groups in Animal UI** - Needed for group support in search
+-   **Animal Editing for Coordinators** - Provides `animalToFormState` utility and `useAnimalForm` hook
+
+**Tasks:**
+
+1. **Add "Copy from Animal" button/selector to NewAnimal form**:
+
+    - Add a button or dropdown near the top of the form: "Copy data from existing animal"
+    - When clicked, show a modal or dropdown to search/select an animal
+    - Use the Reusable Search & Filter Component for animal selection (from Reusable Search & Filter Component milestone)
+    - Filter by organization (only show animals from same organization)
+
+2. **Copy logic**:
+
+    - Use the `animalToFormState` utility function (created in Animal Editing for Coordinators milestone)
+    - When animal is selected, use: `animalToFormState(animal, { exclude: ['name', 'bio', 'photos'] })`
+    - This will copy the following fields to form:
+        - Status (but allow editing)
+        - Display Placement Request
+        - Sex/SpayNeuter Status
+        - Life Stage
+        - Physical Characteristics
+        - Date of Birth
+        - Age (calculated from Date of Birth on-demand)
+        - Priority
+        - Medical Needs
+        - Behavioral Needs
+        - Additional Notes
+    - **Do NOT copy**: Name (must be unique, user should enter new name)
+    - **Do NOT copy**: Bio (bio is specific to each animal)
+    - **Do NOT copy**: Photos (photos are specific to each animal)
+    - **Do NOT copy**: Tags (if implemented later)
+    - Pre-fill form fields with copied values using `useAnimalForm` hook
+    - All fields remain editable after copying
+
+3. **User experience**:
+
+    - After selecting animal, form fields populate automatically
+    - Show a brief success message or visual indicator that data was copied
+    - User can edit any copied field before submitting
+    - If user navigates away and comes back, copied data is lost (form resets)
+
+4. **Implementation notes**:
+
+    - Use React Query to fetch selected animal data
+    - Handle loading state while fetching animal data
+    - Handle error state if animal fetch fails
+    - Ensure copied data respects organization boundaries
+    - Reuse `animalToFormState` utility and `useAnimalForm` hook for consistency
+
+**Testing:**
+
+-   Can search and select an animal to copy from (using search/filter component)
+-   All appropriate fields are copied to form
+-   Name field is NOT copied (remains empty)
+-   Bio field is NOT copied (remains empty)
+-   Photos are NOT copied (photo upload section remains empty)
+-   Copied fields are editable
+-   Can submit form with copied data
+-   Only shows animals from same organization
+-   Works on mobile devices
+
+**Deliverable:** Copy data from animal feature working, allowing quick creation of similar animals.
+
+---
+
+### Foster Assignment for Animals and Groups
+
+**Goal:** Enable coordinators to assign animals and groups to fosters during creation and editing, with automatic consistency enforcement between individual animal assignments and group assignments.
+
+**Design Decisions:**
+
+-   **Data Model:** Both `animals.current_foster_id` and `animal_groups.current_foster_id` exist. This is intentional redundancy for query performance:
+    -   Querying "all animals assigned to a foster" is fast (direct filter on `animals.current_foster_id`)
+    -   Querying "all groups assigned to a foster" is fast (direct filter on `animal_groups.current_foster_id`)
+    -   We maintain consistency through application logic, not database constraints
+-   **Consistency Rules:**
+    1. When assigning a **group** to a foster, automatically assign all animals in that group to the same foster
+    2. When assigning an **individual animal** to a foster:
+        - If animal is in a group that's assigned to a different foster → show warning/error, require resolution
+        - If animal is in a group that's not assigned → allow individual assignment
+        - If animal is in a group assigned to the same foster → allow (already consistent)
+    3. When removing an animal from a group, preserve its individual foster assignment
+    4. When removing a group assignment, preserve individual animal assignments (animals may be assigned individually)
+-   **Resolution Strategy:** When conflicts are detected, offer coordinator options:
+    -   Assign the whole group to the foster (recommended if most animals should be together)
+    -   Remove animal from group and assign individually
+    -   Cancel the assignment
+-   **Status Change Handling:** (See Questions 19.5 in QUESTIONS_FOR_RESCUE.md - implementation depends on rescue's workflow)
+    -   When status changes FROM "in_foster" to another status, handle foster assignment based on rescue's preference:
+        -   Option A: Automatically clear foster assignment (if status change means animal is no longer with foster)
+        -   Option B: Preserve foster assignment for historical tracking
+        -   Option C: Conditional based on target status (e.g., clear for "adopted", preserve for "medical_hold")
+    -   When status changes TO "in_foster", may require foster assignment (or allow without assignment)
+    -   Implementation will be determined after reviewing answers to Question 19.5
+-   **Adoption Status Handling:** (See Questions 34.5 in QUESTIONS_FOR_RESCUE.md - implementation depends on rescue's workflow)
+    -   When status changes to "adopted", may require adopter information entry
+    -   May automatically clear foster assignment when adopted
+    -   Adopter information fields and requirements will be determined after reviewing answers to Question 34.5
+
+**Tasks:**
+
+1. **Create foster assignment utilities** (`src/lib/assignmentUtils.ts`):
+
+    - `assignGroupToFoster(groupId, fosterId, organizationId)` - Assigns group and all its animals
+    - `assignAnimalToFoster(animalId, fosterId, organizationId)` - Assigns individual animal with conflict checking
+    - `checkAssignmentConflict(animalId, fosterId, organizationId)` - Checks if assignment would create conflict
+    - `removeGroupAssignment(groupId, organizationId)` - Removes group assignment (preserves individual animal assignments)
+    - `removeAnimalAssignment(animalId, organizationId)` - Removes individual animal assignment
+    - All functions handle database transactions/consistency
+
+2. **Update `NewAnimal.tsx`**:
+
+    - Add foster assignment field (dropdown/autocomplete of fosters)
+    - When foster is selected, check if animal will be added to a group
+    - If group assignment exists and conflicts, show warning before save
+    - Save `current_foster_id` on animal creation
+
+3. **Update `EditAnimal.tsx`**:
+
+    - Add foster assignment field (dropdown/autocomplete, with "None" option)
+    - Display current foster assignment
+    - When changing assignment:
+        - Check for conflicts with group assignment
+        - Show resolution dialog if conflict detected
+        - Update `current_foster_id` on save
+    - Handle removing assignment (set to null)
+    - **Status change handling:** (Implementation depends on answers to Question 19.5)
+        - When status changes FROM "in_foster" to another status, handle foster assignment per rescue's workflow
+        - When status changes TO "adopted", handle adopter information entry and foster assignment per Question 34.5
+        - Show confirmation dialogs for status changes that affect assignments
+
+4. **Update `NewGroup.tsx`**:
+
+    - Add foster assignment field (dropdown/autocomplete of fosters)
+    - When foster is selected and group is saved:
+        - Assign group to foster
+        - Automatically assign all selected animals in group to same foster
+        - Show confirmation: "Group and [X] animals will be assigned to [Foster Name]"
+
+5. **Update `EditGroup.tsx`**:
+
+    - Add foster assignment field (dropdown/autocomplete, with "None" option)
+    - Display current foster assignment
+    - When changing group assignment:
+        - Automatically update all animals in group to match
+        - Show confirmation: "Group and [X] animals will be assigned to [Foster Name]"
+    - When removing group assignment:
+        - Preserve individual animal assignments (don't clear them)
+        - Show confirmation: "Group assignment removed. Individual animal assignments preserved."
+    - When adding animals to a group that's assigned to a foster:
+        - Automatically assign new animals to the same foster
+        - Show notification: "[X] animals added to group and assigned to [Foster Name]"
+    - When removing animals from a group:
+        - Preserve their individual foster assignments
+
+6. **Create conflict resolution UI component** (`src/components/animals/AssignmentConflictDialog.tsx`):
+
+    - Shows when assignment conflict is detected
+    - Displays: "Animal [name] is in group [group name] assigned to [foster A], but you're trying to assign to [foster B]"
+    - Options:
+        - "Assign whole group to [foster B]" (recommended)
+        - "Remove from group and assign individually"
+        - "Cancel"
+    - Handles the selected resolution
+
+7. **Update `AnimalDetail.tsx`**:
+
+    - Display current foster assignment (if assigned)
+    - Show group assignment if animal is in an assigned group
+    - If individual and group assignments differ, show warning badge
+    - Link to foster detail page
+
+8. **Update `GroupDetail.tsx`**:
+
+    - Display current foster assignment (if assigned)
+    - Show count of animals in group assigned to foster
+    - If any animals have different assignments, show warning
+
+9. **Add validation and error handling**:
+    - Validate foster exists and is in same organization
+    - Handle database errors gracefully
+    - Show success/error notifications
+    - Update React Query cache after assignments
+
+**Testing:**
+
+-   Can assign individual animal to foster during creation
+-   Can assign individual animal to foster during editing
+-   Can assign group to foster during creation (all animals auto-assigned)
+-   Can assign group to foster during editing (all animals auto-assigned)
+-   Conflict detection works when assigning animal to different foster than its group
+-   Conflict resolution dialog appears and handles all options correctly
+-   Removing group assignment preserves individual animal assignments
+-   Removing animal from group preserves its foster assignment
+-   Adding animals to assigned group auto-assigns them to group's foster
+-   Database consistency maintained (no orphaned assignments)
+-   UI updates correctly after assignments
+-   Error handling works for invalid fosters, network errors, etc.
+
+**Deliverable:** Foster assignment working for animals and groups with automatic consistency enforcement and conflict resolution.
+
+---
+
+## Phase: Fosters Needed Page
+
+**Goal:** Create a page where fosters can browse animals and groups needing placement and request them through messaging.
+
+---
+
+### Fosters Needed Page
+
+**Goal:** Display animals and groups that need foster placement, allowing fosters to browse and request them.
+
+**Component Reusability:**
+
+-   Reuse AnimalCard and GroupCard components from View Animals and View Groups pages
+-   Share search and filter components across all list pages
+-   Both fosters and coordinators can view this page (same components, different permissions)
+-   Design for consistency with View Animals and View Groups pages
+
+**Tasks:**
+
+1. **Create Fosters Needed page** (`src/pages/fosters/FostersNeeded.tsx`):
+
+    - Fetch animals and groups filtered by:
+        - `display_placement_request = true` (boolean field controls visibility on placement page)
+        - Status determines availability category:
+            - **Available Now**: `status = 'in_shelter'`
+            - **Available Future**: `status IN ('transferring', 'medical_hold')`
+            - **Foster Pending**: Animals/groups where a foster has made a request (tracked via messages with tags)
+    - Display animals and groups in a browseable list/grid format
+    - Show key information: name, photos, priority indicator, basic needs, availability category
+    - Group or filter by availability category (Available Now, Available Future, Foster Pending)
+    - Use search/filter components from Reusable Search & Filter Component to allow filtering by:
+        - Species
+        - Priority (high priority animals/groups)
+        - Group vs individual animals
+        - Availability category (Available Now, Available Future, Foster Pending)
+    - Link to animal/group detail pages for more information
+    - Mobile-first responsive design
+
+2. **Add "Request to Foster" functionality:**
+
+    - Add "Request to Foster" button on animal/group detail pages (foster-only)
+    - Button should be visible on Fosters Needed page items and detail pages
+    - When clicked, open messaging interface with auto-filled content:
+        - Navigate to foster's conversation (foster chat)
+        - Pre-fill message content with request template:
+            - Include animal/group name
+            - Include basic information (species, priority if applicable)
+            - Template: "Hi, I'm interested in fostering [Animal/Group Name]. [Optional: Add any relevant information about my experience or availability]."
+        - Auto-tag the animal/group in the message (using tagging from Update Database Schema for Foster Tagging and related milestones)
+        - Allow foster to edit message before sending
+        - Send message to coordinators (visible in coordinator group chat and foster's conversation)
+
+3. **Update routing:**
+
+    - Add route `/fosters-needed` (accessible to all users, but primarily for fosters)
+    - Add navigation link for fosters (e.g., in Dashboard or navigation menu)
+
+4. **Handle request flow:**
+
+    - When foster clicks "Request to Foster":
+        - Check if foster already has an active request for this animal/group (optional - prevent duplicates)
+        - Open conversation with pre-filled message
+        - Auto-tag animal/group in message
+        - Foster can edit and send message
+        - Coordinators see request in their conversation list and coordinator group chat
+
+5. **Display request status (optional enhancement):**
+    - Show if foster has already requested an animal/group
+    - Display "Requested" indicator on animals/groups that have been requested
+    - Allow viewing previous requests in conversation history
+
+**Implementation Notes:**
+
+-   **Messaging Integration:** Requests go through the existing messaging system (Messaging System phase), ensuring all coordinators can see requests
+-   **Auto-tagging:** Uses message tagging feature (Update Database Schema for Foster Tagging and related milestones) to link requests to specific animals/groups
+-   **No New Database Tables:** Uses existing `animals`, `animal_groups`, and `messages` tables with `message_links` for tagging
+-   **Simple Request Flow:** Fosters send a message with auto-filled content and tags - coordinators respond through existing messaging
+
+**Testing:**
+
+-   Fosters can view animals/groups needing placement
+-   Can filter by species, priority, and group status
+-   "Request to Foster" button opens conversation with pre-filled message
+-   Message includes animal/group tag
+-   Coordinators see requests in their conversation list
+-   Requests appear in coordinator group chat
+-   Foster can edit message before sending
+-   Mobile layout is usable
+
+**Deliverable:** Fosters Needed page working with request functionality through messaging system.
+
+---
+
+### Reusable Search & Filter Component
+
+**Goal:** Create reusable search and filter components that can be used across the app (animals list, animal selection in groups, tagging, fosters needed page, etc.).
+
+**Tasks:**
+
+1. **Create reusable search component** (`src/components/shared/SearchInput.tsx`):
+
+    - Text input with search icon
+    - Debounced search (wait for user to stop typing)
+    - Clear button
+    - Accept props: `value`, `onChange`, `placeholder`, `disabled`
+    - Mobile-friendly styling
+
+2. **Create reusable filter component** (`src/components/animals/AnimalFilters.tsx`):
+
+    - Filter by status (dropdown/multi-select)
+    - Filter by priority (toggle)
+    - Filter by sex (dropdown)
+    - Filter by group (dropdown - shows all groups)
+    - Clear filters button
+    - Show active filter count
+    - Accept props: `filters`, `onFiltersChange`, `availableGroups`
+    - Return filter object that can be applied to Supabase queries
+
+3. **Create filter utility functions** (`src/lib/filterUtils.ts`):
+
+    - Function to build Supabase query from filter object
+    - Function to check if filters are active
+    - Function to clear all filters
+    - Reusable across different pages
+
+4. **Update AnimalsList to use new components**:
+
+    - Integrate SearchInput and AnimalFilters
+    - Apply filters to Supabase query
+    - Display filtered results
+    - Show "No results" when filters match nothing
+    - Preserve filter state in URL params (optional, for shareable links)
+
+5. **Update NewGroup animal selection to use SearchInput**:
+
+    - Add search input above animal checkboxes
+    - Filter animals by name as user types
+    - Improve UX for selecting animals from large lists
+
+6. **Update FostersList to use SearchInput**:
+
+    - Add search input to foster list page
+    - Filter fosters by name as user types
+    - Improve UX for finding fosters in large lists
+
+7. **Test:**
+    - Search works correctly in animals list
+    - Filters work correctly and can be combined
+    - Search works in group animal selection
+    - Search works in fosters list
+    - Components are reusable and work in different contexts
+
+**Testing:**
+
+-   Search component works correctly with debouncing
+-   Filter component applies filters correctly
+-   Filters can be combined (status + priority + sex, etc.)
+-   Search works in animals list
+-   Search works in group animal selection
+-   Search works in fosters list
+-   Clear filters button works
+-   Active filter count is accurate
+-   Components are reusable across different pages
+
+**Deliverable:** Reusable search and filter components working across the app.
+
+---
+
+### Coordinator Request Handling & Assignment
+
+**Goal:** Enable coordinators to view, approve, and handle foster requests, assigning animals/groups to fosters and updating relevant information.
+
+**Tasks:**
+
+1. **Create coordinator request management UI:**
+
+    - Display foster requests in coordinator dashboard or dedicated requests page
+    - Show requests with:
+        - Foster name and contact info
+        - Requested animal/group information
+        - Request message content
+        - Request timestamp
+        - Request status (pending, approved, rejected)
+    - Filter requests by status, priority, or foster
+    - Link to full conversation where request was made
+
+2. **Implement request approval workflow:**
+
+    - "Approve Request" button/action for coordinators
+    - When approved:
+        - Assign animal/group to foster (update `current_foster_id` on animal/group)
+        - Update animal/group status (e.g., change from `in_shelter` to `in_foster`)
+        - Update foster's assigned animals/groups list
+        - Send confirmation message to foster (auto-generated or coordinator can customize)
+        - Tag animal/group in confirmation message
+    - Handle group assignments:
+        - If approving group request, assign entire group to foster
+        - Update all animals in group to show foster assignment
+        - Ensure group status reflects assignment
+
+3. **Create assignment UI/flow:**
+
+    - Assignment confirmation dialog/page
+    - Show what will be assigned (animal/group details)
+    - Optional: Add pickup/transfer event:
+        - Date/time for pickup
+        - Location for pickup
+        - Special instructions
+        - Store as event or note (design decision needed)
+    - Allow coordinator to add notes or instructions during assignment
+    - Send assignment notification to foster
+
+4. **Update animal/group data on assignment:**
+
+    - Set `current_foster_id` on animal or group record
+    - Update status field appropriately
+    - Record assignment timestamp
+    - Link assignment to requesting message (optional - for audit trail)
+
+5. **Handle request rejection:**
+
+    - "Reject Request" action (optional - coordinator can just not respond)
+    - If implemented: Send polite rejection message to foster
+    - Mark request as rejected (for coordinator tracking)
+
+6. **Request status tracking:**
+    - Track request status in database (design decision needed):
+        - Option 1: Use message metadata or tags
+        - Option 2: Create simple `foster_requests` table
+        - Option 3: Track through message content and assignment status
+    - Display request history for coordinators
+    - Show which requests have been fulfilled
+
+**Design Decisions Needed (To be made during implementation):**
+
+-   **Request tracking:** How to track request status (database table vs. message-based)
+-   **Pickup/Transfer events:** Whether to create dedicated event system or use notes/messages
+-   **Assignment workflow:** Single-step approval vs. multi-step (approve → schedule pickup → confirm)
+-   **Notification preferences:** How fosters want to be notified of approvals
+-   **Multiple requests:** Handling when multiple fosters request same animal/group
+-   **Assignment history:** Whether to track assignment history or just current assignment
+
+**Testing:**
+
+-   Coordinators can view all foster requests
+-   Can approve requests and assign animals/groups to fosters
+-   Animal/group status updates correctly on assignment
+-   Foster receives assignment notification
+-   Assignment information is stored correctly
+-   Group assignments work correctly (all animals in group assigned)
+-   Request status is tracked appropriately
+
+**Deliverable:** Coordinator request handling and assignment workflow working. Coordinators can approve requests and assign animals/groups to fosters with proper data updates.
+
+**Note:** Specific implementation details (pickup events, request tracking method, etc.) will be finalized based on rescue organization feedback and testing during development.
 
 ---
 
@@ -3461,679 +4159,6 @@ The detail page should show all fields organized in logical sections:
 **Deliverable:** Foster photo and bio editing working with proper permission controls.
 
 **Note:** This is the only editing capability fosters have for animals. All other fields are managed by coordinators.
-
----
-
-### Reusable Search & Filter Component
-
-**Goal:** Create reusable search and filter components that can be used across the app (animals list, animal selection in groups, tagging, fosters needed page, etc.).
-
-**Tasks:**
-
-1. **Create reusable search component** (`src/components/shared/SearchInput.tsx`):
-
-    - Text input with search icon
-    - Debounced search (wait for user to stop typing)
-    - Clear button
-    - Accept props: `value`, `onChange`, `placeholder`, `disabled`
-    - Mobile-friendly styling
-
-2. **Create reusable filter component** (`src/components/animals/AnimalFilters.tsx`):
-
-    - Filter by status (dropdown/multi-select)
-    - Filter by priority (toggle)
-    - Filter by sex (dropdown)
-    - Filter by group (dropdown - shows all groups)
-    - Clear filters button
-    - Show active filter count
-    - Accept props: `filters`, `onFiltersChange`, `availableGroups`
-    - Return filter object that can be applied to Supabase queries
-
-3. **Create filter utility functions** (`src/lib/filterUtils.ts`):
-
-    - Function to build Supabase query from filter object
-    - Function to check if filters are active
-    - Function to clear all filters
-    - Reusable across different pages
-
-4. **Update AnimalsList to use new components**:
-
-    - Integrate SearchInput and AnimalFilters
-    - Apply filters to Supabase query
-    - Display filtered results
-    - Show "No results" when filters match nothing
-    - Preserve filter state in URL params (optional, for shareable links)
-
-5. **Update NewGroup animal selection to use SearchInput**:
-
-    - Add search input above animal checkboxes
-    - Filter animals by name as user types
-    - Improve UX for selecting animals from large lists
-
-6. **Update FostersList to use SearchInput**:
-
-    - Add search input to foster list page
-    - Filter fosters by name as user types
-    - Improve UX for finding fosters in large lists
-
-7. **Test:**
-    - Search works correctly in animals list
-    - Filters work correctly and can be combined
-    - Search works in group animal selection
-    - Search works in fosters list
-    - Components are reusable and work in different contexts
-
-**Testing:**
-
--   Search component works correctly with debouncing
--   Filter component applies filters correctly
--   Filters can be combined (status + priority + sex, etc.)
--   Search works in animals list
--   Search works in group animal selection
--   Search works in fosters list
--   Clear filters button works
--   Active filter count is accurate
--   Components are reusable across different pages
-
-**Deliverable:** Reusable search and filter components working across the app.
-
----
-
-### Group Management UI Polish & Edit Functionality
-
-**Goal:** Add missing features to group management UI, including edit functionality, validation, and polish. Note: Basic group management (list, detail, create) was completed in Minimal Group Management UI.
-
-**Component Reusability:**
-
--   Reuse components from Animal Preview Card & Detail Page milestone where possible
--   Group preview cards should reuse AnimalCard/GroupCard patterns
--   Group detail pages should reuse sections/components from AnimalDetail
--   Share components with Fosters Needed page and View Animals/View Groups pages
--   Design components to be reusable across different contexts
--   Update GroupCard and GroupDetail to display all group fields (similar to animal updates)
-
-**Tasks:**
-
-1. **Create Edit Group page** (`src/pages/animals/EditGroup.tsx`):
-
-    - Fetch group by ID from URL params
-    - Pre-populate form with existing group data (name, description, priority)
-    - Allow editing `name`, `description`, and `priority`
-    - Allow adding/removing animals from group using search/filter component (from Reusable Search & Filter Component)
-    - Update `animal_groups.animal_ids` array on save
-    - Handle loading and error states
-    - Redirect to group detail page after successful update
-    - Add route `/groups/:id/edit` (coordinator-only)
-
-2. **Add Edit button to GroupDetail page**:
-
-    - Show "Edit" button for coordinators only
-    - Link to edit page
-
-3. **Add validation and notifications**:
-
-    - **Duplicate group assignment detection:**
-        - When adding animals to a group, check if animal is already in another group
-        - Show warning notification: "Animal [name] is already in group [group name]. Do you want to move it to this group?"
-        - Allow coordinator to confirm or cancel
-        - If confirmed, remove animal from previous group and add to new group
-        - Show success notification after update
-    - **Empty group validation:**
-        - Warn if trying to save group with no animals
-        - Allow saving empty groups (for future use) but show confirmation
-
-4. **Polish existing group pages**:
-
-    - Improve loading states and error handling
-    - Add better empty states
-    - Improve mobile responsiveness
-    - Add confirmation dialogs for destructive actions (if delete functionality added)
-
-5. **Add missing fields** (if any identified during testing):
-    - Review schema and ensure all relevant fields are displayed/editable
-    - Add any missing fields to forms
-
-**Testing:**
-
--   Coordinator can edit group name, description, and priority
--   Coordinator can add/remove animals from existing groups
--   Duplicate group assignment shows warning and handles correctly
--   Empty group validation works correctly
--   Edit page pre-populates with correct data
--   Changes save correctly to database
--   Navigation works correctly
--   Mobile layout is polished
-
-**Deliverable:** Complete group management UI with edit functionality, validation, and polish.
-
----
-
-### Display Groups in Animal UI
-
-**Goal:** Show group information throughout animal UI and allow adding animals to groups during creation/editing.
-
-**Tasks:**
-
-1. Update `AnimalDetail.tsx`:
-    - Display group membership if animal is in a group
-    - Link to group detail page
-    - Show group name and other group members
-2. Update `NewAnimal.tsx`:
-    - Add field to select/create group when creating animal
-    - Link animal to selected group on creation
-3. Update `EditAnimal.tsx`:
-    - Add field to change group membership
-    - Allow adding animal to existing group or removing from group
-4. Update `AnimalsList.tsx`:
-    - Show group indicator/badge for animals in groups
-    - Show group name in animal preview cards
-    - Note: Group filtering is already implemented in Reusable Search & Filter Component
-5. Test: Groups display correctly throughout UI, animals can be added to groups during creation
-
-**Testing:**
-
--   Animal detail shows group membership
--   Animals list shows group indicators
--   Can create animal and assign to group in one step
--   Can change group membership when editing animal
--   Group indicators display correctly in animals list
-
-**Deliverable:** Group display and assignment working throughout animal UI.
-
----
-
-### Copy Data from Animal Feature
-
-**Goal:** Allow coordinators to copy data from an existing animal when creating a new animal, pre-filling the form with most fields (excluding name, bio, and photos).
-
-**Dependencies:**
-
--   **Reusable Search & Filter Component** - Needed for animal search/select UI
--   **Update Animal Preview Card & Detail Page** - Needed for animal list/preview cards
--   **Display Groups in Animal UI** - Needed for group support in search
--   **Animal Editing for Coordinators** - Provides `animalToFormState` utility and `useAnimalForm` hook
-
-**Tasks:**
-
-1. **Add "Copy from Animal" button/selector to NewAnimal form**:
-
-    - Add a button or dropdown near the top of the form: "Copy data from existing animal"
-    - When clicked, show a modal or dropdown to search/select an animal
-    - Use the Reusable Search & Filter Component for animal selection (from Reusable Search & Filter Component milestone)
-    - Filter by organization (only show animals from same organization)
-
-2. **Copy logic**:
-
-    - Use the `animalToFormState` utility function (created in Animal Editing for Coordinators milestone)
-    - When animal is selected, use: `animalToFormState(animal, { exclude: ['name', 'bio', 'photos'] })`
-    - This will copy the following fields to form:
-        - Status (but allow editing)
-        - Display Placement Request
-        - Sex/SpayNeuter Status
-        - Life Stage
-        - Physical Characteristics
-        - Date of Birth
-        - Age (calculated from Date of Birth on-demand)
-        - Priority
-        - Medical Needs
-        - Behavioral Needs
-        - Additional Notes
-    - **Do NOT copy**: Name (must be unique, user should enter new name)
-    - **Do NOT copy**: Bio (bio is specific to each animal)
-    - **Do NOT copy**: Photos (photos are specific to each animal)
-    - **Do NOT copy**: Tags (if implemented later)
-    - Pre-fill form fields with copied values using `useAnimalForm` hook
-    - All fields remain editable after copying
-
-3. **User experience**:
-
-    - After selecting animal, form fields populate automatically
-    - Show a brief success message or visual indicator that data was copied
-    - User can edit any copied field before submitting
-    - If user navigates away and comes back, copied data is lost (form resets)
-
-4. **Implementation notes**:
-
-    - Use React Query to fetch selected animal data
-    - Handle loading state while fetching animal data
-    - Handle error state if animal fetch fails
-    - Ensure copied data respects organization boundaries
-    - Reuse `animalToFormState` utility and `useAnimalForm` hook for consistency
-
-**Testing:**
-
--   Can search and select an animal to copy from (using search/filter component)
--   All appropriate fields are copied to form
--   Name field is NOT copied (remains empty)
--   Bio field is NOT copied (remains empty)
--   Photos are NOT copied (photo upload section remains empty)
--   Copied fields are editable
--   Can submit form with copied data
--   Only shows animals from same organization
--   Works on mobile devices
-
-**Deliverable:** Copy data from animal feature working, allowing quick creation of similar animals.
-
----
-
-### Foster Assignment for Animals and Groups
-
-**Goal:** Enable coordinators to assign animals and groups to fosters during creation and editing, with automatic consistency enforcement between individual animal assignments and group assignments.
-
-**Design Decisions:**
-
--   **Data Model:** Both `animals.current_foster_id` and `animal_groups.current_foster_id` exist. This is intentional redundancy for query performance:
-    -   Querying "all animals assigned to a foster" is fast (direct filter on `animals.current_foster_id`)
-    -   Querying "all groups assigned to a foster" is fast (direct filter on `animal_groups.current_foster_id`)
-    -   We maintain consistency through application logic, not database constraints
--   **Consistency Rules:**
-    1. When assigning a **group** to a foster, automatically assign all animals in that group to the same foster
-    2. When assigning an **individual animal** to a foster:
-        - If animal is in a group that's assigned to a different foster → show warning/error, require resolution
-        - If animal is in a group that's not assigned → allow individual assignment
-        - If animal is in a group assigned to the same foster → allow (already consistent)
-    3. When removing an animal from a group, preserve its individual foster assignment
-    4. When removing a group assignment, preserve individual animal assignments (animals may be assigned individually)
--   **Resolution Strategy:** When conflicts are detected, offer coordinator options:
-    -   Assign the whole group to the foster (recommended if most animals should be together)
-    -   Remove animal from group and assign individually
-    -   Cancel the assignment
--   **Status Change Handling:** (See Questions 19.5 in QUESTIONS_FOR_RESCUE.md - implementation depends on rescue's workflow)
-    -   When status changes FROM "in_foster" to another status, handle foster assignment based on rescue's preference:
-        -   Option A: Automatically clear foster assignment (if status change means animal is no longer with foster)
-        -   Option B: Preserve foster assignment for historical tracking
-        -   Option C: Conditional based on target status (e.g., clear for "adopted", preserve for "medical_hold")
-    -   When status changes TO "in_foster", may require foster assignment (or allow without assignment)
-    -   Implementation will be determined after reviewing answers to Question 19.5
--   **Adoption Status Handling:** (See Questions 34.5 in QUESTIONS_FOR_RESCUE.md - implementation depends on rescue's workflow)
-    -   When status changes to "adopted", may require adopter information entry
-    -   May automatically clear foster assignment when adopted
-    -   Adopter information fields and requirements will be determined after reviewing answers to Question 34.5
-
-**Tasks:**
-
-1. **Create foster assignment utilities** (`src/lib/assignmentUtils.ts`):
-
-    - `assignGroupToFoster(groupId, fosterId, organizationId)` - Assigns group and all its animals
-    - `assignAnimalToFoster(animalId, fosterId, organizationId)` - Assigns individual animal with conflict checking
-    - `checkAssignmentConflict(animalId, fosterId, organizationId)` - Checks if assignment would create conflict
-    - `removeGroupAssignment(groupId, organizationId)` - Removes group assignment (preserves individual animal assignments)
-    - `removeAnimalAssignment(animalId, organizationId)` - Removes individual animal assignment
-    - All functions handle database transactions/consistency
-
-2. **Update `NewAnimal.tsx`**:
-
-    - Add foster assignment field (dropdown/autocomplete of fosters)
-    - When foster is selected, check if animal will be added to a group
-    - If group assignment exists and conflicts, show warning before save
-    - Save `current_foster_id` on animal creation
-
-3. **Update `EditAnimal.tsx`**:
-
-    - Add foster assignment field (dropdown/autocomplete, with "None" option)
-    - Display current foster assignment
-    - When changing assignment:
-        - Check for conflicts with group assignment
-        - Show resolution dialog if conflict detected
-        - Update `current_foster_id` on save
-    - Handle removing assignment (set to null)
-    - **Status change handling:** (Implementation depends on answers to Question 19.5)
-        - When status changes FROM "in_foster" to another status, handle foster assignment per rescue's workflow
-        - When status changes TO "adopted", handle adopter information entry and foster assignment per Question 34.5
-        - Show confirmation dialogs for status changes that affect assignments
-
-4. **Update `NewGroup.tsx`**:
-
-    - Add foster assignment field (dropdown/autocomplete of fosters)
-    - When foster is selected and group is saved:
-        - Assign group to foster
-        - Automatically assign all selected animals in group to same foster
-        - Show confirmation: "Group and [X] animals will be assigned to [Foster Name]"
-
-5. **Update `EditGroup.tsx`**:
-
-    - Add foster assignment field (dropdown/autocomplete, with "None" option)
-    - Display current foster assignment
-    - When changing group assignment:
-        - Automatically update all animals in group to match
-        - Show confirmation: "Group and [X] animals will be assigned to [Foster Name]"
-    - When removing group assignment:
-        - Preserve individual animal assignments (don't clear them)
-        - Show confirmation: "Group assignment removed. Individual animal assignments preserved."
-    - When adding animals to a group that's assigned to a foster:
-        - Automatically assign new animals to the same foster
-        - Show notification: "[X] animals added to group and assigned to [Foster Name]"
-    - When removing animals from a group:
-        - Preserve their individual foster assignments
-
-6. **Create conflict resolution UI component** (`src/components/animals/AssignmentConflictDialog.tsx`):
-
-    - Shows when assignment conflict is detected
-    - Displays: "Animal [name] is in group [group name] assigned to [foster A], but you're trying to assign to [foster B]"
-    - Options:
-        - "Assign whole group to [foster B]" (recommended)
-        - "Remove from group and assign individually"
-        - "Cancel"
-    - Handles the selected resolution
-
-7. **Update `AnimalDetail.tsx`**:
-
-    - Display current foster assignment (if assigned)
-    - Show group assignment if animal is in an assigned group
-    - If individual and group assignments differ, show warning badge
-    - Link to foster detail page
-
-8. **Update `GroupDetail.tsx`**:
-
-    - Display current foster assignment (if assigned)
-    - Show count of animals in group assigned to foster
-    - If any animals have different assignments, show warning
-
-9. **Add validation and error handling**:
-    - Validate foster exists and is in same organization
-    - Handle database errors gracefully
-    - Show success/error notifications
-    - Update React Query cache after assignments
-
-**Testing:**
-
--   Can assign individual animal to foster during creation
--   Can assign individual animal to foster during editing
--   Can assign group to foster during creation (all animals auto-assigned)
--   Can assign group to foster during editing (all animals auto-assigned)
--   Conflict detection works when assigning animal to different foster than its group
--   Conflict resolution dialog appears and handles all options correctly
--   Removing group assignment preserves individual animal assignments
--   Removing animal from group preserves its foster assignment
--   Adding animals to assigned group auto-assigns them to group's foster
--   Database consistency maintained (no orphaned assignments)
--   UI updates correctly after assignments
--   Error handling works for invalid fosters, network errors, etc.
-
-**Deliverable:** Foster assignment working for animals and groups with automatic consistency enforcement and conflict resolution.
-
----
-
-## Phase: Photo Uploads for Animals and Groups
-
-**Goal:** Allow coordinators and fosters to upload photos for animals and groups, with proper permission controls.
-
----
-
-### Photo Uploads for Animals and Groups
-
-**Goal:** Allow coordinators and fosters to upload photos for animals and groups, with proper permission controls.
-
-**Tasks:**
-
-1. **Set up Supabase Storage:**
-    - Use unified storage bucket `photos` (same bucket as message photos, organized by path structure)
-    - Configure bucket policies for organization isolation
-    - Set up RLS policies: users can upload/view photos in their organization
-    - Path structure: `{organization_id}/animals/{animal_id}/{timestamp}_{filename}` or `{organization_id}/groups/{group_id}/{timestamp}_{filename}`
-    - Configure file size limits: **max 8MB per photo** (same as message photos)
-    - Configure allowed file types (e.g., jpg, jpeg, png, webp)
-2. **Update database schema:**
-    - Add `photos` JSONB column to `animals` table (if not already added):
-        - Structure: `[{"url": "...", "uploaded_by": "..."}, ...]` - simple structure
-        - Minimal metadata: just `url` (required) and `uploaded_by` (optional, for permission checks)
-        - Keep it simple - mirror messaging approach but add `uploaded_by` for permission checks
-    - Add `photos` JSONB column to `animal_groups` table:
-        - Same structure as animals: `[{"url": "...", "uploaded_by": "..."}, ...]`
-        - Minimal metadata for consistency
-3. **Create reusable photo upload component:**
-    - `src/components/shared/PhotoUpload.tsx` (generic, reusable)
-    - File input for selecting photos
-    - Upload to Supabase Storage
-    - Show upload progress
-    - Handle errors gracefully
-    - Accept props: `bucketName`, `pathPrefix`, `onUploadComplete`, `maxPhotos` (optional)
-4. **Create reusable photo gallery component:**
-    - `src/components/shared/PhotoGallery.tsx` (generic, reusable)
-    - Display photo grid with thumbnails
-    - Show photo info (uploaded_by available if needed for display/permissions)
-    - Lightbox/modal for full-size viewing
-    - Download button to download full-size photos
-    - Handle loading states and broken images
-    - Accept props: `photos` (array), `onDelete` (optional, for permission-based deletion)
-5. **Update animal detail page:**
-    - Display photo gallery using `PhotoGallery` component
-    - Show uploaded photos (uploader info available via `uploaded_by` if needed)
-    - **Permissions:**
-        - Coordinators: can upload new photos, can delete any photo
-        - Fosters: can upload photos for assigned animals, can only delete their own photos
-    - Add photo upload UI using `PhotoUpload` component
-    - Show delete button on photos (only for users with permission)
-6. **Update group detail page:**
-    - Display photo gallery using `PhotoGallery` component
-    - Show uploaded photos (uploader info available via `uploaded_by` if needed)
-    - **Permissions:**
-        - Coordinators: can upload new photos, can delete any photo
-        - Fosters: can upload photos for assigned groups, can only delete their own photos
-    - Add photo upload UI using `PhotoUpload` component
-    - Show delete button on photos (only for users with permission)
-7. **Update animal creation form:**
-    - Optional photo upload during creation (coordinators only)
-    - Store photos in `photos` JSONB array
-8. **Update group creation form:**
-    - Optional photo upload during creation (coordinators only)
-    - Store photos in `photos` JSONB array
-9. **Implement permission logic:**
-    - Check user role (coordinator vs foster)
-    - For fosters: check if animal/group is assigned to them
-    - For photo deletion: check if `uploaded_by` matches current user (for fosters)
-    - Coordinators can always delete any photo
-10. **Test:**
-    - Upload photos for animals and groups
-    - Verify photos appear in galleries
-    - Verify organization isolation
-    - Test permission controls (fosters can only delete their own photos)
-    - Test coordinators can delete any photo
-    - Verify upload progress and error handling
-
-**Testing:**
-
--   Can upload photos to Supabase Storage for animals
--   Can upload photos to Supabase Storage for groups
--   Photos are linked to correct animal/group and organization
--   Photos display correctly in galleries with metadata
--   Coordinators can upload and delete any photos
--   Fosters can upload photos for assigned animals/groups
--   Fosters can only delete their own photos (not others' photos)
--   Upload progress and errors are handled
--   RLS policies prevent cross-organization access
--   Photo deletion works correctly with permission checks
-
-**Deliverable:** Photo upload functionality working for animals and groups with proper permission controls and download functionality.
-
-**Photo Retention Policy:**
-
--   **Animal/Group photos:** Kept forever (no limit) - these are documentation photos that should be preserved long-term
--   **Message photos:** See Photo Sharing in Messages for per-user retention limits (1,000 photos per user)
--   **Storage impact:** With 500 animals/year × 5 photos = 2,500 photos/year, storage grows to ~37.5GB by year 5. Combined with message photos (100-200GB), total storage stays within Pro tier limits (100GB) or slightly over, keeping costs at $25-30/month for 5+ years
-
----
-
-## Phase: Fosters Needed Page
-
-**Goal:** Create a page where fosters can browse animals and groups needing placement and request them through messaging.
-
----
-
-### Fosters Needed Page
-
-**Goal:** Display animals and groups that need foster placement, allowing fosters to browse and request them.
-
-**Component Reusability:**
-
--   Reuse AnimalCard and GroupCard components from View Animals and View Groups pages
--   Share search and filter components across all list pages
--   Both fosters and coordinators can view this page (same components, different permissions)
--   Design for consistency with View Animals and View Groups pages
-
-**Tasks:**
-
-1. **Create Fosters Needed page** (`src/pages/fosters/FostersNeeded.tsx`):
-
-    - Fetch animals and groups filtered by:
-        - `display_placement_request = true` (boolean field controls visibility on placement page)
-        - Status determines availability category:
-            - **Available Now**: `status = 'in_shelter'`
-            - **Available Future**: `status IN ('transferring', 'medical_hold')`
-            - **Foster Pending**: Animals/groups where a foster has made a request (tracked via messages with tags)
-    - Display animals and groups in a browseable list/grid format
-    - Show key information: name, photos, priority indicator, basic needs, availability category
-    - Group or filter by availability category (Available Now, Available Future, Foster Pending)
-    - Use search/filter components from Reusable Search & Filter Component to allow filtering by:
-        - Species
-        - Priority (high priority animals/groups)
-        - Group vs individual animals
-        - Availability category (Available Now, Available Future, Foster Pending)
-    - Link to animal/group detail pages for more information
-    - Mobile-first responsive design
-
-2. **Add "Request to Foster" functionality:**
-
-    - Add "Request to Foster" button on animal/group detail pages (foster-only)
-    - Button should be visible on Fosters Needed page items and detail pages
-    - When clicked, open messaging interface with auto-filled content:
-        - Navigate to foster's conversation (foster chat)
-        - Pre-fill message content with request template:
-            - Include animal/group name
-            - Include basic information (species, priority if applicable)
-            - Template: "Hi, I'm interested in fostering [Animal/Group Name]. [Optional: Add any relevant information about my experience or availability]."
-        - Auto-tag the animal/group in the message (using tagging from Update Database Schema for Foster Tagging and related milestones)
-        - Allow foster to edit message before sending
-        - Send message to coordinators (visible in coordinator group chat and foster's conversation)
-
-3. **Update routing:**
-
-    - Add route `/fosters-needed` (accessible to all users, but primarily for fosters)
-    - Add navigation link for fosters (e.g., in Dashboard or navigation menu)
-
-4. **Handle request flow:**
-
-    - When foster clicks "Request to Foster":
-        - Check if foster already has an active request for this animal/group (optional - prevent duplicates)
-        - Open conversation with pre-filled message
-        - Auto-tag animal/group in message
-        - Foster can edit and send message
-        - Coordinators see request in their conversation list and coordinator group chat
-
-5. **Display request status (optional enhancement):**
-    - Show if foster has already requested an animal/group
-    - Display "Requested" indicator on animals/groups that have been requested
-    - Allow viewing previous requests in conversation history
-
-**Implementation Notes:**
-
--   **Messaging Integration:** Requests go through the existing messaging system (Messaging System phase), ensuring all coordinators can see requests
--   **Auto-tagging:** Uses message tagging feature (Update Database Schema for Foster Tagging and related milestones) to link requests to specific animals/groups
--   **No New Database Tables:** Uses existing `animals`, `animal_groups`, and `messages` tables with `message_links` for tagging
--   **Simple Request Flow:** Fosters send a message with auto-filled content and tags - coordinators respond through existing messaging
-
-**Testing:**
-
--   Fosters can view animals/groups needing placement
--   Can filter by species, priority, and group status
--   "Request to Foster" button opens conversation with pre-filled message
--   Message includes animal/group tag
--   Coordinators see requests in their conversation list
--   Requests appear in coordinator group chat
--   Foster can edit message before sending
--   Mobile layout is usable
-
-**Deliverable:** Fosters Needed page working with request functionality through messaging system.
-
----
-
-### Coordinator Request Handling & Assignment
-
-**Goal:** Enable coordinators to view, approve, and handle foster requests, assigning animals/groups to fosters and updating relevant information.
-
-**Tasks:**
-
-1. **Create coordinator request management UI:**
-
-    - Display foster requests in coordinator dashboard or dedicated requests page
-    - Show requests with:
-        - Foster name and contact info
-        - Requested animal/group information
-        - Request message content
-        - Request timestamp
-        - Request status (pending, approved, rejected)
-    - Filter requests by status, priority, or foster
-    - Link to full conversation where request was made
-
-2. **Implement request approval workflow:**
-
-    - "Approve Request" button/action for coordinators
-    - When approved:
-        - Assign animal/group to foster (update `current_foster_id` on animal/group)
-        - Update animal/group status (e.g., change from `in_shelter` to `in_foster`)
-        - Update foster's assigned animals/groups list
-        - Send confirmation message to foster (auto-generated or coordinator can customize)
-        - Tag animal/group in confirmation message
-    - Handle group assignments:
-        - If approving group request, assign entire group to foster
-        - Update all animals in group to show foster assignment
-        - Ensure group status reflects assignment
-
-3. **Create assignment UI/flow:**
-
-    - Assignment confirmation dialog/page
-    - Show what will be assigned (animal/group details)
-    - Optional: Add pickup/transfer event:
-        - Date/time for pickup
-        - Location for pickup
-        - Special instructions
-        - Store as event or note (design decision needed)
-    - Allow coordinator to add notes or instructions during assignment
-    - Send assignment notification to foster
-
-4. **Update animal/group data on assignment:**
-
-    - Set `current_foster_id` on animal or group record
-    - Update status field appropriately
-    - Record assignment timestamp
-    - Link assignment to requesting message (optional - for audit trail)
-
-5. **Handle request rejection:**
-
-    - "Reject Request" action (optional - coordinator can just not respond)
-    - If implemented: Send polite rejection message to foster
-    - Mark request as rejected (for coordinator tracking)
-
-6. **Request status tracking:**
-    - Track request status in database (design decision needed):
-        - Option 1: Use message metadata or tags
-        - Option 2: Create simple `foster_requests` table
-        - Option 3: Track through message content and assignment status
-    - Display request history for coordinators
-    - Show which requests have been fulfilled
-
-**Design Decisions Needed (To be made during implementation):**
-
--   **Request tracking:** How to track request status (database table vs. message-based)
--   **Pickup/Transfer events:** Whether to create dedicated event system or use notes/messages
--   **Assignment workflow:** Single-step approval vs. multi-step (approve → schedule pickup → confirm)
--   **Notification preferences:** How fosters want to be notified of approvals
--   **Multiple requests:** Handling when multiple fosters request same animal/group
--   **Assignment history:** Whether to track assignment history or just current assignment
-
-**Testing:**
-
--   Coordinators can view all foster requests
--   Can approve requests and assign animals/groups to fosters
--   Animal/group status updates correctly on assignment
--   Foster receives assignment notification
--   Assignment information is stored correctly
--   Group assignments work correctly (all animals in group assigned)
--   Request status is tracked appropriately
-
-**Deliverable:** Coordinator request handling and assignment workflow working. Coordinators can approve requests and assign animals/groups to fosters with proper data updates.
-
-**Note:** Specific implementation details (pickup events, request tracking method, etc.) will be finalized based on rescue organization feedback and testing during development.
 
 ---
 

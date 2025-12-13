@@ -25,10 +25,12 @@ export default function FostersList() {
 					"full_name",
 					"phone_number",
 					"availability",
+					"role",
 				],
 				orderBy: "full_name",
 				orderDirection: "asc",
 				checkOffline: true,
+				includeCoordinators: true,
 			});
 		},
 		enabled: isCoordinator,
@@ -134,10 +136,17 @@ export default function FostersList() {
 									to={`/fosters/${foster.id}`}
 									className="bg-white rounded-lg shadow-sm p-5 border border-pink-100 hover:shadow-md transition-shadow cursor-pointer block"
 								>
-									<h2 className="text-lg font-semibold text-gray-900 mb-3">
-										{foster.full_name?.trim() ||
-											"Unnamed Foster"}
-									</h2>
+									<div className="flex items-center justify-between mb-3">
+										<h2 className="text-lg font-semibold text-gray-900">
+											{foster.full_name?.trim() ||
+												"Unnamed Foster"}
+										</h2>
+										{foster.role === "coordinator" && (
+											<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+												Coordinator
+											</span>
+										)}
+									</div>
 
 									<div className="space-y-2 text-sm">
 										{foster.email && (
