@@ -56,7 +56,18 @@ export default function Dashboard() {
 		useQuery({
 			queryKey: ["assignedAnimals", user.id, profile.organization_id],
 			queryFn: () => {
-				return fetchAssignedAnimals(user.id, profile.organization_id);
+				return fetchAssignedAnimals(user.id, profile.organization_id, {
+					fields: [
+						"id",
+						"name",
+						"status",
+						"sex_spay_neuter_status",
+						"priority",
+						"group_id",
+						"photos",
+						"date_of_birth",
+					],
+				});
 			},
 		});
 
@@ -175,14 +186,14 @@ export default function Dashboard() {
 				</div>
 
 				{showFosteringSection && (
-					<div className="bg-white rounded-lg shadow-md p-6 mb-4">
+					<div className="mb-4">
 						<h2 className="text-lg font-semibold text-gray-900 mb-4">
 							Currently Fostering
 						</h2>
 						{isLoadingFostering ? (
 							<LoadingSpinner message="Loading assigned animals and groups..." />
 						) : (
-							<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+							<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 								{assignedGroups.map((group) => (
 									<GroupCard key={group.id} group={group} />
 								))}

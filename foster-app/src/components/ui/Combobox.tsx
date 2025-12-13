@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	Combobox as HeadlessCombobox,
 	ComboboxButton,
@@ -29,7 +29,12 @@ export default function Combobox({
 	error,
 	id,
 }: ComboboxProps) {
-	const [query, setQuery] = useState("");
+	const [query, setQuery] = useState(value);
+
+	// Sync query with value prop when value changes externally
+	useEffect(() => {
+		setQuery(value);
+	}, [value]);
 
 	const comboboxId =
 		id || `combobox-${label.toLowerCase().replace(/\s+/g, "-")}`;
@@ -42,6 +47,18 @@ export default function Combobox({
 					suggestion.toLowerCase().includes(query.toLowerCase())
 			  );
 
+	// Handle blur - save custom value if it doesn't match a suggestion
+	const handleBlur = () => {
+		const trimmedQuery = query.trim();
+		// If query doesn't match any suggestion exactly, save it as custom value
+		if (trimmedQuery !== "" && !suggestions.includes(trimmedQuery)) {
+			onChange(trimmedQuery);
+		} else if (trimmedQuery === "") {
+			// Clear value if query is empty
+			onChange("");
+		}
+	};
+
 	return (
 		<div>
 			<label
@@ -52,7 +69,12 @@ export default function Combobox({
 			</label>
 			<HeadlessCombobox
 				value={value}
-				onChange={(newValue) => onChange(newValue ?? "")}
+				onChange={(newValue) => {
+					// When user selects from dropdown, update both value and query
+					const selectedValue = newValue ?? "";
+					onChange(selectedValue);
+					setQuery(selectedValue);
+				}}
 				disabled={disabled}
 				immediate
 			>
@@ -64,10 +86,9 @@ export default function Combobox({
 								? "border-red-300 focus:border-red-500 focus:ring-red-500"
 								: "border-pink-300 focus:border-pink-500 focus:ring-pink-500"
 						} rounded-md shadow-sm focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white pr-10`}
-						displayValue={(selectedValue: string) =>
-							selectedValue || ""
-						}
+						displayValue={() => query}
 						onChange={(event) => setQuery(event.target.value)}
+						onBlur={handleBlur}
 						placeholder={placeholder}
 						disabled={disabled}
 					/>
