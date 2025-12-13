@@ -677,55 +677,34 @@ export default function NewAnimal() {
 							autoComplete="off"
 						/>
 
-						<PhotoUpload
-							maxPhotos={10}
-							onPhotosChange={setSelectedPhotos}
-							disabled={loading || uploadingPhotos}
-							error={photoUploadError}
-						/>
-
-						{uploadingPhotos && (
-							<div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-600 text-sm flex items-center gap-2">
-								<span>Uploading photos...</span>
-							</div>
-						)}
-
-						{/* Status and Display Placement Request grouped together */}
-						<div className="space-y-4">
-							<Select
-								label="Status"
-								value={status}
-								onChange={(e) =>
-									setStatus(e.target.value as AnimalStatus)
-								}
-								options={statusOptions}
-								required
-								error={errors.status}
-								disabled={loading}
-							/>
-
-							<Toggle
-								label="Display Placement Request"
-								checked={displayPlacementRequest}
-								onChange={setDisplayPlacementRequest}
-								disabled={loading}
-							/>
-						</div>
-
 						<Select
-							label="Sex"
-							value={sexSpayNeuterStatus}
+							label="Status"
+							value={status}
 							onChange={(e) =>
-								setSexSpayNeuterStatus(
-									e.target.value as SexSpayNeuterStatus | ""
-								)
+								setStatus(e.target.value as AnimalStatus)
 							}
-							options={sexSpayNeuterOptions}
+							options={statusOptions}
+							required
+							error={errors.status}
 							disabled={loading}
 						/>
 
-						{/* Date of Birth and Age Estimate */}
-						<div className="space-y-4">
+						<Toggle
+							label="High Priority"
+							checked={priority}
+							onChange={setPriority}
+							disabled={loading}
+						/>
+
+						<Toggle
+							label="Display Placement Request"
+							checked={displayPlacementRequest}
+							onChange={setDisplayPlacementRequest}
+							disabled={loading}
+						/>
+
+						{/* Date of Birth and Age Estimate (next to each other) */}
+						<div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-4">
 							<Input
 								label="Date of Birth"
 								type="date"
@@ -738,7 +717,6 @@ export default function NewAnimal() {
 								disabled={loading}
 								error={errors.dateOfBirth}
 							/>
-
 							<div>
 								<label className="block text-sm font-medium text-gray-700 mb-1">
 									Age Estimate
@@ -768,7 +746,7 @@ export default function NewAnimal() {
 												}
 											}}
 											onBlur={handleAgeValueBlur}
-											placeholder="Enter age"
+											placeholder="Age"
 											disabled={loading}
 											className={`w-full px-3 py-2 border ${
 												errors.ageValue
@@ -787,7 +765,7 @@ export default function NewAnimal() {
 										disabled={loading}
 										className="px-3 py-2 border border-pink-300 focus:border-pink-500 focus:ring-pink-500 rounded-md shadow-sm focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white"
 									>
-										<option value="">Select unit</option>
+										<option value="">Unit</option>
 										<option value="days">Days</option>
 										<option value="weeks">Weeks</option>
 										<option value="months">Months</option>
@@ -802,18 +780,47 @@ export default function NewAnimal() {
 							</div>
 						</div>
 
-						<Select
-							label="Life Stage"
-							value={lifeStage}
-							onChange={(e) => {
-								const newLifeStage = e.target.value as
-									| LifeStage
-									| "";
-								setLifeStage(newLifeStage);
-							}}
-							options={lifeStageOptions}
-							disabled={loading}
+						{/* Sex and Life Stage (next to each other) */}
+						<div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-4">
+							<Select
+								label="Sex"
+								value={sexSpayNeuterStatus}
+								onChange={(e) =>
+									setSexSpayNeuterStatus(
+										e.target.value as
+											| SexSpayNeuterStatus
+											| ""
+									)
+								}
+								options={sexSpayNeuterOptions}
+								disabled={loading}
+							/>
+							<Select
+								label="Life Stage"
+								value={lifeStage}
+								onChange={(e) => {
+									const newLifeStage = e.target.value as
+										| LifeStage
+										| "";
+									setLifeStage(newLifeStage);
+								}}
+								options={lifeStageOptions}
+								disabled={loading}
+							/>
+						</div>
+
+						<PhotoUpload
+							maxPhotos={10}
+							onPhotosChange={setSelectedPhotos}
+							disabled={loading || uploadingPhotos}
+							error={photoUploadError}
 						/>
+
+						{uploadingPhotos && (
+							<div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-600 text-sm flex items-center gap-2">
+								<span>Uploading photos...</span>
+							</div>
+						)}
 
 						<Combobox
 							label="Primary Breed"
@@ -839,13 +846,6 @@ export default function NewAnimal() {
 							disabled={
 								loading || isLoadingPhysicalCharacteristics
 							}
-						/>
-
-						<Toggle
-							label="High Priority"
-							checked={priority}
-							onChange={setPriority}
-							disabled={loading}
 						/>
 
 						<Textarea

@@ -93,18 +93,6 @@ export default function AnimalCard({ animal }: AnimalCardProps) {
 		? formatSexSpayNeuterStatus(animal.sex_spay_neuter_status)
 		: null;
 
-	// Debug group display
-	if (animal.group_id) {
-		console.log(
-			"AnimalCard - Animal:",
-			animal.id,
-			"group_id:",
-			animal.group_id,
-			"group_name:",
-			animal.group_name
-		);
-	}
-
 	// Build compact info string: "12 week old male" or just "male" if no age
 	const infoParts: string[] = [];
 	if (ageDisplay) {

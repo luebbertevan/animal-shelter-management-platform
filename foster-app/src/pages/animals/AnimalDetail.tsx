@@ -292,6 +292,34 @@ export default function AnimalDetail() {
 					</div>
 
 					<div className="space-y-6">
+						{/* Date of Birth and Age (next to each other) */}
+						<div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-4">
+							<FieldDisplay
+								label="Date of Birth"
+								value={
+									animal.date_of_birth
+										? new Date(
+												animal.date_of_birth
+										  ).toLocaleDateString()
+										: null
+								}
+							/>
+							<div>
+								<label className="block text-sm font-medium text-gray-500 mb-1">
+									Age
+								</label>
+								{ageDisplay ? (
+									<p className="text-lg font-medium text-gray-900">
+										{ageDisplay}
+									</p>
+								) : (
+									<p className="text-lg font-medium text-gray-400 italic">
+										Not provided
+									</p>
+								)}
+							</div>
+						</div>
+
 						{/* Sex and Life Stage (next to each other) */}
 						<div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-4">
 							<FieldDisplay
@@ -309,34 +337,6 @@ export default function AnimalDetail() {
 								value={
 									animal.life_stage
 										? formatLifeStage(animal.life_stage)
-										: null
-								}
-							/>
-						</div>
-
-						{/* Age and Date of Birth (next to each other) */}
-						<div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-4">
-							<div>
-								<label className="block text-sm font-medium text-gray-500 mb-1">
-									Age
-								</label>
-								{ageDisplay ? (
-									<p className="text-lg font-medium text-gray-900">
-										{ageDisplay}
-									</p>
-								) : (
-									<p className="text-lg font-medium text-gray-400 italic">
-										Not provided
-									</p>
-								)}
-							</div>
-							<FieldDisplay
-								label="Date of Birth"
-								value={
-									animal.date_of_birth
-										? new Date(
-												animal.date_of_birth
-										  ).toLocaleDateString()
 										: null
 								}
 							/>
