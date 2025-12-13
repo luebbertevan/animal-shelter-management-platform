@@ -674,6 +674,7 @@ export default function NewAnimal() {
 							onChange={(e) => setName(e.target.value)}
 							placeholder="Enter animal name (optional)"
 							disabled={loading}
+							autoComplete="off"
 						/>
 
 						<PhotoUpload

@@ -91,6 +91,7 @@ export default function Combobox({
 						onBlur={handleBlur}
 						placeholder={placeholder}
 						disabled={disabled}
+						autoComplete="off"
 					/>
 					<ComboboxButton className="absolute inset-y-0 right-0 flex items-center pr-2">
 						<ChevronUpDownIcon
