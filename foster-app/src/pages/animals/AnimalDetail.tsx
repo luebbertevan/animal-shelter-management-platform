@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Animal, SexSpayNeuterStatus, LifeStage } from "../../types";
@@ -103,6 +103,7 @@ function formatAgeForDisplay(
 
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
+	const navigate = useNavigate();
 	const { user, profile, isCoordinator } = useProtectedAuth();
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -238,8 +239,9 @@ export default function AnimalDetail() {
 						<Button
 							variant="outline"
 							onClick={() => {
-								// Placeholder - will be functional in a later milestone
-								alert("Edit functionality coming soon!");
+								if (id) {
+									navigate(`/animals/${id}/edit`);
+								}
 							}}
 						>
 							Edit

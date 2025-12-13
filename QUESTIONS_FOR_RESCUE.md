@@ -548,4 +548,7 @@ custom message build for
 
 auto message foster updates (photos and bios)
 
-bug with combobox. the browser dropdown also apears
+the group cards showed show stage of like not 2 animals for example
+ex 3 kittens
+1 adult 5 kittens
+1 senior, 1 adult, and 2 kittens

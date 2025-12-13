@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import AnimalsList from "./pages/animals/AnimalsList";
 import AnimalDetail from "./pages/animals/AnimalDetail";
 import NewAnimal from "./pages/animals/NewAnimal";
+import EditAnimal from "./pages/animals/EditAnimal";
 import GroupsList from "./pages/animals/GroupsList";
 import GroupDetail from "./pages/animals/GroupDetail";
 import NewGroup from "./pages/animals/NewGroup";
@@ -41,6 +42,14 @@ function App() {
 					element={
 						<ProtectedRoute>
 							<NewAnimal />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/animals/:id/edit"
+					element={
+						<ProtectedRoute>
+							<EditAnimal />
 						</ProtectedRoute>
 					}
 				/>
