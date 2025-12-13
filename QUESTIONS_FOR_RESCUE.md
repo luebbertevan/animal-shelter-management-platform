@@ -548,4 +548,16 @@ custom message build for
 
 auto message foster updates (photos and bios)
 
-bug with combobox. the browser dropdown also apears
+the group cards showed show stage of like not 2 animals for example
+ex 3 kittens
+1 adult 5 kittens
+1 senior, 1 adult, and 2 kittens
+
+The badge for display placement request says foster requested but this is confusing because a fosters will be requesting cats so this is a bad name we should change the badge and make sure it displays nicely in the mobile ui
+
+if the created at adn updated at dates are the same i do not want to display them in the animal details page
+
+There are some queries that we might want the refactor into reusable. what do you think. 
+@AnimalDetail.tsx (149-171)  is an example. if we were to do this again or have this duplicated in multiple places it would be good to refactor. identify other reused logic in our code that we should refactor.
+
+@AnimalDetail.tsx (480-494) this does not seem to work. it mihgt be due to the precision of the timestamps. 

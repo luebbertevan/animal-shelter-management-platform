@@ -425,11 +425,6 @@ export default function MessageInput({
 	}, []); // Only run on unmount
 
 	// Format file size for display
-	const formatFileSize = (bytes: number): string => {
-		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-	};
 
 	const isDisabled =
 		sending ||
@@ -489,9 +484,6 @@ export default function MessageInput({
 								>
 									×
 								</button>
-								<div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b">
-									{formatFileSize(photo.file.size)}
-								</div>
 							</div>
 						))}
 					</div>

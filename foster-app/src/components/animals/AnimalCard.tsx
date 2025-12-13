@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { Animal, SexSpayNeuterStatus } from "../../types";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 
@@ -85,6 +85,7 @@ interface AnimalCardProps {
  * Links to the animal detail page when clicked
  */
 export default function AnimalCard({ animal }: AnimalCardProps) {
+	const navigate = useNavigate();
 	const slug = createSlug(animal.name);
 	const firstPhoto =
 		animal.photos && animal.photos.length > 0 ? animal.photos[0] : null;
@@ -92,18 +93,6 @@ export default function AnimalCard({ animal }: AnimalCardProps) {
 	const sexDisplay = animal.sex_spay_neuter_status
 		? formatSexSpayNeuterStatus(animal.sex_spay_neuter_status)
 		: null;
-
-	// Debug group display
-	if (animal.group_id) {
-		console.log(
-			"AnimalCard - Animal:",
-			animal.id,
-			"group_id:",
-			animal.group_id,
-			"group_name:",
-			animal.group_name
-		);
-	}
 
 	// Build compact info string: "12 week old male" or just "male" if no age
 	const infoParts: string[] = [];
@@ -114,6 +103,15 @@ export default function AnimalCard({ animal }: AnimalCardProps) {
 		infoParts.push(sexDisplay.toLowerCase());
 	}
 	const compactInfo = infoParts.length > 0 ? infoParts.join(" ") : null;
+
+	// Handle group link click - navigate programmatically to avoid nested <a> tags
+	const handleGroupClick = (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (animal.group_id) {
+			navigate(`/groups/${animal.group_id}`);
+		}
+	};
 
 	return (
 		<Link
@@ -164,13 +162,13 @@ export default function AnimalCard({ animal }: AnimalCardProps) {
 					)}
 					{/* Group indicator */}
 					{animal.group_id && (
-						<Link
-							to={`/groups/${animal.group_id}`}
-							onClick={(e) => e.stopPropagation()}
-							className="text-sm text-pink-300 hover:text-pink-200 font-medium mt-1 inline-block"
+						<button
+							type="button"
+							onClick={handleGroupClick}
+							className="text-sm text-pink-300 hover:text-pink-200 font-medium mt-1 inline-block text-left"
 						>
 							In group: {animal.group_name || "View group"}
-						</Link>
+						</button>
 					)}
 				</div>
 			</div>
