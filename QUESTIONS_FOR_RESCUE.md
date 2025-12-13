@@ -547,3 +547,5 @@ don't do codes. whitelist approved foster emails.
 custom message build for 
 
 auto message foster updates (photos and bios)
+
+bug with combobox. the browser dropdown also apears
