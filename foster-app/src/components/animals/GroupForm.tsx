@@ -117,37 +117,41 @@ export default function GroupForm({
 						</p>
 					)}
 				{!isLoadingAnimals && !isErrorAnimals && animals.length > 0 && (
-					<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-						{sortedAnimals.map((animal) => {
-							const isSelected = selectedAnimalIds.includes(
-								animal.id
-							);
-							return (
-								<div
-									key={animal.id}
-									onClick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										if (!loading) {
-											toggleAnimalSelection(animal.id);
-										}
-									}}
-									onMouseDown={(e) => {
-										// Prevent link navigation
-										e.preventDefault();
-									}}
-									className={`cursor-pointer transition-all relative rounded-lg ${
-										isSelected
-											? "ring-4 ring-pink-500 ring-offset-2"
-											: ""
-									}`}
-								>
-									<div style={{ pointerEvents: "none" }}>
-										<AnimalCard animal={animal} />
+					<div className="max-h-[520px] overflow-y-auto pt-6 pb-6 pl-2 pr-2 -mx-6">
+						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+							{sortedAnimals.map((animal) => {
+								const isSelected = selectedAnimalIds.includes(
+									animal.id
+								);
+								return (
+									<div
+										key={animal.id}
+										onClick={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											if (!loading) {
+												toggleAnimalSelection(
+													animal.id
+												);
+											}
+										}}
+										onMouseDown={(e) => {
+											// Prevent link navigation
+											e.preventDefault();
+										}}
+										className={`cursor-pointer transition-all relative rounded-lg ${
+											isSelected
+												? "ring-4 ring-pink-500 ring-offset-2"
+												: ""
+										}`}
+									>
+										<div style={{ pointerEvents: "none" }}>
+											<AnimalCard animal={animal} />
+										</div>
 									</div>
-								</div>
-							);
-						})}
+								);
+							})}
+						</div>
 					</div>
 				)}
 				{selectedAnimalIds.length > 0 && (
