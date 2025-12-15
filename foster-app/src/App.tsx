@@ -9,6 +9,7 @@ import EditAnimal from "./pages/animals/EditAnimal";
 import GroupsList from "./pages/animals/GroupsList";
 import GroupDetail from "./pages/animals/GroupDetail";
 import NewGroup from "./pages/animals/NewGroup";
+import EditGroup from "./pages/animals/EditGroup";
 import ConversationDetail from "./pages/messaging/ConversationDetail";
 import ConversationsList from "./pages/messaging/ConversationsList";
 import FostersList from "./pages/fosters/FostersList";
@@ -74,6 +75,14 @@ function App() {
 					element={
 						<ProtectedRoute>
 							<NewGroup />
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/groups/:id/edit"
+					element={
+						<ProtectedRoute>
+							<EditGroup />
 						</ProtectedRoute>
 					}
 				/>

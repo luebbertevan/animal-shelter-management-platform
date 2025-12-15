@@ -533,7 +533,7 @@ export default function MessageInput({
 					onKeyDown={handleKeyDown}
 					disabled={sending}
 					rows={1}
-					className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-y-auto bg-white hide-scrollbar"
+					className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-y-auto bg-white hide-scrollbar text-gray-900"
 					style={{
 						minHeight: "40px",
 						maxHeight: "120px",
