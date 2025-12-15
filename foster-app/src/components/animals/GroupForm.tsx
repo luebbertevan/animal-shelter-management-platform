@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import type { Animal } from "../../types";
+import type { Animal, TimestampedPhoto } from "../../types";
 import Input from "../ui/Input";
 import Textarea from "../ui/Textarea";
 import Toggle from "../ui/Toggle";
@@ -7,6 +7,7 @@ import Button from "../ui/Button";
 import ErrorMessage from "../ui/ErrorMessage";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import AnimalCard from "./AnimalCard";
+import PhotoUpload from "./PhotoUpload";
 
 interface GroupFormProps {
 	// Form state and handlers from useGroupForm
@@ -27,6 +28,12 @@ interface GroupFormProps {
 	selectedAnimalIds: string[];
 	toggleAnimalSelection: (animalId: string) => void;
 
+	// Photo upload
+	onPhotosChange: (photos: File[]) => void;
+	existingPhotos?: TimestampedPhoto[];
+	onRemovePhoto?: (photoUrl: string) => void;
+	photoError?: string | null;
+
 	// Form submission
 	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 	loading: boolean;
@@ -46,6 +53,10 @@ export default function GroupForm({
 	isErrorAnimals,
 	selectedAnimalIds,
 	toggleAnimalSelection,
+	onPhotosChange,
+	existingPhotos = [],
+	onRemovePhoto,
+	photoError,
 	onSubmit,
 	loading,
 	submitError,
@@ -88,6 +99,16 @@ export default function GroupForm({
 				checked={formState.priority}
 				onChange={setPriority}
 				disabled={loading}
+			/>
+
+			{/* Photo Upload Section */}
+			<PhotoUpload
+				maxPhotos={10}
+				onPhotosChange={onPhotosChange}
+				existingPhotos={existingPhotos}
+				onRemovePhoto={onRemovePhoto}
+				disabled={loading}
+				error={photoError}
 			/>
 
 			{/* Animal Selection Section */}

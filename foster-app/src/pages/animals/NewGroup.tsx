@@ -11,6 +11,8 @@ import GroupForm from "../../components/animals/GroupForm";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { createGroup } from "../../lib/groupQueries";
+import { uploadGroupPhoto } from "../../lib/photoUtils";
+import type { TimestampedPhoto } from "../../types";
 
 export default function NewGroup() {
 	const navigate = useNavigate();
@@ -31,6 +33,10 @@ export default function NewGroup() {
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
+	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
+	const [photoUploadError, setPhotoUploadError] = useState<string | null>(
+		null
+	);
 
 	// Fetch available animals
 	const {
@@ -114,6 +120,132 @@ export default function NewGroup() {
 				created_by: user.id,
 			});
 
+			// Animal created successfully - now upload photos if any
+			const groupId = newGroup.id;
+			const photoMetadata: TimestampedPhoto[] = [];
+
+			if (selectedPhotos.length > 0) {
+				setPhotoUploadError(null);
+
+				try {
+					// Upload all photos in parallel
+					const uploadResults = await Promise.allSettled(
+						selectedPhotos.map(
+							async (
+								file
+							): Promise<{
+								success: boolean;
+								url?: string;
+								uploaded_at?: string;
+								uploaded_by?: string;
+								error?: string;
+							}> => {
+								try {
+									const photoUrl = await uploadGroupPhoto(
+										file,
+										profile.organization_id,
+										groupId
+									);
+									return {
+										success: true,
+										url: photoUrl,
+										uploaded_at: new Date().toISOString(),
+										uploaded_by: user.id,
+									};
+								} catch (err) {
+									console.error(
+										"Error uploading photo:",
+										err
+									);
+									return {
+										success: false,
+										error:
+											err instanceof Error
+												? err.message
+												: "Unknown error",
+									};
+								}
+							}
+						)
+					);
+
+					// Process upload results
+					const successfulUploads: TimestampedPhoto[] = uploadResults
+						.filter(
+							(result) =>
+								result.status === "fulfilled" &&
+								result.value.success
+						)
+						.map((result) => {
+							const value = (
+								result as PromiseFulfilledResult<{
+									success: true;
+									url: string;
+									uploaded_at: string;
+									uploaded_by: string;
+								}>
+							).value;
+							// Extract only the fields needed for photo metadata
+							return {
+								url: value.url,
+								uploaded_at: value.uploaded_at,
+								uploaded_by: value.uploaded_by,
+							};
+						});
+
+					const failedUploads = uploadResults.filter(
+						(result) =>
+							result.status === "rejected" ||
+							(result.status === "fulfilled" &&
+								!result.value.success)
+					).length;
+
+					photoMetadata.push(...successfulUploads);
+
+					// Update group with photo metadata
+					if (photoMetadata.length > 0) {
+						const { error: updateError } = await supabase
+							.from("animal_groups")
+							.update({ group_photos: photoMetadata })
+							.eq("id", groupId);
+
+						if (updateError) {
+							console.error(
+								"Error updating group with photos:",
+								updateError
+							);
+							// Don't fail the whole operation - photos are uploaded even if metadata update fails
+						}
+					}
+
+					// Show appropriate messages based on upload results
+					if (failedUploads === selectedPhotos.length) {
+						// All photos failed
+						setPhotoUploadError(
+							`Group created successfully, but all ${failedUploads} photo${
+								failedUploads !== 1 ? "s" : ""
+							} failed to upload. You can add photos later via the edit form.`
+						);
+					} else if (failedUploads > 0) {
+						// Some photos failed
+						setPhotoUploadError(
+							`Group created successfully. ${failedUploads} photo${
+								failedUploads !== 1 ? "s" : ""
+							} failed to upload, but ${
+								successfulUploads.length
+							} photo${
+								successfulUploads.length !== 1 ? "s" : ""
+							} uploaded successfully.`
+						);
+					}
+				} catch (err) {
+					console.error("Error uploading photos:", err);
+					setPhotoUploadError(
+						"Group created successfully, but photo upload failed. "
+					);
+				}
+			}
+
 			// Update all selected animals to set their group_id
 			const { error: updateError } = await supabase
 				.from("animals")
@@ -176,6 +308,8 @@ export default function NewGroup() {
 						isErrorAnimals={isErrorAnimals}
 						selectedAnimalIds={selectedAnimalIds}
 						toggleAnimalSelection={toggleAnimalSelection}
+						onPhotosChange={setSelectedPhotos}
+						photoError={photoUploadError}
 						onSubmit={handleSubmit}
 						loading={loading}
 						submitError={submitError}

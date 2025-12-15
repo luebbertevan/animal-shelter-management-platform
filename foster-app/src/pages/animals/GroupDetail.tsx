@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { AnimalGroup, Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
+import PhotoLightbox from "../../components/messaging/PhotoLightbox";
 import { fetchGroupById } from "../../lib/groupQueries";
 import { fetchAnimalsByIds } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
@@ -16,6 +18,8 @@ import { fetchFosterById } from "../../lib/fosterQueries";
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
 	const { user, profile, isCoordinator } = useProtectedAuth();
+	const [lightboxOpen, setLightboxOpen] = useState(false);
+	const [lightboxIndex, setLightboxIndex] = useState(0);
 
 	const {
 		data: group,
@@ -82,6 +86,14 @@ export default function GroupDetail() {
 		},
 		enabled: !!group?.current_foster_id,
 	});
+
+	const photoUrls = group?.group_photos?.map((photo) => photo.url) || [];
+
+	// Handle photo click
+	const handlePhotoClick = (index: number) => {
+		setLightboxIndex(index);
+		setLightboxOpen(true);
+	};
 
 	const isLoading = isLoadingGroup || isLoadingAnimals;
 	const isError = isErrorGroup || isErrorAnimals;
@@ -154,6 +166,17 @@ export default function GroupDetail() {
 						)}
 					</div>
 				</div>
+
+				{/* Photo Lightbox */}
+				{photoUrls.length > 0 && (
+					<PhotoLightbox
+						key={`${lightboxIndex}-${lightboxOpen}`}
+						photos={photoUrls}
+						initialIndex={lightboxIndex}
+						isOpen={lightboxOpen}
+						onClose={() => setLightboxOpen(false)}
+					/>
+				)}
 			</div>
 		);
 	}
@@ -178,6 +201,30 @@ export default function GroupDetail() {
 							/>
 						)}
 					</div>
+
+					{/* Photos */}
+					{photoUrls.length > 0 && (
+						<div className="mb-6">
+							<label className="block text-sm font-medium text-gray-500 mb-2">
+								Photos
+							</label>
+							<div className="flex flex-wrap gap-2">
+								{photoUrls.map((url, index) => (
+									<div
+										key={index}
+										className="relative group cursor-pointer"
+										onClick={() => handlePhotoClick(index)}
+									>
+										<img
+											src={url}
+											alt={`Group photo ${index + 1}`}
+											className="w-24 h-24 object-cover rounded border border-gray-300 hover:opacity-80 transition-opacity"
+										/>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
 
 					<div className="space-y-4 mb-6">
 						{group.description && (
@@ -313,6 +360,17 @@ export default function GroupDetail() {
 					)}
 				</div>
 			</div>
+
+			{/* Photo Lightbox */}
+			{photoUrls.length > 0 && (
+				<PhotoLightbox
+					key={`${lightboxIndex}-${lightboxOpen}`}
+					photos={photoUrls}
+					initialIndex={lightboxIndex}
+					isOpen={lightboxOpen}
+					onClose={() => setLightboxOpen(false)}
+				/>
+			)}
 		</div>
 	);
 }
