@@ -4,25 +4,30 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
+import { useGroupForm } from "../../hooks/useGroupForm";
 import type { Animal } from "../../types";
-import Input from "../../components/ui/Input";
-import Textarea from "../../components/ui/Textarea";
-import Toggle from "../../components/ui/Toggle";
-import Button from "../../components/ui/Button";
-import ErrorMessage from "../../components/ui/ErrorMessage";
 import NavLinkButton from "../../components/ui/NavLinkButton";
-import LoadingSpinner from "../../components/ui/LoadingSpinner";
+import GroupForm from "../../components/animals/GroupForm";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import { fetchAnimals } from "../../lib/animalQueries";
+import { createGroup } from "../../lib/groupQueries";
 
 export default function NewGroup() {
 	const navigate = useNavigate();
 	const { user, profile } = useProtectedAuth();
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	const [priority, setPriority] = useState(false);
-	const [selectedAnimalIds, setSelectedAnimalIds] = useState<string[]>([]);
-	const [errors, setErrors] = useState<Record<string, string>>({});
+
+	// Use the form hook
+	const {
+		formState,
+		setName,
+		setDescription,
+		setPriority,
+		selectedAnimalIds,
+		toggleAnimalSelection,
+		validateForm,
+		errors,
+	} = useGroupForm();
+
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -36,7 +41,16 @@ export default function NewGroup() {
 		queryKey: ["animals", user.id, profile.organization_id],
 		queryFn: () => {
 			return fetchAnimals(profile.organization_id, {
-				fields: ["id", "name", "priority"],
+				fields: [
+					"id",
+					"name",
+					"status",
+					"sex_spay_neuter_status",
+					"priority",
+					"photos",
+					"date_of_birth",
+					"group_id",
+				],
 				orderBy: "created_at",
 				orderDirection: "desc",
 			});
@@ -58,7 +72,7 @@ export default function NewGroup() {
 	// Only auto-SET to high when a high priority animal is selected
 	// Never auto-clear - user must manually clear if they want
 	useEffect(() => {
-		if (hasHighPriorityAnimal && !priority) {
+		if (hasHighPriorityAnimal && !formState.priority) {
 			// Auto-set to high if any animal is high priority and priority is currently false
 			setPriority(true);
 		}
@@ -68,31 +82,15 @@ export default function NewGroup() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [hasHighPriorityAnimal]);
 
-	const toggleAnimalSelection = (animalId: string) => {
-		setSelectedAnimalIds((prev) => {
-			if (prev.includes(animalId)) {
-				return prev.filter((id) => id !== animalId);
-			} else {
-				return [...prev, animalId];
-			}
-		});
-	};
-
-	const validateForm = (): boolean => {
-		const newErrors: Record<string, string> = {};
-
-		if (selectedAnimalIds.length === 0) {
-			newErrors.animals = "Please select at least one animal";
-		}
-
-		setErrors(newErrors);
-		return Object.keys(newErrors).length === 0;
-	};
-
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-		setErrors({});
 		setSubmitError(null);
+
+		// Validate that at least one animal is selected
+		if (selectedAnimalIds.length === 0) {
+			setSubmitError("Please select at least one animal");
+			return;
+		}
 
 		if (!validateForm()) {
 			return;
@@ -101,66 +99,46 @@ export default function NewGroup() {
 		setLoading(true);
 
 		try {
-			// Check if we're offline before making the request
 			checkOfflineAndThrow();
 
 			// Auto-fill name with "Group of #" if no name provided
 			const groupName =
-				name.trim() || `Group of ${selectedAnimalIds.length}`;
+				formState.name.trim() || `Group of ${selectedAnimalIds.length}`;
 
-			// Prepare data for insertion
-			const groupData: Record<string, unknown> = {
+			// Create the group
+			const newGroup = await createGroup(profile.organization_id, {
 				name: groupName,
-				description: description.trim() || null,
+				description: formState.description.trim() || null,
 				animal_ids: selectedAnimalIds,
-				priority: priority,
-				organization_id: profile.organization_id,
-			};
+				priority: formState.priority,
+			});
 
-			const { data: insertedData, error: insertError } = await supabase
-				.from("animal_groups")
-				.insert(groupData)
-				.select()
-				.single();
+			// Update all selected animals to set their group_id
+			const { error: updateError } = await supabase
+				.from("animals")
+				.update({ group_id: newGroup.id })
+				.in("id", selectedAnimalIds)
+				.eq("organization_id", profile.organization_id);
 
-			if (insertError) {
-				console.error("Error creating group:", insertError);
-				setSubmitError(
-					getErrorMessage(
-						insertError,
-						"Failed to create group. Please try again."
-					)
+			if (updateError) {
+				console.error(
+					"Error updating animals with group_id:",
+					updateError
 				);
-			} else if (!insertedData) {
-				setSubmitError("Group was not created. Please try again.");
+				// Note: Group was created successfully, but animals weren't updated
+				// This is a partial success - we should still show success but warn user
+				setSubmitError(
+					"Group was created, but failed to update animals. Please manually assign animals to the group."
+				);
 			} else {
-				// Update all selected animals to set their group_id
-				const { error: updateError } = await supabase
-					.from("animals")
-					.update({ group_id: insertedData.id })
-					.in("id", selectedAnimalIds)
-					.eq("organization_id", profile.organization_id);
+				setSuccessMessage("Group created successfully!");
 
-				if (updateError) {
-					console.error(
-						"Error updating animals with group_id:",
-						updateError
-					);
-					// Note: Group was created successfully, but animals weren't updated
-					// This is a partial success - we should still show success but warn user
-					setSubmitError(
-						"Group was created, but failed to update animals. Please manually assign animals to the group."
-					);
-				} else {
-					setSuccessMessage("Group created successfully!");
-
-					// Redirect to group detail page after a brief delay
-					setTimeout(() => {
-						navigate(`/groups/${insertedData.id}`, {
-							replace: true,
-						});
-					}, 1500);
-				}
+				// Redirect to group detail page after a brief delay
+				setTimeout(() => {
+					navigate(`/groups/${newGroup.id}`, {
+						replace: true,
+					});
+				}, 1500);
 			}
 		} catch (err) {
 			console.error("Unexpected error:", err);
@@ -186,129 +164,23 @@ export default function NewGroup() {
 						Create New Group
 					</h1>
 
-					<form onSubmit={handleSubmit} className="space-y-6">
-						<Input
-							label="Group Name"
-							type="text"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							placeholder="Enter group name (optional - will auto-fill if empty)"
-							disabled={loading}
-							error={errors.name}
-							autoComplete="off"
-						/>
-
-						<Textarea
-							label="Description"
-							value={description}
-							onChange={(e) => setDescription(e.target.value)}
-							placeholder="Enter group description (optional)"
-							disabled={loading}
-							rows={4}
-							error={errors.description}
-						/>
-
-						<Toggle
-							label="High Priority"
-							checked={priority}
-							onChange={setPriority}
-							disabled={loading}
-						/>
-
-						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-2">
-								Select Animals
-							</label>
-							{isLoadingAnimals && (
-								<div className="p-4">
-									<LoadingSpinner message="Loading animals..." />
-								</div>
-							)}
-							{isErrorAnimals && (
-								<div className="p-4 bg-red-50 border border-red-200 rounded-md">
-									<p className="text-sm text-red-700">
-										Failed to load animals. Please try
-										refreshing the page.
-									</p>
-								</div>
-							)}
-							{!isLoadingAnimals &&
-								!isErrorAnimals &&
-								animals.length === 0 && (
-									<p className="text-sm text-gray-500">
-										No animals available. Create animals
-										first before creating a group.
-									</p>
-								)}
-							{!isLoadingAnimals &&
-								!isErrorAnimals &&
-								animals.length > 0 && (
-									<div className="border border-gray-300 rounded-md p-4 max-h-64 overflow-y-auto">
-										<div className="space-y-2">
-											{animals.map((animal) => (
-												<label
-													key={animal.id}
-													className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-md cursor-pointer"
-												>
-													<input
-														type="checkbox"
-														checked={selectedAnimalIds.includes(
-															animal.id
-														)}
-														onChange={() =>
-															toggleAnimalSelection(
-																animal.id
-															)
-														}
-														disabled={loading}
-														className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
-													/>
-													<span className="flex-1 text-sm text-gray-900">
-														{animal.name?.trim() ||
-															"Unnamed Animal"}
-													</span>
-													{animal.priority && (
-														<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-															High Priority
-														</span>
-													)}
-												</label>
-											))}
-										</div>
-									</div>
-								)}
-							{selectedAnimalIds.length > 0 && (
-								<p className="mt-2 text-sm text-gray-500">
-									{selectedAnimalIds.length} animal
-									{selectedAnimalIds.length !== 1
-										? "s"
-										: ""}{" "}
-									selected
-								</p>
-							)}
-							{errors.animals && (
-								<p className="mt-2 text-sm text-red-600">
-									{errors.animals}
-								</p>
-							)}
-						</div>
-
-						{submitError && (
-							<ErrorMessage>{submitError}</ErrorMessage>
-						)}
-
-						{successMessage && (
-							<div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
-								{successMessage}
-							</div>
-						)}
-
-						<div className="flex gap-4">
-							<Button type="submit" disabled={loading}>
-								{loading ? "Creating..." : "Create Group"}
-							</Button>
-						</div>
-					</form>
+					<GroupForm
+						formState={formState}
+						setName={setName}
+						setDescription={setDescription}
+						setPriority={setPriority}
+						errors={errors}
+						animals={animals}
+						isLoadingAnimals={isLoadingAnimals}
+						isErrorAnimals={isErrorAnimals}
+						selectedAnimalIds={selectedAnimalIds}
+						toggleAnimalSelection={toggleAnimalSelection}
+						onSubmit={handleSubmit}
+						loading={loading}
+						submitError={submitError}
+						successMessage={successMessage}
+						submitButtonText="Create Group"
+					/>
 				</div>
 			</div>
 		</div>

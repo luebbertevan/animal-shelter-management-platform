@@ -17,6 +17,10 @@ export interface UseGroupFormReturn {
 	setName: (value: string) => void;
 	setDescription: (value: string) => void;
 	setPriority: (value: boolean) => void;
+	// Animal selection
+	selectedAnimalIds: string[];
+	setSelectedAnimalIds: (ids: string[]) => void;
+	toggleAnimalSelection: (animalId: string) => void;
 	// Validation
 	validateForm: () => boolean;
 	// State
@@ -36,7 +40,20 @@ export function useGroupForm(
 	const [name, setName] = useState(initialState.name);
 	const [description, setDescription] = useState(initialState.description);
 	const [priority, setPriority] = useState(initialState.priority);
+	const [selectedAnimalIds, setSelectedAnimalIds] = useState<string[]>(
+		initialGroup?.animal_ids || []
+	);
 	const [errors, setErrors] = useState<Record<string, string>>({});
+
+	const toggleAnimalSelection = (animalId: string) => {
+		setSelectedAnimalIds((prev) => {
+			if (prev.includes(animalId)) {
+				return prev.filter((id) => id !== animalId);
+			} else {
+				return [...prev, animalId];
+			}
+		});
+	};
 
 	const validateForm = (): boolean => {
 		const newErrors: Record<string, string> = {};
@@ -59,6 +76,9 @@ export function useGroupForm(
 		setName,
 		setDescription,
 		setPriority,
+		selectedAnimalIds,
+		setSelectedAnimalIds,
+		toggleAnimalSelection,
 		validateForm,
 		errors,
 	};

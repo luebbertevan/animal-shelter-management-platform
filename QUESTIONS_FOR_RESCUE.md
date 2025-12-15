@@ -558,3 +558,9 @@ ex 3 kittens
 There are some queries that we might want the refactor into reusable. what do you think. 
 @AnimalDetail.tsx (149-171)  is an example. if we were to do this again or have this duplicated in multiple places it would be good to refactor. identify other reused logic in our code that we should refactor.
 
+scrollable select animals in groups
+
+selection border rounded to match the animal card
+
+group details should have created by 
+crated at and updated at just like the animal details. maybe should share logic?
