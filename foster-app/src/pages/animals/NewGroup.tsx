@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
@@ -8,9 +8,10 @@ import { useGroupForm } from "../../hooks/useGroupForm";
 import type { Animal } from "../../types";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import GroupForm from "../../components/animals/GroupForm";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import { fetchAnimals } from "../../lib/animalQueries";
-import { createGroup } from "../../lib/groupQueries";
+import { createGroup, findGroupContainingAnimal } from "../../lib/groupQueries";
 import { uploadGroupPhoto } from "../../lib/photoUtils";
 import type { TimestampedPhoto } from "../../types";
 
@@ -37,6 +38,21 @@ export default function NewGroup() {
 	const [photoUploadError, setPhotoUploadError] = useState<string | null>(
 		null
 	);
+
+	// Duplicate detection modal state
+	const [duplicateModal, setDuplicateModal] = useState<{
+		isOpen: boolean;
+		animalId: string;
+		animalName: string;
+		existingGroupId: string;
+		existingGroupName: string;
+	}>({
+		isOpen: false,
+		animalId: "",
+		animalName: "",
+		existingGroupId: "",
+		existingGroupName: "",
+	});
 
 	// Fetch available animals
 	const {
@@ -88,6 +104,76 @@ export default function NewGroup() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [hasHighPriorityAnimal]);
 
+	// Handle animal selection with duplicate detection
+	const handleAnimalSelection = async (animalId: string) => {
+		// If deselecting, just toggle (no duplicate check needed)
+		if (selectedAnimalIds.includes(animalId)) {
+			toggleAnimalSelection(animalId);
+			return;
+		}
+
+		// If selecting, check for duplicates
+		try {
+			const existingGroup = await findGroupContainingAnimal(
+				animalId,
+				profile.organization_id
+			);
+
+			if (existingGroup) {
+				// Animal is in another group - show modal
+				const animal = animals.find((a) => a.id === animalId);
+				const animalName = animal?.name || "This animal";
+				setDuplicateModal({
+					isOpen: true,
+					animalId,
+					animalName,
+					existingGroupId: existingGroup.id,
+					existingGroupName: existingGroup.name,
+				});
+			} else {
+				// No duplicate - proceed with selection
+				toggleAnimalSelection(animalId);
+			}
+		} catch (err) {
+			console.error(
+				"Error checking for duplicate group assignment:",
+				err
+			);
+			// On error, proceed with selection (fail open)
+			toggleAnimalSelection(animalId);
+		}
+	};
+
+	// Handle "Move to new" action - add to selection (removal from old group happens on form submit)
+	const handleMoveToNew = () => {
+		const { animalId } = duplicateModal;
+
+		// Just add animal to selection - don't update database yet
+		// This allows user to change their mind before submitting
+		// The handleSubmit function will handle removing from old group and updating group_id
+		toggleAnimalSelection(animalId);
+
+		// Close modal
+		setDuplicateModal({
+			isOpen: false,
+			animalId: "",
+			animalName: "",
+			existingGroupId: "",
+			existingGroupName: "",
+		});
+	};
+
+	// Handle "Cancel" action - don't add animal
+	const handleCancelMove = () => {
+		setDuplicateModal({
+			isOpen: false,
+			animalId: "",
+			animalName: "",
+			existingGroupId: "",
+			existingGroupName: "",
+		});
+	};
+
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		setSubmitError(null);
@@ -106,6 +192,67 @@ export default function NewGroup() {
 
 		try {
 			checkOfflineAndThrow();
+
+			// Check if any selected animals are in other groups and remove them
+			// This handles the "Move to new" scenario
+			if (selectedAnimalIds.length > 0) {
+				// Get current group_id for animals being added
+				const { data: animalsToAdd, error: fetchError } = await supabase
+					.from("animals")
+					.select("id, group_id")
+					.in("id", selectedAnimalIds)
+					.eq("organization_id", profile.organization_id);
+
+				if (fetchError) {
+					console.error("Error fetching animals to add:", fetchError);
+				} else if (animalsToAdd) {
+					// Find animals that are in other groups
+					const animalsInOtherGroups = animalsToAdd.filter(
+						(a) => a.group_id !== null
+					);
+
+					// Remove these animals from their old groups
+					if (animalsInOtherGroups.length > 0) {
+						const oldGroupIds = [
+							...new Set(
+								animalsInOtherGroups
+									.map((a) => a.group_id)
+									.filter((gid): gid is string => !!gid)
+							),
+						];
+
+						// Update each old group to remove the animal from animal_ids
+						for (const oldGroupId of oldGroupIds) {
+							const { data: oldGroup } = await supabase
+								.from("animal_groups")
+								.select("animal_ids")
+								.eq("id", oldGroupId)
+								.eq("organization_id", profile.organization_id)
+								.single();
+
+							if (oldGroup && oldGroup.animal_ids) {
+								const updatedAnimalIds = (
+									oldGroup.animal_ids as string[]
+								).filter(
+									(aid) =>
+										!animalsInOtherGroups
+											.map((a) => a.id)
+											.includes(aid)
+								);
+
+								await supabase
+									.from("animal_groups")
+									.update({ animal_ids: updatedAnimalIds })
+									.eq("id", oldGroupId)
+									.eq(
+										"organization_id",
+										profile.organization_id
+									);
+							}
+						}
+					}
+				}
+			}
 
 			// Auto-fill name with "Group of #" if no name provided
 			const groupName =
@@ -307,7 +454,7 @@ export default function NewGroup() {
 						isLoadingAnimals={isLoadingAnimals}
 						isErrorAnimals={isErrorAnimals}
 						selectedAnimalIds={selectedAnimalIds}
-						toggleAnimalSelection={toggleAnimalSelection}
+						toggleAnimalSelection={handleAnimalSelection}
 						onPhotosChange={setSelectedPhotos}
 						photoError={photoUploadError}
 						onSubmit={handleSubmit}
@@ -317,6 +464,33 @@ export default function NewGroup() {
 						submitButtonText="Create Group"
 					/>
 				</div>
+
+				{/* Duplicate Group Assignment Modal */}
+				<ConfirmModal
+					isOpen={duplicateModal.isOpen}
+					title="Animal Already in Group"
+					message={
+						<>
+							<p className="mb-2">
+								{duplicateModal.animalName} is already in group:{" "}
+								<Link
+									to={`/groups/${duplicateModal.existingGroupId}`}
+									className="text-pink-600 hover:text-pink-700 underline"
+									onClick={() => handleCancelMove()}
+								>
+									{duplicateModal.existingGroupName}
+								</Link>
+								.
+							</p>
+							<p>Move them to this group?</p>
+						</>
+					}
+					confirmLabel="Move to new"
+					cancelLabel="Cancel"
+					onConfirm={handleMoveToNew}
+					onCancel={handleCancelMove}
+					variant="default"
+				/>
 			</div>
 		</div>
 	);
