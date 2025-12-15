@@ -548,10 +548,7 @@ custom message build for
 
 auto message foster updates (photos and bios)
 
-the group cards showed show stage of like not 2 animals for example
-ex 3 kittens
-1 adult 5 kittens
-1 senior, 1 adult, and 2 kittens
+
 
 There are some queries that we might want the refactor into reusable. what do you think. 
 @AnimalDetail.tsx (149-171)  is an example. if we were to do this again or have this duplicated in multiple places it would be good to refactor. identify other reused logic in our code that we should refactor.
@@ -570,7 +567,7 @@ design decisions need to be made about how we want to handle status changes for 
 
 
 
-
+we need to think about performance for animals list, and group list. and sublists. pagination. if there are a bunch of animals/groups we need to make sure that theperformance is not going to be substantially bad. this might also effect search/filter
 
 
 
