@@ -136,9 +136,9 @@ export default function GroupForm({
 										// Prevent link navigation
 										e.preventDefault();
 									}}
-									className={`cursor-pointer transition-all relative ${
+									className={`cursor-pointer transition-all relative rounded-lg ${
 										isSelected
-											? "ring-2 ring-pink-500 ring-offset-2"
+											? "ring-4 ring-pink-500 ring-offset-2"
 											: ""
 									}`}
 								>
