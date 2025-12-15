@@ -3559,7 +3559,18 @@ The preview card should show minimal, scannable information for quick browsing:
         - "Cancel": Don't add animal to current group
 
 4. **Update `NewGroup` page**:
-    - Same duplicate detection and modal handling as edit page
+
+    - Implement same duplicate detection logic as `EditGroup` page
+    - On animal selection in the form, check if selected animal is already in another group
+    - If conflict detected, show the same confirmation modal
+    - Handle modal actions:
+        - "Move to new":
+            - Add animal to the new group being created (will be added to `animal_ids` when group is created)
+            - Remove animal from old group (update old group's `animal_ids` array and set `animals.group_id` to null temporarily, then update to new group ID after creation)
+            - Note: Since group doesn't exist yet, need to handle the removal from old group before group creation, then update `animals.group_id` after new group is created
+        - "Cancel": Don't add animal to the new group being created
+    - Ensure duplicate detection happens before form submission (during animal selection)
+    - Update `handleSubmit` to account for animals that were moved from other groups during selection
 
 **Review Checkpoint:** Duplicate detection works. Modal displays correctly. "Move to new" and "Cancel" actions work as expected.
 
