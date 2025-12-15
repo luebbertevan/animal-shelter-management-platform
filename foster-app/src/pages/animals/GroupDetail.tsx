@@ -6,6 +6,7 @@ import type { AnimalGroup, Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
+import AnimalCard from "../../components/animals/AnimalCard";
 import { fetchGroupById } from "../../lib/groupQueries";
 import { fetchAnimalsByIds } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
@@ -56,7 +57,16 @@ export default function GroupDetail() {
 				group.animal_ids,
 				profile.organization_id,
 				{
-					fields: ["id", "name", "priority"],
+					fields: [
+						"id",
+						"name",
+						"status",
+						"sex_spay_neuter_status",
+						"priority",
+						"photos",
+						"date_of_birth",
+						"group_id",
+					],
 				}
 			);
 		},
@@ -272,25 +282,15 @@ export default function GroupDetail() {
 								<h2 className="text-lg font-semibold text-gray-900 mb-4">
 									Animals in Group
 								</h2>
-								<div className="space-y-2">
+								<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 									{animals.map((animal) => (
-										<Link
+										<AnimalCard
 											key={animal.id}
-											to={`/animals/${animal.id}`}
-											className="block p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
-										>
-											<div className="flex items-center justify-between">
-												<span className="font-medium text-gray-900">
-													{animal.name?.trim() ||
-														"Unnamed Animal"}
-												</span>
-												{animal.priority && (
-													<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-														High Priority
-													</span>
-												)}
-											</div>
-										</Link>
+											animal={{
+												...animal,
+												group_name: group.name,
+											}}
+										/>
 									))}
 								</div>
 							</div>
