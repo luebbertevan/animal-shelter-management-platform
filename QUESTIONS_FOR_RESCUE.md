@@ -562,5 +562,3 @@ There are some queries that we might want the refactor into reusable. what do yo
 
 
 
-group details should have created by 
-crated at and updated at just like the animal details. maybe should share logic?

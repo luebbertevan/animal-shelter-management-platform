@@ -111,6 +111,7 @@ export default function NewGroup() {
 				description: formState.description.trim() || null,
 				animal_ids: selectedAnimalIds,
 				priority: formState.priority,
+				created_by: user.id,
 			});
 
 			// Update all selected animals to set their group_id
