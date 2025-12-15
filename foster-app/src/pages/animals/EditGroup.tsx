@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
@@ -9,8 +9,13 @@ import NavLinkButton from "../../components/ui/NavLinkButton";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import GroupForm from "../../components/animals/GroupForm";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
-import { fetchGroupById, updateGroup } from "../../lib/groupQueries";
+import {
+	fetchGroupById,
+	updateGroup,
+	findGroupContainingAnimal,
+} from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
 import type { Animal, TimestampedPhoto } from "../../types";
 import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
@@ -85,9 +90,95 @@ export default function EditGroup() {
 		null
 	);
 
+	// Duplicate detection modal state
+	const [duplicateModal, setDuplicateModal] = useState<{
+		isOpen: boolean;
+		animalId: string;
+		animalName: string;
+		existingGroupId: string;
+		existingGroupName: string;
+	}>({
+		isOpen: false,
+		animalId: "",
+		animalName: "",
+		existingGroupId: "",
+		existingGroupName: "",
+	});
+
 	// Handle photo removal - track photos to delete
 	const handleRemovePhoto = (photoUrl: string) => {
 		setPhotosToDelete((prev) => [...prev, photoUrl]);
+	};
+
+	// Handle animal selection with duplicate detection
+	const handleAnimalSelection = async (animalId: string) => {
+		// If deselecting, just toggle (no duplicate check needed)
+		if (selectedAnimalIds.includes(animalId)) {
+			toggleAnimalSelection(animalId);
+			return;
+		}
+
+		// If selecting, check for duplicates
+		try {
+			const existingGroup = await findGroupContainingAnimal(
+				animalId,
+				profile.organization_id,
+				id // Exclude current group from check
+			);
+
+			if (existingGroup) {
+				// Animal is in another group - show modal
+				const animal = animals.find((a) => a.id === animalId);
+				const animalName = animal?.name || "This animal";
+				setDuplicateModal({
+					isOpen: true,
+					animalId,
+					animalName,
+					existingGroupId: existingGroup.id,
+					existingGroupName: existingGroup.name,
+				});
+			} else {
+				// No duplicate - proceed with selection
+				toggleAnimalSelection(animalId);
+			}
+		} catch (err) {
+			console.error(
+				"Error checking for duplicate group assignment:",
+				err
+			);
+			// On error, proceed with selection (fail open)
+			toggleAnimalSelection(animalId);
+		}
+	};
+
+	// Handle "Move to new" action - add to selection (removal from old group happens on form submit)
+	const handleMoveToNew = () => {
+		const { animalId } = duplicateModal;
+
+		// Just add animal to selection - don't update database yet
+		// This allows user to change their mind before submitting
+		// The handleSubmit function will handle removing from old group and updating group_id
+		toggleAnimalSelection(animalId);
+
+		// Close modal
+		setDuplicateModal({
+			isOpen: false,
+			animalId: "",
+			animalName: "",
+			existingGroupId: "",
+			existingGroupName: "",
+		});
+	};
+
+	// Handle "Cancel" action - don't add animal
+	const handleCancelMove = () => {
+		setDuplicateModal({
+			isOpen: false,
+			animalId: "",
+			animalName: "",
+			existingGroupId: "",
+			existingGroupName: "",
+		});
 	};
 
 	// Redirect non-coordinators (after all hooks)
@@ -426,7 +517,7 @@ export default function EditGroup() {
 						isLoadingAnimals={isLoadingAnimals}
 						isErrorAnimals={isErrorAnimals}
 						selectedAnimalIds={selectedAnimalIds}
-						toggleAnimalSelection={toggleAnimalSelection}
+						toggleAnimalSelection={handleAnimalSelection}
 						onPhotosChange={setSelectedPhotos}
 						existingPhotos={group.group_photos || []}
 						onRemovePhoto={handleRemovePhoto}
@@ -438,6 +529,33 @@ export default function EditGroup() {
 						submitButtonText="Update Group"
 					/>
 				</div>
+
+				{/* Duplicate Group Assignment Modal */}
+				<ConfirmModal
+					isOpen={duplicateModal.isOpen}
+					title="Animal Already in Group"
+					message={
+						<>
+							<p className="mb-2">
+								{duplicateModal.animalName} is already in group:{" "}
+								<Link
+									to={`/groups/${duplicateModal.existingGroupId}`}
+									className="text-pink-600 hover:text-pink-700 underline"
+									onClick={() => handleCancelMove()}
+								>
+									{duplicateModal.existingGroupName}
+								</Link>
+								.
+							</p>
+							<p>Move them to this group?</p>
+						</>
+					}
+					confirmLabel="Move to new"
+					cancelLabel="Cancel"
+					onConfirm={handleMoveToNew}
+					onCancel={handleCancelMove}
+					variant="default"
+				/>
 			</div>
 		</div>
 	);

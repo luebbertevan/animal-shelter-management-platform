@@ -559,6 +559,12 @@ There are some queries that we might want the refactor into reusable. what do yo
 @AnimalDetail.tsx (149-171)  is an example. if we were to do this again or have this duplicated in multiple places it would be good to refactor. identify other reused logic in our code that we should refactor.
 
 
+the animal card in animal list shows the group name the animal is in. In group: <group_name>
+the animal card in currently fostering and group select animals does not display the group name. it says In group: View group
 
+if an animal with high priority is added to a group the priority of the group should toggle to high. this should not be enforced though so it can be changed by the user its just a toggle when the animal is added.
 
+evntually we will need an add to group from the create and edit animal page
+
+they need to be able to delete groups
 

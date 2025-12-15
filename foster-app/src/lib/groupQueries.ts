@@ -305,3 +305,61 @@ export async function updateGroup(
 		);
 	}
 }
+
+/**
+ * Find which group (if any) contains a specific animal
+ * Returns the group ID and name if found, null otherwise
+ */
+export async function findGroupContainingAnimal(
+	animalId: string,
+	organizationId: string,
+	excludeGroupId?: string // Optional: exclude a specific group (useful for edit mode)
+): Promise<{ id: string; name: string } | null> {
+	try {
+		// Fetch all groups and filter in JavaScript
+		// (Supabase .contains() may not work as expected for array contains)
+		const { data: allGroups, error } = await supabase
+			.from("animal_groups")
+			.select("id, name, animal_ids")
+			.eq("organization_id", organizationId);
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to check for duplicate group assignment."
+				)
+			);
+		}
+
+		if (!allGroups || allGroups.length === 0) {
+			return null;
+		}
+
+		// Find groups that contain this animal
+		const matchingGroups = allGroups.filter(
+			(group) =>
+				group.animal_ids &&
+				Array.isArray(group.animal_ids) &&
+				group.animal_ids.includes(animalId) &&
+				(!excludeGroupId || group.id !== excludeGroupId)
+		);
+
+		if (matchingGroups.length === 0) {
+			return null;
+		}
+
+		// Return the first matching group
+		return {
+			id: matchingGroups[0].id,
+			name: matchingGroups[0].name,
+		};
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to check for duplicate group assignment."
+			)
+		);
+	}
+}
