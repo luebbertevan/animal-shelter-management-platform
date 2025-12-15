@@ -479,6 +479,7 @@ export default function AnimalDetail() {
 								</div>
 								{(() => {
 									// Check if updated_at exists and is different from created_at
+									// Use 1 second tolerance to account for timestamp precision differences
 									if (!animal.updated_at) {
 										return null;
 									}
@@ -488,7 +489,13 @@ export default function AnimalDetail() {
 									const createdTime = new Date(
 										animal.created_at
 									).getTime();
-									if (updatedTime === createdTime) {
+									// Consider timestamps the same if within 1 second (1000ms)
+									// This handles cases where created_at and updated_at are set
+									// at slightly different times during record creation
+									const timeDifference = Math.abs(
+										updatedTime - createdTime
+									);
+									if (timeDifference < 1000) {
 										return null;
 									}
 									return (

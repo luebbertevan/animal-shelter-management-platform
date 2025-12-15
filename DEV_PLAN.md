@@ -3261,18 +3261,18 @@ The preview card should show minimal, scannable information for quick browsing:
     - Include `uploaded_at: new Date().toISOString()` when adding new photos
     - Update `photos` JSONB array with new/removed photos
 
-3. **Create route `/animals/:id/edit`** (coordinator-only) 
+3. **Create route `/animals/:id/edit`** (coordinator-only)
 
     - Route added to `App.tsx`
     - Placeholder `EditAnimal.tsx` component created (will be fully implemented in task 1)
 
-4. **Add "Edit" button to AnimalDetail page** (coordinator-only) 
+4. **Add "Edit" button to AnimalDetail page** (coordinator-only)
 
     - Edit button added to AnimalDetail page
     - Button navigates to `/animals/:id/edit` route
     - Only visible to coordinators
 
-5. **Update RLS policies** if needed to ensure only coordinators can update 
+5. **Update RLS policies** if needed to ensure only coordinators can update
 
     - RLS policies are already set up correctly
     - Policy "Coordinators can update animals in their organization" exists in `20250120140000_update_rls_for_organization_isolation.sql`
@@ -3315,111 +3315,301 @@ The preview card should show minimal, scannable information for quick browsing:
 
 **Goal:** Add missing features to group management UI, including edit functionality, validation, and polish. Note: Basic group management (list, detail, create) was completed in Minimal Group Management UI.
 
+**Design Decisions:**
+
+-   **Reusability Pattern:** Follow the same pattern as create/edit animal forms:
+    -   Create a reusable `GroupForm` component (similar to `AnimalForm`)
+    -   Create a `useGroupForm` hook (similar to `useAnimalForm`) for form state management
+    -   `NewGroup` and `EditGroup` pages will use the shared form component and hook
+-   **Animal Selection UI:**
+    -   Use `AnimalCard` components directly (no custom variant needed)
+    -   Selected animals show a border to indicate selection state
+    -   In edit mode: selected animals appear first in the list with selected border
+    -   When deselected, animals stay in the same position in the list but border is removed
+    -   Search/filter functionality deferred until later milestone
+-   **Permissions:**
+    -   Same as create/edit animal: Coordinators only, fosters cannot access edit functionality
+    -   Route protection via coordinator check in page component (same pattern as `EditAnimal.tsx`)
+-   **Duplicate Group Assignment:**
+    -   **Important:** Animals can only be in one group at a time
+    -   When animal is already in another group, show popup modal with:
+        -   Message: "Animal [name] is already in group: [group_name](link to that group). Move them to this group?"
+        -   Two buttons:
+            1.  "Move to new" (moves animal to new group, removes from old group)
+            2.  "Cancel" (cancels the action, animal stays in current group)
+    -   Button labels should be concise and clear
+
 **Component Reusability:**
 
--   Reuse components from Animal Preview Card & Detail Page milestone where possible
--   Group preview cards should reuse AnimalCard/GroupCard patterns
--   Group detail pages should reuse sections/components from AnimalDetail
--   Share components with Fosters Needed page and View Animals/View Groups pages
--   Design components to be reusable across different contexts
--   Update GroupCard and GroupDetail to display all group fields (similar to animal updates)
+-   Follow the create/edit animal pattern:
+    -   `GroupForm` component (reusable form UI)
+    -   `useGroupForm` hook (form state management)
+    -   `NewGroup` and `EditGroup` pages use shared components
+-   Reuse `PhotoUpload` component for group photos (same as animals)
+-   Reuse `AnimalCard` for animal selection and display
 
 **Photo Uploads for Groups:**
 
 -   Implement photo upload functionality for groups (similar to animal photo uploads)
 -   Use the same `PhotoUpload` component used for animals
+-   Create `uploadGroupPhoto` function in `photoUtils.ts` (similar to `uploadAnimalPhoto`)
+-   Create `deleteGroupPhoto` function in `photoUtils.ts` (similar to `deleteAnimalPhoto`)
 -   Store photos in `photos` JSONB array on `animal_groups` table
 -   Path structure: `{organization_id}/groups/{group_id}/{timestamp}_{filename}`
--   Include `uploaded_at` timestamp and `uploaded_by` in photo metadata
+-   Photo metadata structure: `{ url: string, uploaded_at: string, uploaded_by: string }` (same as animal photos)
 -   Coordinators can upload and delete any group photos
--   Fosters can upload photos for assigned groups (permission checks required)
+-   Fosters cannot upload group photos (coordinator-only feature)
 
-**Animal Selection UI:**
+**Data Model - Group Membership:**
 
--   When selecting animals for groups (in create/edit forms), use `AnimalCard` components or a custom card variant
--   Display animals in a grid/list format using the same card styling as AnimalsList
--   Show animal photos, name, age, sex, and other key info in the selection UI
--   Make it easy to see which animals are already selected
--   Use search/filter component for finding animals in large lists
+-   **Important:** Animals can only be in one group at a time
+-   `animal_groups.animal_ids` array is the source of truth for group membership
+-   `animals.group_id` should always match the group the animal is in (single foreign key)
+-   When moving an animal between groups:
+    -   Remove animal ID from old group's `animal_ids` array
+    -   Add animal ID to new group's `animal_ids` array
+    -   Update `animals.group_id` to point to the new group
 
 **Group Detail Page - Animal Display:**
 
 -   Update `GroupDetail.tsx` to display animals in the group using `AnimalCard` components
--   Use the same grid layout and styling as `AnimalsList.tsx`
--   Show all animals in the group with their photos, names, and key information
--   Allow clicking on animal cards to navigate to animal detail pages
--   Maintain consistency with how animals are displayed elsewhere in the app
+-   Use the same grid layout as `AnimalsList.tsx`: `grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5`
+-   Fetch all necessary animal fields for `AnimalCard` (photos, date_of_birth, sex_spay_neuter_status, etc.)
+-   Make animal cards clickable to navigate to animal detail pages
+-   Show group photos using the same photo display as animal detail pages
+
+**Staged Implementation Plan:**
+
+#### **Stage 1: Basic Edit Group Page & Routing (Foundation)**
 
 **Tasks:**
 
-1. **Create Edit Group page** (`src/pages/animals/EditGroup.tsx`):
+1. **Create `useGroupForm` hook** (`src/hooks/useGroupForm.ts`):
 
-    - Fetch group by ID from URL params
-    - Pre-populate form with existing group data (name, description, priority)
-    - Allow editing `name`, `description`, and `priority`
-    - Allow adding/removing animals from group:
-        - Use `AnimalCard` components or custom card variant for animal selection
-        - Display animals in grid/list format with photos and key info
-        - Use search/filter component (from Reusable Search & Filter Component) for finding animals
-        - Show which animals are already in the group
-    - Implement photo upload functionality:
-        - Use `PhotoUpload` component (same as animal photo uploads)
-        - Allow uploading new photos
-        - Allow deleting existing photos (delete from storage when removed)
-        - Store photos in `photos` JSONB array with `uploaded_at` and `uploaded_by` metadata
-    - Update `animal_groups.animal_ids` array on save
-    - Handle loading and error states
+    - Similar structure to `useAnimalForm`
+    - Manage form state: `name`, `description`, `priority`
+    - Validation logic
+    - Accept `initialGroup` parameter for edit mode
+    - Animal selection sorting: Stable sort - selected animals first, then unselected, preserving original order within each group
+
+2. **Create `GroupForm` component** (`src/components/animals/GroupForm.tsx`):
+
+    - Similar structure to `AnimalForm`
+    - Accept form state and handlers from `useGroupForm`
+    - Render fields: name (Input), description (Textarea), priority (Toggle)
+    - Accept photo upload props (similar to AnimalForm)
+    - Accept animal selection section (will be added in Stage 2)
+    - Submit button and error/success message display
+
+3. **Create `EditGroup` page** (`src/pages/animals/EditGroup.tsx`):
+
+    - Fetch group by ID from URL params using `fetchGroupById`
+    - Use `useGroupForm` with initial group data
+    - Use `GroupForm` component
+    - Handle form submission: use `updateGroup` function from `groupQueries.ts` (create if doesn't exist)
+    - Coordinator-only access (redirect fosters, same pattern as `EditAnimal`)
+    - Loading and error states
     - Redirect to group detail page after successful update
-    - Add route `/groups/:id/edit` (coordinator-only)
 
-2. **Add Edit button to GroupDetail page**:
+4. **Add route** (`src/App.tsx`):
 
-    - Show "Edit" button for coordinators only
-    - Link to edit page
+    - Add route `/groups/:id/edit` pointing to `EditGroup` page
+    - Wrap in `ProtectedRoute` (coordinator check happens in page component)
 
-3. **Update GroupDetail page to display animals using AnimalCard**:
+5. **Add Edit button to `GroupDetail` page**:
 
-    - Display all animals in the group using `AnimalCard` components
-    - Use the same grid layout as `AnimalsList.tsx`: `grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5`
-    - Fetch all necessary animal fields for `AnimalCard` (photos, date_of_birth, etc.)
-    - Make animal cards clickable to navigate to animal detail pages
-    - Show group photos using the same photo display as animal detail pages
+    - Show "Edit" button for coordinators only (check `isCoordinator`)
+    - Link to `/groups/:id/edit`
 
-4. **Add validation and notifications**:
+6. **Create group query functions** (`src/lib/groupQueries.ts`):
+    - Add `updateGroup(groupId, organizationId, data)` function for updating groups
+    - Add `createGroup(organizationId, data)` function for creating groups (if not already exists)
+    - Follow same pattern as animal query functions
+    - Handle errors and return appropriate data structures
 
-    - **Duplicate group assignment detection:**
-        - When adding animals to a group, check if animal is already in another group
-        - Show warning notification: "Animal [name] is already in group [group name]. Do you want to move it to this group?"
-        - Allow coordinator to confirm or cancel
-        - If confirmed, remove animal from previous group and add to new group
-        - Show success notification after update
-    - **Empty group validation:**
-        - Warn if trying to save group with no animals
-        - Allow saving empty groups (for future use) but show confirmation
+**Review Checkpoint:** Basic edit functionality works. Coordinator can edit name, description, priority. Navigation works correctly.
 
-5. **Polish existing group pages**:
+---
+
+#### **Stage 2: Animal Selection UI & Group Membership Updates**
+
+**Tasks:**
+
+1. **Create animal selection section in `GroupForm`**:
+
+    - Add section for selecting animals
+    - Fetch all animals for organization
+    - Display animals using `AnimalCard` components in grid layout
+    - Implement selection state management:
+        - Track selected animal IDs
+        - In edit mode: pre-select animals already in group
+        - Sort animals: selected animals first, then unselected (maintain order within each group)
+    - Add visual selection indicator: border on selected cards (e.g., `border-2 border-pink-500`)
+    - Click handler on cards to toggle selection
+
+2. **Update `useGroupForm` hook**:
+
+    - Add `selectedAnimalIds` state
+    - Add `setSelectedAnimalIds` setter
+    - Add `toggleAnimalSelection` handler
+    - Initialize selected animals from `initialGroup?.animal_ids` in edit mode
+
+3. **Update `EditGroup` page**:
+
+    - Pass animal selection props to `GroupForm`
+    - On save: update `animal_groups.animal_ids` array
+    - Update animals' `group_id` field when adding/removing from group
+    - Handle the case where animals are moved between groups:
+        - Remove animal from old group's `animal_ids` array
+        - Update `animals.group_id` to point to new group
+
+4. **Update `NewGroup` page**:
+    - Refactor to use `GroupForm` component and `useGroupForm` hook
+    - Replace existing form with shared component
+    - Use same animal selection UI as edit form
+    - Use `createGroup` function from `groupQueries.ts` (create if doesn't exist)
+
+**Review Checkpoint:** Animal selection works. Can add/remove animals from groups. Selected animals show border and appear first in edit mode.
+
+---
+
+#### **Stage 3: Group Photo Upload & Display**
+
+**Tasks:**
+
+1. **Create group photo upload functions** (`src/lib/photoUtils.ts`):
+
+    - `uploadGroupPhoto(file, organizationId, groupId)`: Upload photo to `{organization_id}/groups/{group_id}/{timestamp}_{filename}`
+    - `deleteGroupPhoto(photoUrl, organizationId)`: Delete photo from storage (extract path from URL, verify it's a group photo path)
+    - Photo metadata: `{ url: string, uploaded_at: string, uploaded_by: string }` (same structure as animal photos)
+
+2. **Update `PhotoUpload` component** (if needed):
+
+    - Verify it works with group photos (should work as-is, but may need path verification)
+
+3. **Update `useGroupForm` hook**:
+
+    - Add photo state management (similar to animal form):
+        - `selectedPhotos` (File[])
+        - `existingPhotos` (PhotoMetadata[])
+        - `photosToDelete` (string[])
+        - Photo upload/delete handlers
+
+4. **Update `GroupForm` component**:
+
+    - Add `PhotoUpload` component section
+    - Pass photo props from hook
+
+5. **Update `EditGroup` page**:
+
+    - Handle photo uploads on save:
+        - Upload new photos using `uploadGroupPhoto`
+        - Delete removed photos using `deleteGroupPhoto`
+        - Update `photos` JSONB array in database with metadata (`uploaded_at`, `uploaded_by`)
+
+6. **Update `GroupDetail` page**:
+    - Display group photos using same pattern as animal detail pages
+    - Show photos in a gallery/lightbox if photo display component exists
+
+**Review Checkpoint:** Photo upload and deletion work. Photos display correctly in group detail page.
+
+---
+
+#### **Stage 4: Duplicate Group Assignment Validation**
+
+**Tasks:**
+
+1. **Create duplicate detection logic**:
+
+    - When animal is selected, check if it's already in another group
+    - Query `animal_groups` to find which group contains the animal (if any)
+    - Store conflict information: animal ID, current group ID, current group name
+    - Note: Animals can only be in one group, so if animal is in a different group, it must be moved
+
+2. **Create confirmation modal component** (or reuse existing modal pattern):
+
+    - Check if existing modal/dialog component exists in codebase
+    - If not, create simple reusable modal component
+    - Display message: "Animal [name] is already in group: [group_name](link). Move them to this group?"
+    - Make group name a clickable link to that group's detail page
+    - Two buttons:
+        - "Move to new" - moves animal to new group, removes from old group (updates both `animal_groups.animal_ids` arrays and `animals.group_id`)
+        - "Cancel" - cancels selection, animal stays in current group
+
+3. **Update `EditGroup` page**:
+
+    - On animal selection, check for conflicts
+    - If conflict detected, show modal
+    - Handle modal actions:
+        - "Move to new": Add animal to current group, remove from old group (update both groups' `animal_ids` arrays and `animals.group_id`)
+        - "Cancel": Don't add animal to current group
+
+4. **Update `NewGroup` page**:
+    - Same duplicate detection and modal handling as edit page
+
+**Review Checkpoint:** Duplicate detection works. Modal displays correctly. "Move to new" and "Cancel" actions work as expected.
+
+---
+
+#### **Stage 5: Empty Group Validation & Final Polish**
+
+**Tasks:**
+
+1. **Add empty group validation**:
+
+    - On form submit, check if `selectedAnimalIds.length === 0`
+    - Show confirmation modal dialog (blocking, same pattern as duplicate assignment): "This group has no animals. Are you sure you want to save an empty group?"
+    - Allow user to confirm or cancel
+    - If confirmed, save group with empty `animal_ids` array
+
+2. **Update `GroupDetail` page to display animals using `AnimalCard`**:
+
+    - Replace current simple list with `AnimalCard` grid
+    - Use grid layout: `grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5`
+    - Fetch all necessary animal fields for `AnimalCard` (photos, date_of_birth, sex_spay_neuter_status, etc.)
+    - Ensure cards are clickable and navigate to animal detail pages
+    - Display group photos at the top of the detail page using same pattern as animal detail pages (reuse photo gallery/lightbox component if available)
+
+3. **Polish existing group pages**:
 
     - Improve loading states and error handling
-    - Add better empty states
+    - Add better empty states (no animals, no photos)
     - Improve mobile responsiveness
-    - Add confirmation dialogs for destructive actions (if delete functionality added)
+    - Ensure consistent styling with animal pages
 
-6. **Add missing fields** (if any identified during testing):
-    - Review schema and ensure all relevant fields are displayed/editable
-    - Add any missing fields to forms
+4. **Field completeness review**:
+
+    - Review `animal_groups` schema
+    - Ensure all relevant fields are displayed/editable in forms
+    - Add any missing fields if needed
+
+5. **Testing & bug fixes**:
+    - Test all flows: create, edit, add/remove animals, photo upload/delete
+    - Test duplicate assignment scenarios
+    - Test empty group validation
+    - Fix any bugs or edge cases
+
+**Review Checkpoint:** All features complete. UI is polished. Validation works correctly.
+
+---
 
 **Testing:**
 
 -   Coordinator can edit group name, description, and priority
 -   Coordinator can add/remove animals from existing groups
--   Duplicate group assignment shows warning and handles correctly
--   Empty group validation works correctly
+-   Selected animals show border and appear first in edit mode (stable sort preserves order)
+-   Duplicate group assignment shows modal with "Move to new" and "Cancel" options and handles correctly
+-   Moving animals between groups updates both groups' `animal_ids` arrays and `animals.group_id` correctly
+-   Empty group validation works correctly (modal confirmation)
+-   Photo upload and deletion work correctly
+-   Group photos display correctly in GroupDetail page
 -   Edit page pre-populates with correct data
 -   Changes save correctly to database
 -   Navigation works correctly
 -   Mobile layout is polished
+-   Fosters cannot access edit functionality
 
-**Deliverable:** Complete group management UI with edit functionality, validation, and polish.
+**Deliverable:** Complete group management UI with edit functionality, validation, and polish. Shared form components and hooks following the same pattern as animal forms.
 
 ---
 

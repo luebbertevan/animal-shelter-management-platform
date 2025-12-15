@@ -553,7 +553,6 @@ ex 3 kittens
 1 adult 5 kittens
 1 senior, 1 adult, and 2 kittens
 
-The badge for display placement request says foster requested but this is confusing because a fosters will be requesting cats so this is a bad name we should change the badge and make sure it displays nicely in the mobile ui
 
 if the created at adn updated at dates are the same i do not want to display them in the animal details page
 
