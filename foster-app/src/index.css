@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Global text color so app text is readable in embedded previews with dark shells */
+body {
+	color: #111827; /* Tailwind gray-900 */
+}
+
 /* Hide scrollbar for textarea */
 .hide-scrollbar::-webkit-scrollbar {
 	display: none;

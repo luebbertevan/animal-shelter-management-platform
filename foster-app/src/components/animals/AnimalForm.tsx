@@ -148,7 +148,7 @@ export default function AnimalForm({
 			/>
 
 			<Toggle
-				label="Display Placement Request"
+				label="Foster Needed"
 				checked={formState.displayPlacementRequest}
 				onChange={setDisplayPlacementRequest}
 				disabled={loading}
@@ -195,7 +195,7 @@ export default function AnimalForm({
 								onBlur={handleAgeValueBlur}
 								placeholder="Age"
 								disabled={loading}
-								className={`w-full px-3 py-2 border ${
+								className={`w-full px-3 py-2 border text-gray-900 ${
 									errors.ageValue
 										? "border-red-300 focus:border-red-500 focus:ring-red-500"
 										: "border-pink-300 focus:border-pink-500 focus:ring-pink-500"

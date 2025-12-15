@@ -298,10 +298,10 @@ export default function AnimalDetail() {
 									High Priority
 								</span>
 							)}
-							{/* Foster Requested Badge */}
+							{/* Foster Needed Badge */}
 							{animal.display_placement_request && (
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-									Foster Requested
+									Foster Needed
 								</span>
 							)}
 						</div>

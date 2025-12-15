@@ -26,7 +26,7 @@ export default function Select({
 			</label>
 			<select
 				id={selectId}
-				className={`w-full px-3 py-2 border ${
+				className={`w-full px-3 py-2 border text-gray-900 ${
 					error
 						? "border-red-300 focus:border-red-500 focus:ring-red-500"
 						: "border-pink-300 focus:border-pink-500 focus:ring-pink-500"
