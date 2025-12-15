@@ -566,3 +566,5 @@ if an animal with high priority is added to a group the priority of the group sh
 
 evntually we will need an add to group from the create and edit animal page
 
+they need to be able to delete groups
+
