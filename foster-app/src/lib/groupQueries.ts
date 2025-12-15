@@ -273,7 +273,7 @@ export async function updateGroup(
 		description?: string | null;
 		priority?: boolean;
 		animal_ids?: string[];
-		photos?: unknown[] | null;
+		group_photos?: unknown[] | null;
 	}
 ): Promise<AnimalGroup> {
 	try {

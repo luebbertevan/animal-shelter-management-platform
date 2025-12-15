@@ -12,7 +12,8 @@ import GroupForm from "../../components/animals/GroupForm";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import { fetchGroupById, updateGroup } from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
-import type { Animal } from "../../types";
+import type { Animal, TimestampedPhoto } from "../../types";
+import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
 
 export default function EditGroup() {
 	const { id } = useParams<{ id: string }>();
@@ -78,6 +79,16 @@ export default function EditGroup() {
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
+	const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
+	const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
+	const [photoUploadError, setPhotoUploadError] = useState<string | null>(
+		null
+	);
+
+	// Handle photo removal - track photos to delete
+	const handleRemovePhoto = (photoUrl: string) => {
+		setPhotosToDelete((prev) => [...prev, photoUrl]);
+	};
 
 	// Redirect non-coordinators (after all hooks)
 	if (!isCoordinator) {
@@ -127,6 +138,111 @@ export default function EditGroup() {
 				priority: formState.priority,
 				animal_ids: newAnimalIds,
 			};
+
+			// Delete photos from storage first
+			if (photosToDelete.length > 0) {
+				const deletePromises = photosToDelete.map((photoUrl) =>
+					deleteGroupPhoto(photoUrl, profile.organization_id).catch(
+						(err) => {
+							console.error("Error deleting photo:", err);
+							// Continue even if some deletions fail
+							return null;
+						}
+					)
+				);
+				await Promise.all(deletePromises);
+			}
+
+			// Upload new photos if any
+			const existingPhotos = (group.group_photos || []).filter(
+				(photo) => !photosToDelete.includes(photo.url)
+			);
+			let photoMetadata: TimestampedPhoto[] = [...existingPhotos];
+
+			if (selectedPhotos.length > 0) {
+				setPhotoUploadError(null);
+
+				try {
+					// Upload all photos in parallel
+					const uploadResults = await Promise.allSettled(
+						selectedPhotos.map(async (file) => {
+							try {
+								const photoUrl = await uploadGroupPhoto(
+									file,
+									profile.organization_id,
+									id
+								);
+								return {
+									success: true,
+									url: photoUrl,
+									uploaded_at: new Date().toISOString(),
+									uploaded_by: user.id,
+								};
+							} catch (err) {
+								console.error("Error uploading photo:", err);
+								return {
+									success: false,
+									error:
+										err instanceof Error
+											? err.message
+											: "Unknown error",
+								};
+							}
+						})
+					);
+
+					// Process upload results
+					const successfulUploads: TimestampedPhoto[] = uploadResults
+						.filter(
+							(result) =>
+								result.status === "fulfilled" &&
+								result.value.success
+						)
+						.map((result) => {
+							const value = (
+								result as PromiseFulfilledResult<{
+									success: true;
+									url: string;
+									uploaded_at: string;
+									uploaded_by: string;
+								}>
+							).value;
+							// Extract only the fields needed for photo metadata
+							return {
+								url: value.url,
+								uploaded_at: value.uploaded_at,
+								uploaded_by: value.uploaded_by,
+							};
+						});
+
+					const failedUploads = uploadResults.filter(
+						(result) =>
+							result.status === "rejected" ||
+							(result.status === "fulfilled" &&
+								!result.value.success)
+					).length;
+
+					// Add successful uploads to metadata
+					photoMetadata = [...photoMetadata, ...successfulUploads];
+
+					// Show error message if some uploads failed
+					if (failedUploads > 0) {
+						setPhotoUploadError(
+							`Group updated successfully. ${failedUploads} photo${
+								failedUploads !== 1 ? "s" : ""
+							} failed to upload.`
+						);
+					}
+				} catch (err) {
+					console.error("Error uploading photos:", err);
+					setPhotoUploadError(
+						"Group updated successfully, but photo upload failed."
+					);
+				}
+			}
+
+			// Include photos in group update
+			groupData.group_photos = photoMetadata;
 
 			await updateGroup(id, profile.organization_id, groupData);
 
@@ -311,6 +427,10 @@ export default function EditGroup() {
 						isErrorAnimals={isErrorAnimals}
 						selectedAnimalIds={selectedAnimalIds}
 						toggleAnimalSelection={toggleAnimalSelection}
+						onPhotosChange={setSelectedPhotos}
+						existingPhotos={group.group_photos || []}
+						onRemovePhoto={handleRemovePhoto}
+						photoError={photoUploadError}
 						onSubmit={handleSubmit}
 						loading={loading}
 						submitError={submitError}

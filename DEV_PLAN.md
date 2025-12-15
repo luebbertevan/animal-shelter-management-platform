@@ -3378,6 +3378,20 @@ The preview card should show minimal, scannable information for quick browsing:
 -   Make animal cards clickable to navigate to animal detail pages
 -   Show group photos using the same photo display as animal detail pages
 
+**Group Card Photo Display:**
+
+-   Update `GroupCard` component to display photos:
+    -   **Priority 1:** If group has `group_photos` array with at least one photo, display the first group photo
+    -   **Priority 2:** If no group photos, fetch and display photos from animals in the group:
+        -   Fetch animal photos for animals in `animal_ids` array
+        -   Display first available animal photo (from first animal that has photos)
+        -   If multiple animals have photos, prefer showing the first animal's first photo
+    -   Photo should be displayed prominently (similar to how `AnimalCard` displays photos)
+    -   Handle cases where group has no photos and no animals have photos (show placeholder or no image)
+    -   Ensure photo display is consistent with `AnimalCard` styling and layout
+    -   Update `GroupCard` props to accept photo data or fetch it internally
+    -   Consider performance: may need to fetch animal photos when displaying group cards in lists
+
 **Staged Implementation Plan:**
 
 #### **Stage 1: Basic Edit Group Page & Routing (Foundation)**
@@ -3570,23 +3584,68 @@ The preview card should show minimal, scannable information for quick browsing:
     - Ensure cards are clickable and navigate to animal detail pages
     - Display group photos at the top of the detail page using same pattern as animal detail pages (reuse photo gallery/lightbox component if available)
 
-3. **Polish existing group pages**:
+3. **Update `GroupCard` component to display photos**:
+
+    - Add photo display to `GroupCard` component:
+        - **Priority 1:** Display first photo from `group.group_photos` array if available
+        - **Priority 2:** If no group photos, display first photo from animals in the group:
+            - Fetch animal data for animals in `group.animal_ids` (may need to pass animal data as prop or fetch within component)
+            - Find first animal that has photos in `animal.photos` array
+            - Display that animal's first photo
+        - **Fallback:** Show placeholder or no image if neither group nor animal photos are available
+    - Photo should match `AnimalCard` photo styling and layout (same size, aspect ratio, positioning)
+    - Consider performance implications:
+        - If fetching animal photos in `GroupCard`, may need to batch fetch for list views
+        - Consider passing animal photo data as props from parent components that already fetch animals
+        - May need to update `GroupsList`, `Dashboard`, and `FosterDetail` to fetch animal photo data when displaying groups
+    - Update `GroupCard` props interface to accept optional photo URL or animal data
+    - Ensure photo display is responsive and works on mobile devices
+
+4. **Add delete group functionality**:
+
+    - Add "Delete Group" button to `GroupDetail` page (coordinator-only, similar to edit button)
+    - Create `deleteGroup` function in `groupQueries.ts`:
+        - Delete group photos from storage (use `deleteGroupPhoto` for each photo in `group_photos` array)
+        - Delete the group record from `animal_groups` table
+        - **Important:** Do NOT delete animals - only remove the group
+    - Update animals' `group_id` field:
+        - Set `group_id` to `null` for all animals that were in the deleted group
+        - This ensures animals are not orphaned and can be added to other groups later
+    - Show confirmation modal before deletion:
+        - Message: "Are you sure you want to delete this group? The animals in this group will remain but will no longer be grouped together."
+        - Two buttons: "Delete Group" and "Cancel"
+        - Make it clear that animals will NOT be deleted
+    - After successful deletion:
+        - Invalidate relevant queries (groups list, animals list)
+        - Navigate to groups list page
+        - Show success message
+    - Handle errors gracefully:
+        - If photo deletion fails, log error but continue with group deletion
+        - If animal update fails, show warning but complete group deletion
+        - Show user-friendly error messages
+
+5. **Polish existing group pages**:
 
     - Improve loading states and error handling
     - Add better empty states (no animals, no photos)
     - Improve mobile responsiveness
     - Ensure consistent styling with animal pages
 
-4. **Field completeness review**:
+6. **Field completeness review**:
 
     - Review `animal_groups` schema
     - Ensure all relevant fields are displayed/editable in forms
     - Add any missing fields if needed
 
-5. **Testing & bug fixes**:
+7. **Testing & bug fixes**:
     - Test all flows: create, edit, add/remove animals, photo upload/delete
     - Test duplicate assignment scenarios
     - Test empty group validation
+    - Test delete group functionality:
+        - Animals remain after group deletion
+        - Animals' `group_id` is set to `null`
+        - Group photos are deleted from storage
+        - Navigation works correctly after deletion
     - Fix any bugs or edge cases
 
 **Review Checkpoint:** All features complete. UI is polished. Validation works correctly.
@@ -3603,11 +3662,22 @@ The preview card should show minimal, scannable information for quick browsing:
 -   Empty group validation works correctly (modal confirmation)
 -   Photo upload and deletion work correctly
 -   Group photos display correctly in GroupDetail page
+-   GroupCard displays photos correctly:
+    -   Shows first group photo when available
+    -   Falls back to first animal photo when no group photos
+    -   Shows appropriate placeholder when no photos available
 -   Edit page pre-populates with correct data
 -   Changes save correctly to database
+-   Delete group functionality works correctly:
+    -   Group is deleted from database
+    -   Animals remain (not deleted)
+    -   Animals' `group_id` is set to `null`
+    -   Group photos are deleted from storage
+    -   Confirmation modal displays correctly
+    -   Navigation works after deletion
 -   Navigation works correctly
 -   Mobile layout is polished
--   Fosters cannot access edit functionality
+-   Fosters cannot access edit or delete functionality
 
 **Deliverable:** Complete group management UI with edit functionality, validation, and polish. Shared form components and hooks following the same pattern as animal forms.
 
