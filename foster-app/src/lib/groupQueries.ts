@@ -216,3 +216,91 @@ export async function fetchAssignedGroups(
 		);
 	}
 }
+
+/**
+ * Create a new group
+ */
+export async function createGroup(
+	organizationId: string,
+	groupData: {
+		name?: string | null;
+		description?: string | null;
+		priority?: boolean;
+		animal_ids?: string[];
+		photos?: unknown[] | null;
+	}
+): Promise<AnimalGroup> {
+	try {
+		const { data, error } = await supabase
+			.from("animal_groups")
+			.insert({
+				...groupData,
+				organization_id: organizationId,
+			})
+			.select()
+			.single();
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to create group. Please try again."
+				)
+			);
+		}
+
+		if (!data) {
+			throw new Error("Group was not created. Please try again.");
+		}
+
+		return data as AnimalGroup;
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(err, "Failed to create group. Please try again.")
+		);
+	}
+}
+
+/**
+ * Update an existing group
+ */
+export async function updateGroup(
+	groupId: string,
+	organizationId: string,
+	groupData: {
+		name?: string | null;
+		description?: string | null;
+		priority?: boolean;
+		animal_ids?: string[];
+		photos?: unknown[] | null;
+	}
+): Promise<AnimalGroup> {
+	try {
+		const { data, error } = await supabase
+			.from("animal_groups")
+			.update(groupData)
+			.eq("id", groupId)
+			.eq("organization_id", organizationId)
+			.select()
+			.single();
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to update group. Please try again."
+				)
+			);
+		}
+
+		if (!data) {
+			throw new Error("Group was not updated. Please try again.");
+		}
+
+		return data as AnimalGroup;
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(err, "Failed to update group. Please try again.")
+		);
+	}
+}

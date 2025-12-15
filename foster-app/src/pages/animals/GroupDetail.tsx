@@ -10,7 +10,7 @@ import { isOffline } from "../../lib/errorUtils";
 
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
-	const { user, profile } = useProtectedAuth();
+	const { user, profile, isCoordinator } = useProtectedAuth();
 
 	const {
 		data: group,
@@ -137,10 +137,17 @@ export default function GroupDetail() {
 				</div>
 
 				<div className="bg-white rounded-lg shadow-sm p-6">
-					<div className="mb-6">
-						<h1 className="text-2xl font-bold text-gray-900 mb-2">
+					<div className="mb-6 flex items-center justify-between">
+						<h1 className="text-2xl font-bold text-gray-900">
 							{group.name?.trim() || "Unnamed Group"}
 						</h1>
+						{isCoordinator && (
+							<NavLinkButton
+								to={`/groups/${id}/edit`}
+								label="Edit"
+								variant="outline"
+							/>
+						)}
 					</div>
 
 					<div className="space-y-4 mb-6">
