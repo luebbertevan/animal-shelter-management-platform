@@ -39,6 +39,9 @@ export default function NewGroup() {
 		null
 	);
 
+	// Empty group confirmation modal state
+	const [showEmptyGroupConfirm, setShowEmptyGroupConfirm] = useState(false);
+
 	// Duplicate detection modal state
 	const [duplicateModal, setDuplicateModal] = useState<{
 		isOpen: boolean;
@@ -174,20 +177,36 @@ export default function NewGroup() {
 		});
 	};
 
+	// Handle empty group confirmation
+	const handleConfirmEmptyGroup = () => {
+		setShowEmptyGroupConfirm(false);
+		performSubmit();
+	};
+
+	const handleCancelEmptyGroup = () => {
+		setShowEmptyGroupConfirm(false);
+	};
+
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		setSubmitError(null);
-
-		// Validate that at least one animal is selected
-		if (selectedAnimalIds.length === 0) {
-			setSubmitError("Please select at least one animal");
-			return;
-		}
 
 		if (!validateForm()) {
 			return;
 		}
 
+		// Check for empty group and show confirmation modal
+		if (selectedAnimalIds.length === 0) {
+			setShowEmptyGroupConfirm(true);
+			return;
+		}
+
+		// Proceed with submission
+		await performSubmit();
+	};
+
+	// Perform the actual group creation
+	const performSubmit = async () => {
 		setLoading(true);
 
 		try {
@@ -489,6 +508,18 @@ export default function NewGroup() {
 					cancelLabel="Cancel"
 					onConfirm={handleMoveToNew}
 					onCancel={handleCancelMove}
+					variant="default"
+				/>
+
+				{/* Empty Group Confirmation Modal */}
+				<ConfirmModal
+					isOpen={showEmptyGroupConfirm}
+					title="Empty Group"
+					message="This group has no animals. Are you sure you want to save an empty group?"
+					confirmLabel="Save Empty Group"
+					cancelLabel="Cancel"
+					onConfirm={handleConfirmEmptyGroup}
+					onCancel={handleCancelEmptyGroup}
 					variant="default"
 				/>
 			</div>

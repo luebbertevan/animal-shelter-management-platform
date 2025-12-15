@@ -105,6 +105,9 @@ export default function EditGroup() {
 		existingGroupName: "",
 	});
 
+	// Empty group confirmation modal state
+	const [showEmptyGroupConfirm, setShowEmptyGroupConfirm] = useState(false);
+
 	// Handle photo removal - track photos to delete
 	const handleRemovePhoto = (photoUrl: string) => {
 		setPhotosToDelete((prev) => [...prev, photoUrl]);
@@ -181,6 +184,16 @@ export default function EditGroup() {
 		});
 	};
 
+	// Handle empty group confirmation
+	const handleConfirmEmptyGroup = () => {
+		setShowEmptyGroupConfirm(false);
+		performSubmit();
+	};
+
+	const handleCancelEmptyGroup = () => {
+		setShowEmptyGroupConfirm(false);
+	};
+
 	// Redirect non-coordinators (after all hooks)
 	if (!isCoordinator) {
 		navigate("/groups", { replace: true });
@@ -195,6 +208,23 @@ export default function EditGroup() {
 			return;
 		}
 
+		if (!id || !group) {
+			setSubmitError("Group ID is required");
+			return;
+		}
+
+		// Check for empty group and show confirmation modal
+		if (selectedAnimalIds.length === 0) {
+			setShowEmptyGroupConfirm(true);
+			return;
+		}
+
+		// Proceed with submission
+		await performSubmit();
+	};
+
+	// Perform the actual group update
+	const performSubmit = async () => {
 		if (!id || !group) {
 			setSubmitError("Group ID is required");
 			return;
@@ -222,9 +252,17 @@ export default function EditGroup() {
 				(id) => !newAnimalIds.includes(id)
 			);
 
+			// Auto-update default name if it matches the pattern "Group of X"
+			let groupName = formState.name.trim() || null;
+			const defaultNamePattern = /^Group of \d+$/;
+			if (groupName && defaultNamePattern.test(groupName)) {
+				// Update to reflect the new number of animals
+				groupName = `Group of ${newAnimalIds.length}`;
+			}
+
 			// Prepare data for update
 			const groupData: Record<string, unknown> = {
-				name: formState.name.trim() || null,
+				name: groupName,
 				description: formState.description.trim() || null,
 				priority: formState.priority,
 				animal_ids: newAnimalIds,
@@ -554,6 +592,18 @@ export default function EditGroup() {
 					cancelLabel="Cancel"
 					onConfirm={handleMoveToNew}
 					onCancel={handleCancelMove}
+					variant="default"
+				/>
+
+				{/* Empty Group Confirmation Modal */}
+				<ConfirmModal
+					isOpen={showEmptyGroupConfirm}
+					title="Empty Group"
+					message="This group has no animals. Are you sure you want to save an empty group?"
+					confirmLabel="Save Empty Group"
+					cancelLabel="Cancel"
+					onConfirm={handleConfirmEmptyGroup}
+					onCancel={handleCancelEmptyGroup}
 					variant="default"
 				/>
 			</div>

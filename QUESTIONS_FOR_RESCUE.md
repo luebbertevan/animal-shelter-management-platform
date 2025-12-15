@@ -553,8 +553,6 @@ ex 3 kittens
 1 adult 5 kittens
 1 senior, 1 adult, and 2 kittens
 
-
-
 There are some queries that we might want the refactor into reusable. what do you think. 
 @AnimalDetail.tsx (149-171)  is an example. if we were to do this again or have this duplicated in multiple places it would be good to refactor. identify other reused logic in our code that we should refactor.
 
@@ -568,3 +566,27 @@ evntually we will need an add to group from the create and edit animal page
 
 they need to be able to delete groups
 
+design decisions need to be made about how we want to handle status changes for animals in groups. should they be removed? should they remain and just status is displayed? 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Decision: Foster History Handling
+We will use snapshot records for foster group assignments instead of fully tracking historical group state.
+When a group is assigned to a foster, we store a snapshot of the group’s presentation data (group info, photos, animals in the group at that time). This snapshot represents historical experience, not live state, and does not update based on later animal status changes (adoptions, moves, group edits).
+Animals remain first-class records and will continue to track foster history relationally (no snapshots). This allows animal foster history to remain accurate and correctable without duplicating data.
+This approach avoids a full schema rework, preserves meaningful foster history, and accepts that group snapshots may occasionally immortalize assignment mistakes as a deliberate UX trade-off.
