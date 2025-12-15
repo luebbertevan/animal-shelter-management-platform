@@ -104,6 +104,7 @@ export interface AnimalGroup {
 	// NOTE: Stored as array for MVP. Could migrate to junction table (group_animals) if needed for more complex group management
 	animal_ids: string[]; // Animals in this group
 	current_foster_id?: string; // ID of current foster (if entire group is with one foster)
+	created_by?: string; // User ID who created the group
 	created_at: string; // ISO date string
 	updated_at: string; // ISO date string
 }

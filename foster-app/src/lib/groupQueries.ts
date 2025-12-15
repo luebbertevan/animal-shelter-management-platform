@@ -228,6 +228,7 @@ export async function createGroup(
 		priority?: boolean;
 		animal_ids?: string[];
 		photos?: unknown[] | null;
+		created_by?: string;
 	}
 ): Promise<AnimalGroup> {
 	try {

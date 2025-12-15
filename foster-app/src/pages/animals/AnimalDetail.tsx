@@ -13,6 +13,10 @@ import { fetchFosterById } from "../../lib/fosterQueries";
 import { isOffline } from "../../lib/errorUtils";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 import { supabase } from "../../lib/supabase";
+import {
+	formatDateForDisplay,
+	hasMeaningfulUpdate,
+} from "../../lib/metadataUtils";
 
 // Helper function to format sex/spay-neuter status for display
 function formatSexSpayNeuterStatus(status: SexSpayNeuterStatus): string {
@@ -466,57 +470,26 @@ export default function AnimalDetail() {
 										Created at:{" "}
 									</span>
 									<span className="text-gray-900">
-										{new Date(
+										{formatDateForDisplay(
 											animal.created_at
-										).toLocaleString(undefined, {
-											year: "numeric",
-											month: "numeric",
-											day: "numeric",
-											hour: "2-digit",
-											minute: "2-digit",
-										})}
+										)}
 									</span>
 								</div>
-								{(() => {
-									// Check if updated_at exists and is different from created_at
-									// Use 1 second tolerance to account for timestamp precision differences
-									if (!animal.updated_at) {
-										return null;
-									}
-									const updatedTime = new Date(
-										animal.updated_at
-									).getTime();
-									const createdTime = new Date(
-										animal.created_at
-									).getTime();
-									// Consider timestamps the same if within 1 second (1000ms)
-									// This handles cases where created_at and updated_at are set
-									// at slightly different times during record creation
-									const timeDifference = Math.abs(
-										updatedTime - createdTime
-									);
-									if (timeDifference < 1000) {
-										return null;
-									}
-									return (
-										<div>
-											<span className="text-gray-500">
-												Updated at:{" "}
-											</span>
-											<span className="text-gray-900">
-												{new Date(
-													animal.updated_at
-												).toLocaleString(undefined, {
-													year: "numeric",
-													month: "numeric",
-													day: "numeric",
-													hour: "2-digit",
-													minute: "2-digit",
-												})}
-											</span>
-										</div>
-									);
-								})()}
+								{hasMeaningfulUpdate(
+									animal.created_at,
+									animal.updated_at
+								) && (
+									<div>
+										<span className="text-gray-500">
+											Updated at:{" "}
+										</span>
+										<span className="text-gray-900">
+											{formatDateForDisplay(
+												animal.updated_at!
+											)}
+										</span>
+									</div>
+								)}
 							</div>
 						)}
 					</div>

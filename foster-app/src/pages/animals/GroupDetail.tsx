@@ -7,6 +7,11 @@ import NavLinkButton from "../../components/ui/NavLinkButton";
 import { fetchGroupById } from "../../lib/groupQueries";
 import { fetchAnimalsByIds } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
+import {
+	formatDateForDisplay,
+	hasMeaningfulUpdate,
+} from "../../lib/metadataUtils";
+import { fetchFosterById } from "../../lib/fosterQueries";
 
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -52,6 +57,30 @@ export default function GroupDetail() {
 			);
 		},
 		enabled: !!group && !!group.animal_ids,
+	});
+
+	// Fetch foster name if group has a current foster
+	const { data: fosterName, isLoading: isLoadingFosterName } = useQuery<
+		string | null,
+		Error
+	>({
+		queryKey: ["foster", group?.current_foster_id],
+		queryFn: async () => {
+			if (!group?.current_foster_id) {
+				return null;
+			}
+			try {
+				const foster = await fetchFosterById(
+					group.current_foster_id,
+					profile.organization_id
+				);
+				return foster.full_name || foster.email || null;
+			} catch (error) {
+				console.error("Error fetching foster:", error);
+				return null;
+			}
+		},
+		enabled: !!group?.current_foster_id,
 	});
 
 	const isLoading = isLoadingGroup || isLoadingAnimals;
@@ -230,6 +259,58 @@ export default function GroupDetail() {
 								</p>
 							</div>
 						)}
+
+					{/* Metadata Section (coordinators only) */}
+					{isCoordinator && (
+						<div className="pt-6 border-t border-gray-200 space-y-2 text-base">
+							{group.current_foster_id && (
+								<div>
+									<span className="text-gray-500">
+										Current foster:{" "}
+									</span>
+									{isLoadingFosterName ? (
+										<span className="text-gray-400">
+											Loading...
+										</span>
+									) : fosterName ? (
+										<Link
+											to={`/fosters/${group.current_foster_id}`}
+											className="text-pink-600 hover:text-pink-700 hover:underline"
+										>
+											{fosterName}
+										</Link>
+									) : (
+										<span className="text-gray-400">
+											Unknown
+										</span>
+									)}
+								</div>
+							)}
+							<div>
+								<span className="text-gray-500">
+									Created at:{" "}
+								</span>
+								<span className="text-gray-900">
+									{formatDateForDisplay(group.created_at)}
+								</span>
+							</div>
+							{hasMeaningfulUpdate(
+								group.created_at,
+								group.updated_at
+							) && (
+								<div>
+									<span className="text-gray-500">
+										Updated at:{" "}
+									</span>
+									<span className="text-gray-900">
+										{formatDateForDisplay(
+											group.updated_at!
+										)}
+									</span>
+								</div>
+							)}
+						</div>
+					)}
 				</div>
 			</div>
 		</div>
