@@ -350,7 +350,7 @@ If automation is desired later, add simple event-based rules:
 -   [ ] **A)** Only if ALL animals in the group are marked for display
 -   [ ] **B)** If ANY animal in the group is marked for display
 -   [ ] **C)** Only if a group-level display setting is enabled
--   [ ] **D)** Other (please specify): ********\_********
+-   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 ---
 
@@ -360,15 +360,15 @@ If automation is desired later, add simple event-based rules:
 
 -   [ ] **A)** Yes, always synchronized (when one changes, all change)
 -   [ ] **B)** No, animals can have different statuses independently
--   [ ] **C)** Synchronized only for certain statuses (please specify which): ********\_********
--   [ ] **D)** Other (please specify): ********\_********
+-   [ ] **C)** Synchronized only for certain statuses (please specify which): **\*\*\*\***\_**\*\*\*\***
+-   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 **Follow-up:** If statuses can differ, how should we handle the group's display status on Fosters Needed page?
 
 -   [ ] Show the "most available" status (Available Now > Foster Pending > Available Future)
 -   [ ] Show the "least available" status
 -   [ ] Show all statuses somehow
--   [ ] Other: ********\_********
+-   [ ] Other: **\*\*\*\***\_**\*\*\*\***
 
 ---
 
@@ -379,7 +379,7 @@ If automation is desired later, add simple event-based rules:
 -   [ ] **A)** Yes, always synchronized (enforced)
 -   [ ] **B)** No, can differ between animals
 -   [ ] **C)** Synchronized by default, but can be overridden per animal
--   [ ] **D)** Other (please specify): ********\_********
+-   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 ---
 
@@ -390,7 +390,7 @@ If automation is desired later, add simple event-based rules:
 -   [ ] **A)** Single "Status" field that controls both operational status and display
 -   [ ] **B)** Separate "Status" (operational) and "Display Setting" (for Fosters Needed page)
 -   [ ] **C)** Only "Display Setting" field (remove status tracking)
--   [ ] **D)** Other (please specify): ********\_********
+-   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 ---
 
@@ -408,7 +408,7 @@ If automation is desired later, add simple event-based rules:
 -   [ ] Foster request accepted → Set to "In Foster", display off
 -   [ ] Animal adopted → Set to "Adopted", display off, unassign foster
 -   [ ] Returned to shelter → Set to "In Shelter", display on, unassign foster
--   [ ] Other: ********\_********
+-   [ ] Other: **\*\*\*\***\_**\*\*\*\***
 
 ---
 
@@ -419,7 +419,7 @@ If automation is desired later, add simple event-based rules:
 -   [ ] **A)** Automatically enable display for all animals in the group
 -   [ ] **B)** Keep each animal's display setting as-is
 -   [ ] **C)** Warn coordinator but don't auto-sync
--   [ ] **D)** Other (please specify): ********\_********
+-   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 ---
 
@@ -431,7 +431,7 @@ If automation is desired later, add simple event-based rules:
 -   [ ] **B)** Allow it, show group with "most available" status
 -   [ ] **C)** Allow it, show group with "least available" status
 -   [ ] **D)** Allow it, don't show group on Fosters Needed page if statuses conflict
--   [ ] **E)** Other (please specify): ********\_********
+-   [ ] **E)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 ---
 
@@ -442,7 +442,7 @@ If automation is desired later, add simple event-based rules:
 -   [ ] **A)** Change status back to "In Shelter" and enable display
 -   [ ] **B)** Keep status but allow display to be manually enabled
 -   [ ] **C)** Create a new status like "Needs Re-Foster"
--   [ ] **D)** Other (please specify): ********\_********
+-   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 ---
 
@@ -452,7 +452,7 @@ If automation is desired later, add simple event-based rules:
 
 -   [ ] **A)** Yes, we need "In Cafe" as a separate status
 -   [ ] **B)** No, "In Cafe" can be handled as "In Foster" or another existing status
--   [ ] **C)** Other (please specify): ********\_********
+-   [ ] **C)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 **If yes:** Should "In Cafe" follow the same display rules as "In Foster" (not displayed on Fosters Needed page)?
 
@@ -465,7 +465,7 @@ If automation is desired later, add simple event-based rules:
 -   [ ] **A)** Yes, automatically update all animals' status and display
 -   [ ] **B)** No, update each animal individually
 -   [ ] **C)** Prompt coordinator to confirm before updating all
--   [ ] **D)** Other (please specify): ********\_********
+-   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
 
 ---
 
