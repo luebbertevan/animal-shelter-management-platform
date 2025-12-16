@@ -78,13 +78,17 @@ interface AnimalCardProps {
 	> & {
 		group_name?: string; // Optional group name if animal is in a group
 	};
+	hideGroupIndicator?: boolean; // If true, hide the "In group" indicator
 }
 
 /**
  * Reusable card component for displaying an animal in a list
  * Links to the animal detail page when clicked
  */
-export default function AnimalCard({ animal }: AnimalCardProps) {
+export default function AnimalCard({
+	animal,
+	hideGroupIndicator = false,
+}: AnimalCardProps) {
 	const navigate = useNavigate();
 	const slug = createSlug(animal.name);
 	const firstPhoto =
@@ -161,7 +165,7 @@ export default function AnimalCard({ animal }: AnimalCardProps) {
 						<p className="text-base text-white/90">{compactInfo}</p>
 					)}
 					{/* Group indicator */}
-					{animal.group_id && (
+					{animal.group_id && !hideGroupIndicator && (
 						<button
 							type="button"
 							onClick={handleGroupClick}

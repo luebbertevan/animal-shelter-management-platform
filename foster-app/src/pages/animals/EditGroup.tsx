@@ -51,8 +51,8 @@ export default function EditGroup() {
 		isError: isErrorAnimals,
 	} = useQuery<Animal[], Error>({
 		queryKey: ["animals", user.id, profile.organization_id],
-		queryFn: () => {
-			return fetchAnimals(profile.organization_id, {
+		queryFn: async () => {
+			const animalsData = await fetchAnimals(profile.organization_id, {
 				fields: [
 					"id",
 					"name",
@@ -65,6 +65,51 @@ export default function EditGroup() {
 				],
 				orderBy: "created_at",
 				orderDirection: "desc",
+			});
+
+			// Fetch group names for animals that are in groups
+			const groupIds = [
+				...new Set(
+					animalsData
+						.map((a) => a.group_id)
+						.filter((id): id is string => !!id)
+				),
+			];
+
+			const groupsMap = new Map<string, string>();
+			if (groupIds.length > 0) {
+				try {
+					const { data: groups, error: groupsError } = await supabase
+						.from("animal_groups")
+						.select("id, name")
+						.in("id", groupIds);
+
+					if (groupsError) {
+						console.error("Error fetching groups:", groupsError);
+					} else {
+						if (groups) {
+							groups.forEach((group) => {
+								if (group.id && group.name) {
+									groupsMap.set(group.id, group.name);
+								}
+							});
+						}
+					}
+				} catch (error) {
+					console.error("Error fetching groups:", error);
+				}
+			}
+
+			// Map animals with their group names
+			return animalsData.map((animal) => {
+				if (animal.group_id) {
+					const groupName = groupsMap.get(animal.group_id);
+					return {
+						...animal,
+						group_name: groupName,
+					};
+				}
+				return animal;
 			});
 		},
 		enabled: !!group && isCoordinator,
@@ -611,7 +656,9 @@ export default function EditGroup() {
 						selectedAnimalIds={selectedAnimalIds}
 						toggleAnimalSelection={handleAnimalSelection}
 						onPhotosChange={setSelectedPhotos}
-						existingPhotos={group.group_photos || []}
+						existingPhotos={(group.group_photos || []).filter(
+							(photo) => !photosToDelete.includes(photo.url)
+						)}
 						onRemovePhoto={handleRemovePhoto}
 						photoError={photoUploadError}
 						onSubmit={handleSubmit}

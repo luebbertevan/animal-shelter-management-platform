@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type {
 	Animal,
@@ -50,7 +51,7 @@ export default function FosterDetail() {
 				if (!foster?.id) {
 					return [];
 				}
-				return fetchAnimalsByFosterId(
+				const animals = await fetchAnimalsByFosterId(
 					foster.id,
 					profile.organization_id,
 					{
@@ -66,6 +67,57 @@ export default function FosterDetail() {
 						],
 					}
 				);
+
+				// Fetch group names for animals that are in groups
+				const groupIds = [
+					...new Set(
+						animals
+							.map((a) => a.group_id)
+							.filter((id): id is string => !!id)
+					),
+				];
+
+				const groupsMap = new Map<string, string>();
+				if (groupIds.length > 0) {
+					try {
+						const { data: groups, error: groupsError } =
+							await supabase
+								.from("animal_groups")
+								.select("id, name")
+								.in("id", groupIds);
+
+						if (groupsError) {
+							console.error(
+								"Error fetching groups:",
+								groupsError
+							);
+						} else {
+							if (groups) {
+								groups.forEach(
+									(group: { id: string; name: string }) => {
+										if (group.id && group.name) {
+											groupsMap.set(group.id, group.name);
+										}
+									}
+								);
+							}
+						}
+					} catch (error) {
+						console.error("Error fetching groups:", error);
+					}
+				}
+
+				// Map animals with their group names
+				return animals.map((animal) => {
+					if (animal.group_id) {
+						const groupName = groupsMap.get(animal.group_id);
+						return {
+							...animal,
+							group_name: groupName,
+						};
+					}
+					return animal;
+				});
 			},
 			enabled: !!foster,
 		});
