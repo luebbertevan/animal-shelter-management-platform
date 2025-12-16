@@ -85,13 +85,17 @@ export default function Dashboard() {
 				const groupsMap = new Map<string, string>();
 				if (groupIds.length > 0) {
 					try {
-						const { data: groups, error: groupsError } = await supabase
-							.from("animal_groups")
-							.select("id, name")
-							.in("id", groupIds);
+						const { data: groups, error: groupsError } =
+							await supabase
+								.from("animal_groups")
+								.select("id, name")
+								.in("id", groupIds);
 
 						if (groupsError) {
-							console.error("Error fetching groups:", groupsError);
+							console.error(
+								"Error fetching groups:",
+								groupsError
+							);
 						} else {
 							if (groups) {
 								groups.forEach((group) => {
@@ -227,10 +231,18 @@ export default function Dashboard() {
 				</div>
 
 				<div className="bg-white rounded-lg shadow-md p-6 mb-4">
-					<h2 className="text-lg font-semibold text-gray-900 mb-4">
-						Quick Actions
-					</h2>
-					<div className="space-y-4">
+					<div className="flex flex-wrap gap-4">
+						<Link to="/animals" className="block">
+							<Button>Animals</Button>
+						</Link>
+						<Link to="/groups" className="block">
+							<Button>Groups</Button>
+						</Link>
+						{isCoordinator && (
+							<Link to="/fosters" className="block">
+								<Button>Fosters</Button>
+							</Link>
+						)}
 						{isFoster && conversationId && (
 							<Link
 								to={`/chat/${conversationId}`}
@@ -242,27 +254,6 @@ export default function Dashboard() {
 						{isCoordinator && (
 							<Link to="/chats" className="block">
 								<Button>Chats</Button>
-							</Link>
-						)}
-						<Link to="/animals" className="block">
-							<Button>View Animals</Button>
-						</Link>
-						{isCoordinator && (
-							<Link to="/animals/new" className="block">
-								<Button>Create New Animal</Button>
-							</Link>
-						)}
-						<Link to="/groups" className="block">
-							<Button>View Groups</Button>
-						</Link>
-						{isCoordinator && (
-							<Link to="/groups/new" className="block">
-								<Button>Create New Group</Button>
-							</Link>
-						)}
-						{isCoordinator && (
-							<Link to="/fosters" className="block">
-								<Button>View Fosters</Button>
 							</Link>
 						)}
 					</div>

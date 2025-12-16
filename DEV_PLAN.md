@@ -4729,36 +4729,185 @@ The preview card should show minimal, scannable information for quick browsing:
 
 ### Navigation Structure
 
-**Goal:** Create consistent, mobile-friendly navigation throughout the app.
+**Goal:** Create consistent, top navigation bar with home and chat icons. Improve contextual navigation throughout the app.
+
+**Design Decisions:**
+
+-   Top navigation bar (not bottom nav or sidebar)
+-   No back button in nav bar (use contextual navigation instead - important for PWA/mobile apps where browser back may not exist)
+-   Chat icon in nav bar (no unread badge yet - notifications/read tracking not implemented)
+-   Animals/Groups/Fosters buttons stay on dashboard (side by side, not in "Quick Actions" section)
+-   Profile/Logout page needed eventually (not in this milestone)
+-   When animal is created, navigate to animals list (not dashboard)
+-   When group is created, navigate to groups list (not dashboard)
+
+**Stages:**
+
+#### Stage 1: Create Top Navigation Bar Component
 
 **Tasks:**
 
 1. Create `src/components/Navigation.tsx`:
-    - Bottom navigation bar for mobile (fixed at bottom)
-    - Sidebar navigation for desktop (collapsible)
-    - Show active route highlighting
-    - Include icons for each route
-2. Navigation links:
-    - Dashboard (all users)
-    - Animals (all users)
-    - Messages (all users)
-    - Settings (all users)
-    - Coordinator-only: Create Animal, Confirmation Codes
-3. Use React Router's `useLocation` to highlight active route
-4. Make navigation responsive:
-    - Mobile: Bottom nav (always visible)
-    - Desktop: Sidebar (collapsible)
-5. Add navigation to main app layout
-6. Test: Navigate between pages, verify active state, test on mobile and desktop
+
+    - Top navigation bar (fixed at top of page)
+    - Home icon (left side) → navigates to Dashboard
+    - Info icon (right side, before chat icon) → navigates to About/Info page (`/about` or `/`)
+    - Chat icon (right side) → navigates to role-specific chat:
+        - Fosters: Direct link to their dedicated chat (`/chat/{conversationId}`)
+        - Coordinators: Link to conversations list (`/chats`)
+    - Show active route highlighting (optional, can add later)
+    - Use React Router's `useLocation` to determine current route
+    - Use `useProtectedAuth` to determine user role for chat navigation
+
+2. Add navigation bar to main app layout:
+
+    - Wrap all protected routes with navigation bar
+    - Ensure it appears on all pages except login/signup
+    - Use `ProtectedRoute` component or similar wrapper
+
+3. Test: Navigation bar appears on all pages, home icon works, info icon works, chat icon navigates correctly based on role
+
+**Note:** The navigation bar structure is mostly the same for both fosters and coordinators, with the main difference being role-based routing (e.g., chat icon routes to different destinations based on user role). The visual appearance and layout remain consistent across roles.
 
 **Testing:**
 
--   Navigation works on mobile and desktop
--   Active route is highlighted
--   Coordinator-only links only show for coordinators
--   Navigation is always accessible
+-   Navigation bar appears on all authenticated pages
+-   Home icon navigates to dashboard
+-   Info icon navigates to landing/info page (`/` or `/about`)
+-   Chat icon navigates to correct destination based on user role
+-   Navigation bar does not appear on login/signup pages
 
-**Deliverable:** Responsive navigation structure working.
+**Deliverable:** Top navigation bar component created and integrated.
+
+---
+
+#### Stage 2: Update Dashboard Navigation
+
+**Tasks:**
+
+1. Remove "Quick Actions" section from Dashboard
+2. Keep Animals/Groups/Fosters buttons on Dashboard:
+    - Display side by side (not in a "Quick Actions" section)
+    - Coordinator sees: Animals, Groups, Fosters
+    - Foster sees: Animals, Groups (if applicable)
+3. Remove "Create New Animal" button from Dashboard
+4. Remove "Create New Group" button from Dashboard
+5. Keep "Currently Fostering" section (if applicable)
+6. Keep "Account" section with logout
+
+**Testing:**
+
+-   Dashboard shows Animals, Groups, Fosters buttons (role-appropriate)
+-   No "Quick Actions" section
+-   No create buttons on dashboard
+-   Other sections remain intact
+
+**Deliverable:** Dashboard navigation updated.
+
+---
+
+#### Stage 3: Move Create Buttons to List Pages
+
+**Tasks:**
+
+1. Update `AnimalsList.tsx`:
+
+    - Add "Add Animal" button (coordinator-only)
+    - Button should be prominent and clearly labeled "Add Animal"
+    - Remove "Back to Dashboard" button (users can use home icon in nav bar)
+    - Button navigates to `/animals/new`
+
+2. Update `GroupsList.tsx`:
+
+    - Add "Add Group" button (coordinator-only)
+    - Button should be prominent and clearly labeled "Add Group"
+    - Remove "Back to Dashboard" button (users can use home icon in nav bar)
+    - Button navigates to `/groups/new`
+
+3. Test: Buttons appear only for coordinators, navigation works correctly
+
+**Testing:**
+
+-   "Add Animal" button appears on Animals list page (coordinator only)
+-   "Add Group" button appears on Groups list page (coordinator only)
+-   Fosters do not see create buttons
+-   Navigation to create pages works correctly
+
+**Deliverable:** Create buttons moved to list pages.
+
+---
+
+#### Stage 4: Update Create/Edit Page Navigation
+
+**Tasks:**
+
+1. Update `NewAnimal.tsx`:
+
+    - Change top button from "Back to Dashboard" to "Cancel"
+    - Cancel button uses `navigate(-1)` with fallback to `/animals` if no history
+    - After successful creation, navigate to `/animals` (animals list) instead of dashboard
+
+2. Update `NewGroup.tsx`:
+
+    - Change top button from "Back to Groups" to "Cancel"
+    - Cancel button uses `navigate(-1)` with fallback to `/groups` if no history
+    - After successful creation, navigate to `/groups` (groups list) instead of dashboard
+
+3. Update `EditAnimal.tsx`:
+
+    - Change top button to "Cancel" (if not already)
+    - Cancel button uses `navigate(-1)` with fallback to animal detail page or `/animals`
+
+4. Update `EditGroup.tsx`:
+
+    - Change top button to "Cancel" (if not already)
+    - Cancel button uses `navigate(-1)` with fallback to group detail page or `/groups`
+
+5. Test: Cancel buttons work correctly, navigation after creation goes to list pages
+
+**Testing:**
+
+-   Cancel buttons navigate to previous page or appropriate fallback
+-   After creating animal, user is on animals list page
+-   After creating group, user is on groups list page
+-   Navigation feels natural and contextual
+
+**Deliverable:** Create/edit page navigation updated with Cancel buttons and proper post-creation navigation.
+
+---
+
+#### Stage 5: Update Detail Page Navigation (Optional - can be done separately)
+
+**Tasks:**
+
+1. Review detail pages (`AnimalDetail.tsx`, `GroupDetail.tsx`, `FosterDetail.tsx`):
+
+    - Update "Back to X" buttons to use contextual navigation
+    - Consider using breadcrumbs or keeping current "Back to X" pattern
+    - Ensure navigation feels natural
+
+2. Test: Navigation from detail pages works correctly
+
+**Testing:**
+
+-   Detail pages have clear navigation back to list pages
+-   Navigation feels contextual and intuitive
+
+**Deliverable:** Detail page navigation reviewed and updated if needed.
+
+---
+
+**Overall Testing:**
+
+-   Navigation bar appears on all authenticated pages
+-   Home icon navigates to dashboard
+-   Chat icon navigates correctly based on role
+-   Create buttons are on list pages (coordinator only)
+-   Cancel buttons work on create/edit pages
+-   Post-creation navigation goes to list pages
+-   Dashboard shows Animals/Groups/Fosters buttons (no Quick Actions section)
+
+**Deliverable:** Complete navigation structure with top nav bar, contextual navigation, and improved user flows.
 
 ---
 
@@ -4945,36 +5094,70 @@ The preview card should show minimal, scannable information for quick browsing:
 
 ### Landing Page Structure & Navigation
 
-**Goal:** Set up the landing page route structure and navigation to existing app functionality.
+**Goal:** Set up the landing page route structure that serves as both public landing page and authenticated info page.
+
+**Design Decisions:**
+
+-   Landing page and info page share the same content (about you, app info, donation link)
+-   Public users see landing page with Login/Sign Up buttons
+-   Authenticated users access same content via Info icon in nav bar
+-   Page conditionally renders Login/Sign Up buttons based on authentication state
+-   Authenticated users see navigation bar when visiting the page
 
 **Tasks:**
 
-1. Create landing page route:
+1. Create landing/info page route:
+
     - Add public route `/` (landing page) - not protected by authentication
+    - Optionally add `/about` route that renders same content (for clarity)
     - Update routing so landing page is accessible without login
     - Ensure `/login` and `/signup` routes remain accessible
-2. Create `src/pages/Landing.tsx` component:
-    - Basic page structure with sections (will be filled in subsequent milestones)
-    - Navigation header with links to Login and Sign Up
-    - Footer with links and information
+    - Page should be accessible to both authenticated and unauthenticated users
+
+2. Create `src/pages/Landing.tsx` (or `About.tsx`) component:
+
+    - Shared content component with:
+        - Information about you and the app
+        - Donation link
+        - Any other relevant information
+    - Conditional rendering based on auth state:
+        - **If NOT authenticated**: Show "Login" and "Sign Up" buttons/links
+        - **If authenticated**: No login buttons (user has nav bar for navigation)
+    - Component checks authentication state using `useAuth()` hook
+    - Navigation bar appears if user is authenticated (handled by ProtectedRoute wrapper or conditional rendering)
+
 3. Update `App.tsx` routing:
-    - Landing page (`/`) is public (not wrapped in ProtectedRoute)
+
+    - Landing page (`/`) is public (not wrapped in ProtectedRoute, but can conditionally show nav bar)
+    - If using `/about` route, it should also be public
     - Login and signup routes remain public
     - All other routes remain protected
-4. Add navigation from landing page:
-    - "Login" button/link in header
-    - "Sign Up" button/link in header (or CTA button)
-    - Links navigate to `/login` and `/signup` routes
-5. Test: Can access landing page without login, can navigate to login/signup, protected routes still require auth
+
+4. Update Navigation component (from Navigation milestone):
+
+    - Add Info icon to navigation bar (right side, before chat icon)
+    - Info icon links to `/` or `/about` (same content)
+    - Info icon visible to all authenticated users (fosters and coordinators)
+
+5. Test:
+    - Can access landing page without login
+    - Public users see Login/Sign Up buttons
+    - Authenticated users see nav bar with Info icon
+    - Authenticated users visiting `/` see same content but with nav bar (no login buttons)
+    - Info icon in nav bar navigates to landing/info page
+    - Protected routes still require authentication
 
 **Testing:**
 
 -   Landing page loads at `/` without requiring authentication
--   Login and Sign Up links work correctly
+-   Public users see Login and Sign Up buttons
+-   Authenticated users see navigation bar (no login buttons)
+-   Info icon in nav bar navigates to landing/info page
+-   Same content accessible to both public and authenticated users
 -   Protected routes still require authentication
 -   Navigation is clear and professional
 
-**Deliverable:** Landing page structure with navigation to app functionality.
+**Deliverable:** Landing page structure that serves as both public landing page and authenticated info page, accessible via nav bar for authenticated users.
 
 ---
 
