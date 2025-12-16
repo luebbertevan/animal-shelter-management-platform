@@ -2,13 +2,18 @@ import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { Animal, AnimalGroup } from "../../types";
+import type {
+	Animal,
+	AnimalGroup,
+	LifeStage,
+	PhotoMetadata,
+} from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import AnimalCard from "../../components/animals/AnimalCard";
 import GroupCard from "../../components/animals/GroupCard";
 import { fetchFosterById } from "../../lib/fosterQueries";
-import { fetchAnimalsByFosterId } from "../../lib/animalQueries";
+import { fetchAnimalsByFosterId, fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroupsByFosterId } from "../../lib/groupQueries";
 import { isOffline } from "../../lib/errorUtils";
 
@@ -82,11 +87,43 @@ export default function FosterDetail() {
 			}
 
 			return fetchGroupsByFosterId(foster.id, profile.organization_id, {
-				fields: ["id", "name", "description", "priority"],
+				fields: [
+					"id",
+					"name",
+					"description",
+					"animal_ids",
+					"priority",
+					"group_photos",
+				],
 			});
 		},
 		enabled: !!foster,
 	});
+
+	// Fetch all animals to get photos and life_stage for GroupCard
+	const { data: allAnimalsData = [] } = useQuery({
+		queryKey: ["allAnimals", user.id, profile.organization_id],
+		queryFn: () => {
+			return fetchAnimals(profile.organization_id, {
+				fields: ["id", "photos", "life_stage"],
+			});
+		},
+	});
+
+	// Create a map of animal data (photos + life_stage) for GroupCard
+	const animalDataMap = useMemo(() => {
+		const map = new Map<
+			string,
+			{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
+		>();
+		allAnimalsData.forEach((animal) => {
+			map.set(animal.id, {
+				photos: animal.photos,
+				life_stage: animal.life_stage,
+			});
+		});
+		return map;
+	}, [allAnimalsData]);
 
 	const isLoading = isLoadingFoster || isLoadingAnimals || isLoadingGroups;
 	const isError = isErrorFoster;
@@ -293,7 +330,11 @@ export default function FosterDetail() {
 						</h2>
 						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 							{assignedGroups.map((group) => (
-								<GroupCard key={group.id} group={group} />
+								<GroupCard
+									key={group.id}
+									group={group}
+									animalData={animalDataMap}
+								/>
 							))}
 							{filteredAnimals.map((animal) => (
 								<AnimalCard key={animal.id} animal={animal} />

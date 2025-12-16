@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { AnimalGroup } from "../../types";
+import type { AnimalGroup, LifeStage, PhotoMetadata } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import GroupCard from "../../components/animals/GroupCard";
@@ -30,7 +30,14 @@ export default function GroupsList() {
 		queryKey: ["groups", user.id, profile.organization_id],
 		queryFn: () => {
 			return fetchGroups(profile.organization_id, {
-				fields: ["id", "name", "description", "animal_ids", "priority"],
+				fields: [
+					"id",
+					"name",
+					"description",
+					"animal_ids",
+					"priority",
+					"group_photos",
+				],
 				orderBy: "created_at",
 				orderDirection: "desc",
 				checkOffline: true,
@@ -42,7 +49,7 @@ export default function GroupsList() {
 		queryKey: ["animals", user.id, profile.organization_id],
 		queryFn: () => {
 			return fetchAnimals(profile.organization_id, {
-				fields: ["id", "name"],
+				fields: ["id", "name", "photos", "life_stage"],
 			});
 		},
 	});
@@ -52,6 +59,21 @@ export default function GroupsList() {
 		const map = new Map<string, string>();
 		animalsData.forEach((animal) => {
 			map.set(animal.id, animal.name?.trim() || "Unnamed Animal");
+		});
+		return map;
+	}, [animalsData]);
+
+	// Create a map of animal data (photos + life_stage) for GroupCard
+	const animalDataMap = useMemo(() => {
+		const map = new Map<
+			string,
+			{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
+		>();
+		animalsData.forEach((animal) => {
+			map.set(animal.id, {
+				photos: animal.photos,
+				life_stage: animal.life_stage,
+			});
 		});
 		return map;
 	}, [animalsData]);
@@ -168,12 +190,12 @@ export default function GroupsList() {
 				)}
 
 				{groups.length > 0 && (
-					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+					<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 						{groups.map((group) => (
 							<GroupCard
 								key={group.id}
 								group={group}
-								animalNames={group.animalNames}
+								animalData={animalDataMap}
 							/>
 						))}
 					</div>

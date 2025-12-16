@@ -570,7 +570,7 @@ design decisions need to be made about how we want to handle status changes for 
 we need to think about performance for animals list, and group list. and sublists. pagination. if there are a bunch of animals/groups we need to make sure that theperformance is not going to be substantially bad. this might also effect search/filter
 
 
-
+The button at the top of both the creatie animals, create group, create animals should say cancel (makes it clear that changes are discarded) hitting the canel button should naviagte to the previous page.
 
 
 

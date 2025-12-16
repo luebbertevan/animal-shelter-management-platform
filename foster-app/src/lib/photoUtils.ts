@@ -555,6 +555,78 @@ export async function uploadGroupPhoto(
 }
 
 /**
+ * Deletes all photos in a group's folder from Supabase Storage
+ * This ensures the entire folder is cleaned up, including any orphaned files
+ * @param groupId - The group ID (UUID string)
+ * @param organizationId - The organization ID (UUID string)
+ * @returns Promise that resolves when deletion is complete
+ * @throws Error if deletion fails
+ */
+export async function deleteGroupFolder(
+	groupId: string,
+	organizationId: string
+): Promise<void> {
+	try {
+		const folderPath = `${organizationId}/groups/${groupId}`;
+
+		// List all files in the folder
+		const { data: files, error: listError } = await supabase.storage
+			.from("photos")
+			.list(folderPath, {
+				limit: 1000,
+				offset: 0,
+				sortBy: { column: "name", order: "asc" },
+			});
+
+		if (listError) {
+			// If folder doesn't exist or we can't list it, that's okay
+			if (
+				listError.message.includes("not found") ||
+				listError.message.includes("does not exist")
+			) {
+				return;
+			}
+			throw new Error(
+				`Failed to list files in group folder: ${listError.message}`
+			);
+		}
+
+		if (!files || files.length === 0) {
+			// Folder is already empty, nothing to delete
+			return;
+		}
+
+		// Build full paths for all files
+		const filePaths = files.map((file) => `${folderPath}/${file.name}`);
+
+		// Delete all files at once
+		const { data: deletedFiles, error: deleteError } =
+			await supabase.storage.from("photos").remove(filePaths);
+
+		if (deleteError) {
+			throw new Error(
+				`Failed to delete files from group folder: ${deleteError.message}`
+			);
+		}
+
+		// Verify deletion succeeded
+		if (!deletedFiles || deletedFiles.length === 0) {
+			throw new Error(
+				`Failed to delete group folder - no files were deleted. ` +
+					`This might be due to RLS policies. Folder: ${folderPath}`
+			);
+		}
+	} catch (error) {
+		if (error instanceof Error) {
+			throw error;
+		}
+		throw new Error(
+			"An unexpected error occurred while deleting the group folder."
+		);
+	}
+}
+
+/**
  * Deletes a group photo from Supabase Storage
  * @param photoUrl - The public URL of the photo to delete
  * @param organizationId - The organization ID (UUID string)

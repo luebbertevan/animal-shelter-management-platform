@@ -8,9 +8,9 @@ import LoadingSpinner from "../components/ui/LoadingSpinner";
 import AnimalCard from "../components/animals/AnimalCard";
 import GroupCard from "../components/animals/GroupCard";
 import { getErrorMessage } from "../lib/errorUtils";
-import { fetchAssignedAnimals } from "../lib/animalQueries";
+import { fetchAssignedAnimals, fetchAnimals } from "../lib/animalQueries";
 import { fetchAssignedGroups } from "../lib/groupQueries";
-import type { Animal } from "../types";
+import type { Animal, LifeStage, PhotoMetadata } from "../types";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
 	const { data, error } = await supabase
@@ -75,9 +75,43 @@ export default function Dashboard() {
 	const { data: assignedGroups = [], isLoading: isLoadingGroups } = useQuery({
 		queryKey: ["assignedGroups", user.id, profile.organization_id],
 		queryFn: () => {
-			return fetchAssignedGroups(user.id, profile.organization_id);
+			return fetchAssignedGroups(user.id, profile.organization_id, {
+				fields: [
+					"id",
+					"name",
+					"description",
+					"animal_ids",
+					"priority",
+					"group_photos",
+				],
+			});
 		},
 	});
+
+	// Fetch all animals to get photos and life_stage for GroupCard
+	const { data: allAnimalsData = [] } = useQuery({
+		queryKey: ["allAnimals", user.id, profile.organization_id],
+		queryFn: () => {
+			return fetchAnimals(profile.organization_id, {
+				fields: ["id", "photos", "life_stage"],
+			});
+		},
+	});
+
+	// Create a map of animal data (photos + life_stage) for GroupCard
+	const animalDataMap = useMemo(() => {
+		const map = new Map<
+			string,
+			{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
+		>();
+		allAnimalsData.forEach((animal) => {
+			map.set(animal.id, {
+				photos: animal.photos,
+				life_stage: animal.life_stage,
+			});
+		});
+		return map;
+	}, [allAnimalsData]);
 
 	const isLoadingFostering = isLoadingAnimals || isLoadingGroups;
 
@@ -195,7 +229,11 @@ export default function Dashboard() {
 						) : (
 							<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 								{assignedGroups.map((group) => (
-									<GroupCard key={group.id} group={group} />
+									<GroupCard
+										key={group.id}
+										group={group}
+										animalData={animalDataMap}
+									/>
 								))}
 								{filteredAnimals.map((animal) => (
 									<AnimalCard
