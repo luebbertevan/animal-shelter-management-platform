@@ -619,8 +619,6 @@ or maybe animal status is kept but not synced and is only interanl
 
 
 
-The button at the top of both the creatie animals, create group, create animals should say cancel (makes it clear that changes are discarded) hitting the canel button should naviagte to the previous page.
-
 
 Decision: Foster History Handling
 We will use snapshot records for foster group assignments instead of fully tracking historical group state.
@@ -636,6 +634,12 @@ found a bug with page auto scrolling to bottom on repeat navigation back to the 
 
 bug the app only subscribes to real time messages when the chat is opened and this might be a bug for when we want to have notifications or unread messages (we will need to have read on unread added to the messaging)
 
+Consider a useUnsavedChanges hook to warn before canceling with unsaved changes
+
+Make the nav bar responsive: horizontal on desktop, hamburger menu on mobile
+
+
+
 next features:
 fosters needed page
 request and assignment handeling for animals and groups. 
@@ -644,3 +648,7 @@ ui polish and branding for co kitty coalition
 copy animal
 search & filter
 tagging in messages
+
+
+foster details?? do we want that I can't remeber
+we need delete foster option. should unassign animals and groups from them on deletion
