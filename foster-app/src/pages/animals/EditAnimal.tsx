@@ -525,7 +525,9 @@ export default function EditAnimal() {
 							isLoadingPhysicalCharacteristics
 						}
 						onPhotosChange={setSelectedPhotos}
-						existingPhotos={animal.photos || []}
+						existingPhotos={(animal.photos || []).filter(
+							(photo) => !photosToDelete.includes(photo.url)
+						)}
 						onRemovePhoto={handleRemovePhoto}
 						uploadingPhotos={uploadingPhotos}
 						photoUploadError={photoUploadError}

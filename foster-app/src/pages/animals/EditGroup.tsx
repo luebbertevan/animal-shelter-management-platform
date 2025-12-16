@@ -611,7 +611,9 @@ export default function EditGroup() {
 						selectedAnimalIds={selectedAnimalIds}
 						toggleAnimalSelection={handleAnimalSelection}
 						onPhotosChange={setSelectedPhotos}
-						existingPhotos={group.group_photos || []}
+						existingPhotos={(group.group_photos || []).filter(
+							(photo) => !photosToDelete.includes(photo.url)
+						)}
 						onRemovePhoto={handleRemovePhoto}
 						photoError={photoUploadError}
 						onSubmit={handleSubmit}

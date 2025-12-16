@@ -587,3 +587,11 @@ We will use snapshot records for foster group assignments instead of fully track
 When a group is assigned to a foster, we store a snapshot of the group’s presentation data (group info, photos, animals in the group at that time). This snapshot represents historical experience, not live state, and does not update based on later animal status changes (adoptions, moves, group edits).
 Animals remain first-class records and will continue to track foster history relationally (no snapshots). This allows animal foster history to remain accurate and correctable without duplicating data.
 This approach avoids a full schema rework, preserves meaningful foster history, and accepts that group snapshots may occasionally immortalize assignment mistakes as a deliberate UX trade-off.
+
+
+we might want a tinder style veiw for needs foster page. (fixes the photo too )
+
+
+next features are the fosters needed page
+and request handeling. 
+ui polish and branding for co kitty coalition
