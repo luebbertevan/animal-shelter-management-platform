@@ -547,6 +547,7 @@ custom message build for
 
 auto message foster updates (photos and bios)
 
+auto messages for foster animal/group requests
 
 
 There are a lot of queries that we might want the refactor into reusable dry code. what do you think. 
@@ -556,6 +557,8 @@ Create a shared helper function to reduce duplication
 Add staleTime to reduce unnecessary refetches
 Consider a separate cached query for groups that can be shared across pages
 Only fetch group names when needed (e.g., not in GroupDetail where we already know the group)
+pagination approach might be good to avoid mass loading. we should consider this for search/filter also
+we need to think about performance for animals list, and group list. and sublists. pagination. if there are a bunch of animals/groups we need to make sure that theperformance is not going to be substantially bad. this might also effect search/filter
 
 
 
@@ -564,25 +567,59 @@ if an animal with high priority is added to a group the priority of the group sh
 
 evntually we will need an add to group from the create and edit animal page
 
-they need to be able to delete groups
-
-design decisions need to be made about how we want to handle status changes for animals in groups. should they be removed? should they remain and just status is displayed? 
 
 
+I have a design question for the rescue. I need to resolve a complex issue about how to resolve conflicts in animal: status and display as foster needed setting when it comes to groups
+Planed Policy for animals: display setting is master for if displayed on fosters needed page
+if set the display status options are available now, available, future and foster pending. our planned logic 
+if in shelter display avaiable now
+if medical hold or transferring display avaiable future
+if the animal has a foster request display foster pending.
+if animal is in foster, or adopted, do not display on fosters needed page  (edge case where the animal is in foster or adopted and actually needs to go back into the foster system and available future)
 
-we need to think about performance for animals list, and group list. and sublists. pagination. if there are a bunch of animals/groups we need to make sure that theperformance is not going to be substantially bad. this might also effect search/filter
+design decisions need to be made about how we want to handle status changes for animals in groups. should they be removed? should they remain and just status is displayed? example if an animal's status in changed and they are in a group should all the animals in the group status change. should we hava a group status change? (we don't track group status rn). should we allow animals in group to have differnet status or enforce same status? display in fosters needed page is based on individual animal page rn soooo this could be an issue. 
+main decision is when should the group be displayed in the fosters needed page. 
+options: 
+1. synchornize and enforce status and display fields of animals in group and display with same rule as animals 
+2. do not synchronize anything and display the entire group if any animal in the group is marked as display
+3. have a display field in group(edit and create) this might be a ui only and synchronizes all displays for animals when toggled
+think about the flow for creation and also edge cases and trade offs
+if animal status and display values(probably more important) match then no issues to resolve display to enforcing might be easiest. requires logic for group creation, editing, and status changes that update display setting(in foster, adoptions, etc.)
+if animals are grouped but differnt statuses and display settings allowed then difficult to resolve in group. 
+easiest option i think is to control in the group creation and editing. if an animal is added with display setting on then all animals get display toggled on 
+tricky to resolve different group statuses in the fosters needed status (available now, available future, foster pending)
+options for group enforcment of animal status and display settings
+enforcement is complex and not easy to customize but more automation for foster needed status. 
+enforcment with cutomizabiltiy allows for edge cases and difficulty resolving foster needed status.
+no enformecemt means animals status and display settings are customizable but automatic tracking logic is complex to resolve and also 
+available incoming????
+I think we synchronize display settings and animal status for animals in the same group. easy to resolve foster needed status. downside is enforcement  (nice for automation but not customizeable and might have undesired effects) that grouped animals cannot have different statuses and display settings
+edge cases might be rare. example. 3 kittens. 
+
+we could handle with prioritasaion logic. lets say that display setting (for the fosters needed page) must be the same for all animals in a group an is enforced but status is not. we need to resolve the status in the fosters needed page (available now, available future, foster pending). 
+the proposed rules for animals
+in shelter -> available now
+medical hold, transferring  -> available future
+in foster, adopted -> not displayed (but what if display setting is set?? maybe setting is locked in this case??) 
+on certain events this settings were to be auto set: foster requests accepted(in foster set and disply false), animal adopted (adopted set and foster unassigned), in shelter set (foster unassigned if relevent)
+
+maybe the best way to do this is remove display setting and handle everything is status? add new statuses to handle edge cases/clear up the display behavior? 
+in shelter(available now), transferring(avaiable future) on hold(available future), in foster (not available) adopted(not available) should status still be synchronized in groups. this might be the best way
+
+or no enforcment whatsoever and group status and animals status is NOT synced and has to be manually updated (no automation and manually updating. this kinda sucks)
+
+maybe its just up to me and they deal with the trade offs. we might be over complicating things to handle edge cases and should just deliver a simple solution with no synchornization. maybe we have two seperate statuses:
+animal status: in shelter, medical hold, transferring, adopted, in foster
+foster request message: available now, available future, foster pending, not displayed
+this still requires logic for resolving groups statuses. if animal in group all foster request messages are synced?? maybe certain events sync all grouped animals status ad request messages? are synced? group adoptions? group foster requests accepted?
+
+Do we need a status for in cafe (similair rules for in foster? or different rules???)
+maybe we just go super simple and remove animal status complelty have only display setting available now, available future, foster pending, not displayed (group display setting still needs synchronized)
+or maybe animal status is kept but not synced and is only interanl
+
 
 
 The button at the top of both the creatie animals, create group, create animals should say cancel (makes it clear that changes are discarded) hitting the canel button should naviagte to the previous page.
-
-
-
-
-
-
-
-
-
 
 
 Decision: Foster History Handling
@@ -594,7 +631,16 @@ This approach avoids a full schema rework, preserves meaningful foster history, 
 
 we might want a tinder style veiw for needs foster page. (fixes the photo too )
 
+found a bug with page auto scrolling to bottom on repeat navigation back to the animal details page. does not happen first time but navigation back to it caused this 
 
-next features are the fosters needed page
-and request handeling. 
+
+bug the app only subscribes to real time messages when the chat is opened and this might be a bug for when we want to have notifications or unread messages (we will need to have read on unread added to the messaging)
+
+next features:
+fosters needed page
+request and assignment handeling for animals and groups. 
+navigation
 ui polish and branding for co kitty coalition
+copy animal
+search & filter
+tagging in messages
