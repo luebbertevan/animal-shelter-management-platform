@@ -535,7 +535,6 @@ life stage roll over
 we need clarification on status, and display
 
 
-bug in the primary breed adnn  physical characteristics form. can't enter
 
 future feature might be favoriting a photo it apear first (photo for the preview)
 
@@ -550,12 +549,16 @@ auto message foster updates (photos and bios)
 
 
 
-There are some queries that we might want the refactor into reusable. what do you think. 
-@AnimalDetail.tsx (149-171)  is an example. if we were to do this again or have this duplicated in multiple places it would be good to refactor. identify other reused logic in our code that we should refactor.
+There are a lot of queries that we might want the refactor into reusable dry code. what do you think. 
+@AnimalDetail.tsx (149-171)  is an example. if we were to do this again or have this duplicated in multiple places it would be good to refactor. identify other reused logic in our code that we should refactor. 
+Recommendations:
+Create a shared helper function to reduce duplication
+Add staleTime to reduce unnecessary refetches
+Consider a separate cached query for groups that can be shared across pages
+Only fetch group names when needed (e.g., not in GroupDetail where we already know the group)
 
 
-the animal card in animal list shows the group name the animal is in. In group: <group_name>
-the animal card in currently fostering and group select animals does not display the group name. it says In group: View group
+
 
 if an animal with high priority is added to a group the priority of the group should toggle to high. this should not be enforced though so it can be changed by the user its just a toggle when the animal is added.
 

@@ -55,18 +55,67 @@ export default function Dashboard() {
 	const { data: assignedAnimals = [], isLoading: isLoadingAnimals } =
 		useQuery({
 			queryKey: ["assignedAnimals", user.id, profile.organization_id],
-			queryFn: () => {
-				return fetchAssignedAnimals(user.id, profile.organization_id, {
-					fields: [
-						"id",
-						"name",
-						"status",
-						"sex_spay_neuter_status",
-						"priority",
-						"group_id",
-						"photos",
-						"date_of_birth",
-					],
+			queryFn: async () => {
+				const animals = await fetchAssignedAnimals(
+					user.id,
+					profile.organization_id,
+					{
+						fields: [
+							"id",
+							"name",
+							"status",
+							"sex_spay_neuter_status",
+							"priority",
+							"group_id",
+							"photos",
+							"date_of_birth",
+						],
+					}
+				);
+
+				// Fetch group names for animals that are in groups
+				const groupIds = [
+					...new Set(
+						animals
+							.map((a) => a.group_id)
+							.filter((id): id is string => !!id)
+					),
+				];
+
+				const groupsMap = new Map<string, string>();
+				if (groupIds.length > 0) {
+					try {
+						const { data: groups, error: groupsError } = await supabase
+							.from("animal_groups")
+							.select("id, name")
+							.in("id", groupIds);
+
+						if (groupsError) {
+							console.error("Error fetching groups:", groupsError);
+						} else {
+							if (groups) {
+								groups.forEach((group) => {
+									if (group.id && group.name) {
+										groupsMap.set(group.id, group.name);
+									}
+								});
+							}
+						}
+					} catch (error) {
+						console.error("Error fetching groups:", error);
+					}
+				}
+
+				// Map animals with their group names
+				return animals.map((animal) => {
+					if (animal.group_id) {
+						const groupName = groupsMap.get(animal.group_id);
+						return {
+							...animal,
+							group_name: groupName,
+						};
+					}
+					return animal;
 				});
 			},
 		});

@@ -290,6 +290,7 @@ export default function GroupDetail() {
 												...animal,
 												group_name: group.name,
 											}}
+											hideGroupIndicator={true}
 										/>
 									))}
 								</div>
