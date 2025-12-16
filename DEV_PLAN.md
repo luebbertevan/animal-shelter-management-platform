@@ -4751,6 +4751,7 @@ The preview card should show minimal, scannable information for quick browsing:
 
     - Top navigation bar (fixed at top of page)
     - Home icon (left side) → navigates to Dashboard
+    - Info icon (right side, before chat icon) → navigates to About/Info page (`/about` or `/`)
     - Chat icon (right side) → navigates to role-specific chat:
         - Fosters: Direct link to their dedicated chat (`/chat/{conversationId}`)
         - Coordinators: Link to conversations list (`/chats`)
@@ -4764,12 +4765,15 @@ The preview card should show minimal, scannable information for quick browsing:
     - Ensure it appears on all pages except login/signup
     - Use `ProtectedRoute` component or similar wrapper
 
-3. Test: Navigation bar appears on all pages, home icon works, chat icon navigates correctly based on role
+3. Test: Navigation bar appears on all pages, home icon works, info icon works, chat icon navigates correctly based on role
+
+**Note:** The navigation bar structure is mostly the same for both fosters and coordinators, with the main difference being role-based routing (e.g., chat icon routes to different destinations based on user role). The visual appearance and layout remain consistent across roles.
 
 **Testing:**
 
 -   Navigation bar appears on all authenticated pages
 -   Home icon navigates to dashboard
+-   Info icon navigates to landing/info page (`/` or `/about`)
 -   Chat icon navigates to correct destination based on user role
 -   Navigation bar does not appear on login/signup pages
 
@@ -5090,36 +5094,70 @@ The preview card should show minimal, scannable information for quick browsing:
 
 ### Landing Page Structure & Navigation
 
-**Goal:** Set up the landing page route structure and navigation to existing app functionality.
+**Goal:** Set up the landing page route structure that serves as both public landing page and authenticated info page.
+
+**Design Decisions:**
+
+-   Landing page and info page share the same content (about you, app info, donation link)
+-   Public users see landing page with Login/Sign Up buttons
+-   Authenticated users access same content via Info icon in nav bar
+-   Page conditionally renders Login/Sign Up buttons based on authentication state
+-   Authenticated users see navigation bar when visiting the page
 
 **Tasks:**
 
-1. Create landing page route:
+1. Create landing/info page route:
+
     - Add public route `/` (landing page) - not protected by authentication
+    - Optionally add `/about` route that renders same content (for clarity)
     - Update routing so landing page is accessible without login
     - Ensure `/login` and `/signup` routes remain accessible
-2. Create `src/pages/Landing.tsx` component:
-    - Basic page structure with sections (will be filled in subsequent milestones)
-    - Navigation header with links to Login and Sign Up
-    - Footer with links and information
+    - Page should be accessible to both authenticated and unauthenticated users
+
+2. Create `src/pages/Landing.tsx` (or `About.tsx`) component:
+
+    - Shared content component with:
+        - Information about you and the app
+        - Donation link
+        - Any other relevant information
+    - Conditional rendering based on auth state:
+        - **If NOT authenticated**: Show "Login" and "Sign Up" buttons/links
+        - **If authenticated**: No login buttons (user has nav bar for navigation)
+    - Component checks authentication state using `useAuth()` hook
+    - Navigation bar appears if user is authenticated (handled by ProtectedRoute wrapper or conditional rendering)
+
 3. Update `App.tsx` routing:
-    - Landing page (`/`) is public (not wrapped in ProtectedRoute)
+
+    - Landing page (`/`) is public (not wrapped in ProtectedRoute, but can conditionally show nav bar)
+    - If using `/about` route, it should also be public
     - Login and signup routes remain public
     - All other routes remain protected
-4. Add navigation from landing page:
-    - "Login" button/link in header
-    - "Sign Up" button/link in header (or CTA button)
-    - Links navigate to `/login` and `/signup` routes
-5. Test: Can access landing page without login, can navigate to login/signup, protected routes still require auth
+
+4. Update Navigation component (from Navigation milestone):
+
+    - Add Info icon to navigation bar (right side, before chat icon)
+    - Info icon links to `/` or `/about` (same content)
+    - Info icon visible to all authenticated users (fosters and coordinators)
+
+5. Test:
+    - Can access landing page without login
+    - Public users see Login/Sign Up buttons
+    - Authenticated users see nav bar with Info icon
+    - Authenticated users visiting `/` see same content but with nav bar (no login buttons)
+    - Info icon in nav bar navigates to landing/info page
+    - Protected routes still require authentication
 
 **Testing:**
 
 -   Landing page loads at `/` without requiring authentication
--   Login and Sign Up links work correctly
+-   Public users see Login and Sign Up buttons
+-   Authenticated users see navigation bar (no login buttons)
+-   Info icon in nav bar navigates to landing/info page
+-   Same content accessible to both public and authenticated users
 -   Protected routes still require authentication
 -   Navigation is clear and professional
 
-**Deliverable:** Landing page structure with navigation to app functionality.
+**Deliverable:** Landing page structure that serves as both public landing page and authenticated info page, accessible via nav bar for authenticated users.
 
 ---
 
