@@ -119,7 +119,7 @@ export default function AnimalsList() {
 						</Link>
 						{profile.role === "coordinator" && (
 							<Link to="/animals/new" className="block">
-								<Button>Create New Animal</Button>
+								<Button>Add Animal</Button>
 							</Link>
 						)}
 					</div>

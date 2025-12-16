@@ -126,7 +126,7 @@ export default function GroupsList() {
 						</Link>
 						{isCoordinator && (
 							<Link to="/groups/new" className="block">
-								<Button>Create New Group</Button>
+								<Button>Add Group</Button>
 							</Link>
 						)}
 					</div>

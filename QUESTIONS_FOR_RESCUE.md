@@ -627,7 +627,7 @@ Animals remain first-class records and will continue to track foster history rel
 This approach avoids a full schema rework, preserves meaningful foster history, and accepts that group snapshots may occasionally immortalize assignment mistakes as a deliberate UX trade-off.
 
 
-we might want a tinder style veiw for needs foster page. (fixes the photo too )
+we might want a tinder style veiw for needs foster page. (fixes the photo text sizing too idk maybe not)
 
 found a bug with page auto scrolling to bottom on repeat navigation back to the animal details page. does not happen first time but navigation back to it caused this 
 
@@ -639,6 +639,8 @@ Consider a useUnsavedChanges hook to warn before canceling with unsaved changes
 Make the nav bar responsive: horizontal on desktop, hamburger menu on mobile
 
 problem. if I click on currenlty fostered animal or group from dashboard or from the foster menu the navigation from that group goes to groups and not back to the currently fostered page. (so we might actually want a back button in certain cases)
+
+what does SHELTER-6 mean in the foster name column in co kitty coalition tracker.
 
 
 
