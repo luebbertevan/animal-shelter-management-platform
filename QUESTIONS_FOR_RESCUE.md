@@ -638,6 +638,8 @@ Consider a useUnsavedChanges hook to warn before canceling with unsaved changes
 
 Make the nav bar responsive: horizontal on desktop, hamburger menu on mobile
 
+problem. if I click on currenlty fostered animal or group from dashboard or from the foster menu the navigation from that group goes to groups and not back to the currently fostered page. (so we might actually want a back button in certain cases)
+
 
 
 next features:
