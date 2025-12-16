@@ -3597,20 +3597,34 @@ The preview card should show minimal, scannable information for quick browsing:
 
 3. **Update `GroupCard` component to display photos**:
 
-    - Add photo display to `GroupCard` component:
-        - **Priority 1:** Display first photo from `group.group_photos` array if available
-        - **Priority 2:** If no group photos, display first photo from animals in the group:
-            - Fetch animal data for animals in `group.animal_ids` (may need to pass animal data as prop or fetch within component)
-            - Find first animal that has photos in `animal.photos` array
-            - Display that animal's first photo
-        - **Fallback:** Show placeholder or no image if neither group nor animal photos are available
-    - Photo should match `AnimalCard` photo styling and layout (same size, aspect ratio, positioning)
-    - Consider performance implications:
-        - If fetching animal photos in `GroupCard`, may need to batch fetch for list views
-        - Consider passing animal photo data as props from parent components that already fetch animals
-        - May need to update `GroupsList`, `Dashboard`, and `FosterDetail` to fetch animal photo data when displaying groups
-    - Update `GroupCard` props interface to accept optional photo URL or animal data
-    - Ensure photo display is responsive and works on mobile devices
+    - **Card Size:** Match `AnimalCard` exactly - same size, aspect ratio (`aspect-[4/5]`), styling
+    - **Photo Display Logic:**
+        - **Priority 1:** Display first photo from `group.group_photos` array if available (single photo, full card)
+        - **Priority 2:** If no group photos, display grid of animal photos (one photo per animal):
+            - Use first photo from each animal in `group.animal_ids` (in order)
+            - Skip animals without photos
+            - Limit to first 9 photos, then show "+X more" overlay on last cell
+        - **Fallback:** Show placeholder icon (same SVG as AnimalCard) if no photos available
+    - **Grid Layout for Multiple Photos:**
+        - 1 photo: Full card (no grid)
+        - 2 photos: `grid-cols-2` (2 columns, 1 row)
+        - 3-4 photos: `grid-cols-2` (2x2 grid)
+        - 5-6 photos: `grid-cols-3` (3x2 grid)
+        - 7-9 photos: `grid-cols-3` (3x3 grid)
+        - 10+ photos: `grid-cols-3` with "+X more" overlay on last cell
+    - **Grid Responsiveness:** Grid layout should be responsive and work on all screen sizes
+    - **Banner Content:**
+        - Show group name
+        - Show life stage summary: "X kittens", "Y adults", "Z seniors" (format: "1 adult and 2 kittens", "1 adult, 5 kittens, and 1 senior")
+        - Handle "unknown" life stage: Show as "X animals" (generic term, e.g., "2 animals and 3 kittens", "1 animal, 2 adults, and 5 kittens")
+        - Empty groups: Show "Empty group" in banner
+        - Priority badge: Same position as AnimalCard (top-right overlay)
+    - **Implementation:**
+        - Fetch animal data (photos + life_stage) in parent components (`GroupsList`, `Dashboard`, `FosterDetail`)
+        - Pass animal data as prop to `GroupCard` to avoid N+1 queries
+        - Update `GroupCard` props interface to accept `animalData` map: `Map<string, { photos?: PhotoMetadata[], life_stage?: LifeStage }>`
+        - Create helper function to format life stage summary
+        - Create helper function to determine grid layout based on photo count
 
 4. **Add delete group functionality**:
 

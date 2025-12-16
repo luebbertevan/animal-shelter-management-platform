@@ -15,6 +15,7 @@ import {
 	fetchGroupById,
 	updateGroup,
 	findGroupContainingAnimal,
+	deleteGroup,
 } from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
 import type { Animal, TimestampedPhoto } from "../../types";
@@ -108,6 +109,11 @@ export default function EditGroup() {
 	// Empty group confirmation modal state
 	const [showEmptyGroupConfirm, setShowEmptyGroupConfirm] = useState(false);
 
+	// Delete group confirmation modal state
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+
 	// Handle photo removal - track photos to delete
 	const handleRemovePhoto = (photoUrl: string) => {
 		setPhotosToDelete((prev) => [...prev, photoUrl]);
@@ -192,6 +198,54 @@ export default function EditGroup() {
 
 	const handleCancelEmptyGroup = () => {
 		setShowEmptyGroupConfirm(false);
+	};
+
+	// Handle delete group
+	const handleDelete = async () => {
+		if (!id || !group) {
+			setDeleteError("Group ID is required");
+			return;
+		}
+
+		// Confirm deletion
+		if (!showDeleteConfirm) {
+			setShowDeleteConfirm(true);
+			return;
+		}
+
+		setDeleting(true);
+		setDeleteError(null);
+
+		try {
+			checkOfflineAndThrow();
+
+			await deleteGroup(id, profile.organization_id, group.group_photos);
+
+			// Remove the deleted group from cache and invalidate the list
+			// Don't invalidate the specific group query as it no longer exists (would cause 406 error)
+			queryClient.removeQueries({
+				queryKey: ["groups", user.id, profile.organization_id, id],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["groups", user.id, profile.organization_id],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["animals", user.id, profile.organization_id],
+			});
+
+			// Navigate to groups list
+			navigate("/groups", { replace: true });
+		} catch (err) {
+			console.error("Error deleting group:", err);
+			setDeleteError(
+				getErrorMessage(
+					err,
+					"Failed to delete group. Please try again."
+				)
+			);
+			setDeleting(false);
+			setShowDeleteConfirm(false);
+		}
 	};
 
 	// Redirect non-coordinators (after all hooks)
@@ -565,6 +619,16 @@ export default function EditGroup() {
 						submitError={submitError}
 						successMessage={successMessage}
 						submitButtonText="Update Group"
+						showDeleteButton={true}
+						deleteError={deleteError}
+						showDeleteConfirm={showDeleteConfirm}
+						onDeleteClick={() => setShowDeleteConfirm(true)}
+						onDeleteCancel={() => {
+							setShowDeleteConfirm(false);
+							setDeleteError(null);
+						}}
+						onDeleteConfirm={handleDelete}
+						deleting={deleting}
 					/>
 				</div>
 

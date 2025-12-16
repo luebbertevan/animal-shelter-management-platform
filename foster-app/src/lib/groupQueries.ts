@@ -4,6 +4,7 @@ import {
 	isOffline,
 	handleSupabaseNotFound,
 } from "./errorUtils";
+import { deleteGroupFolder, deleteGroupPhoto } from "./photoUtils";
 import type { AnimalGroup } from "../types";
 
 export interface FetchGroupsOptions {
@@ -360,6 +361,129 @@ export async function findGroupContainingAnimal(
 				err,
 				"Failed to check for duplicate group assignment."
 			)
+		);
+	}
+}
+
+/**
+ * Delete a group and all associated data
+ * - Deletes group photos from storage
+ * - Sets animals' group_id to null (does NOT delete animals)
+ * - Deletes the group record
+ */
+export async function deleteGroup(
+	groupId: string,
+	organizationId: string,
+	groupPhotos?: Array<{ url: string }>
+): Promise<void> {
+	try {
+		// Step 1: Delete all photos from storage and clean up the group folder
+		// We delete the entire folder to ensure cleanup of any orphaned files
+		// This matches the pattern used in deleteAnimal
+		try {
+			await deleteGroupFolder(groupId, organizationId);
+		} catch (folderError) {
+			// If folder deletion fails, try deleting individual photos as fallback
+			// This handles cases where folder deletion fails due to RLS or other issues
+			if (groupPhotos && groupPhotos.length > 0) {
+				console.error(
+					"Group folder deletion failed, trying individual photo deletion:",
+					folderError
+				);
+				const deleteResults = await Promise.allSettled(
+					groupPhotos.map((photo) =>
+						deleteGroupPhoto(photo.url, organizationId)
+					)
+				);
+
+				const failures = deleteResults.filter(
+					(result) => result.status === "rejected"
+				);
+				if (failures.length > 0) {
+					console.error(
+						`Failed to delete ${failures.length} of ${groupPhotos.length} group photos after folder deletion failed`
+					);
+				}
+			}
+			// Note: We continue with group deletion even if photo deletion fails
+			// This is intentional - we don't want to leave orphaned group records
+		}
+
+		// Step 2: Set animals' group_id to null (do NOT delete animals)
+		const { data: groupData, error: fetchError } = await supabase
+			.from("animal_groups")
+			.select("animal_ids")
+			.eq("id", groupId)
+			.eq("organization_id", organizationId)
+			.single();
+
+		if (fetchError) {
+			// If we can't fetch the group, we can't delete it
+			throw new Error(
+				getErrorMessage(
+					fetchError,
+					"Group not found or you don't have permission to delete it."
+				)
+			);
+		}
+
+		if (
+			groupData &&
+			groupData.animal_ids &&
+			groupData.animal_ids.length > 0
+		) {
+			const animalIds = groupData.animal_ids as string[];
+			const { error: updateError } = await supabase
+				.from("animals")
+				.update({ group_id: null })
+				.in("id", animalIds)
+				.eq("organization_id", organizationId);
+
+			if (updateError) {
+				console.error("Error updating animals' group_id:", updateError);
+				// Continue with group deletion even if animal update fails
+				// Log warning but don't fail the operation
+			}
+		}
+
+		// Step 3: Delete the group record
+		const { data, error: deleteError } = await supabase
+			.from("animal_groups")
+			.delete()
+			.eq("id", groupId)
+			.eq("organization_id", organizationId)
+			.select();
+
+		if (deleteError) {
+			// Check if it's a permission/RLS error
+			if (
+				deleteError.code === "PGRST301" ||
+				deleteError.message?.includes("permission") ||
+				deleteError.message?.includes("policy")
+			) {
+				throw new Error(
+					"You don't have permission to delete this group."
+				);
+			}
+			throw new Error(
+				getErrorMessage(
+					deleteError,
+					"Failed to delete group. Please try again."
+				)
+			);
+		}
+
+		// Verify that a row was actually deleted
+		if (!data || data.length === 0) {
+			// If we got here, the group existed in Step 2 but couldn't be deleted
+			// This likely means an RLS policy is blocking the delete
+			throw new Error(
+				"You don't have permission to delete this group, or the group was already deleted."
+			);
+		}
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(err, "Failed to delete group. Please try again.")
 		);
 	}
 }

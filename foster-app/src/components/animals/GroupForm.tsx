@@ -40,6 +40,15 @@ interface GroupFormProps {
 	submitError: string | null;
 	successMessage: string | null;
 	submitButtonText: string;
+
+	// Delete functionality (optional, for edit mode)
+	showDeleteButton?: boolean;
+	deleteError?: string | null;
+	showDeleteConfirm?: boolean;
+	onDeleteClick?: () => void;
+	onDeleteCancel?: () => void;
+	onDeleteConfirm?: () => void;
+	deleting?: boolean;
 }
 
 export default function GroupForm({
@@ -62,6 +71,13 @@ export default function GroupForm({
 	submitError,
 	successMessage,
 	submitButtonText,
+	showDeleteButton = false,
+	deleteError,
+	showDeleteConfirm = false,
+	onDeleteClick,
+	onDeleteCancel,
+	onDeleteConfirm,
+	deleting = false,
 }: GroupFormProps) {
 	// Stable sort: selected animals first, then unselected (maintain order within each group)
 	const sortedAnimals = [...animals].sort((a, b) => {
@@ -202,6 +218,34 @@ export default function GroupForm({
 				</div>
 			)}
 
+			{deleteError && <ErrorMessage>{deleteError}</ErrorMessage>}
+
+			{showDeleteConfirm && (
+				<div className="bg-red-50 border border-red-200 rounded-md p-4">
+					<p className="text-sm text-red-800 mb-3">
+						Are you sure you want to delete this group? The animals
+						in this group will remain but will no longer be grouped
+						together.
+					</p>
+					<div className="flex gap-2">
+						<Button
+							variant="outline"
+							onClick={onDeleteCancel}
+							disabled={deleting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="danger"
+							onClick={onDeleteConfirm}
+							disabled={deleting}
+						>
+							{deleting ? "Deleting..." : "Delete Group"}
+						</Button>
+					</div>
+				</div>
+			)}
+
 			<div className="flex gap-4">
 				<Button type="submit" disabled={loading}>
 					{loading
@@ -210,6 +254,16 @@ export default function GroupForm({
 							: "Updating..."
 						: submitButtonText}
 				</Button>
+				{showDeleteButton && !showDeleteConfirm && (
+					<Button
+						type="button"
+						variant="danger"
+						onClick={onDeleteClick}
+						disabled={loading || deleting}
+					>
+						Delete Group
+					</Button>
+				)}
 			</div>
 		</form>
 	);
