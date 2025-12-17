@@ -76,40 +76,58 @@ Group create/edit forms include two new dropdowns:
 
 ### Phase 1: Database Schema & Types
 
-**Goal:** Add `foster_visibility` field to database and update TypeScript types.
+**Goal:** Add non-nullable `foster_visibility` field to database and update TypeScript types.
+
+**Decisions:**
+
+-   `foster_visibility` is **NOT NULL** (required field, we depend on it)
+-   Database default: `'available_now'`
+-   TypeScript type: `FosterVisibility` (non-nullable)
+-   Migration: Set all existing animals to `'available_now'` (ensures groups are consistent, dummy data can be reset)
 
 **Tasks:**
 
 1. **Create database migration:**
 
-    - Add `foster_visibility` column to `animals` table (nullable enum: `available_now`, `available_future`, `foster_pending`, `not_visible`)
+    - Add `foster_visibility` column to `animals` table:
+        - Type: `TEXT` (or enum if supported)
+        - Constraint: `NOT NULL`
+        - Default: `'available_now'`
+        - Values: `'available_now'`, `'available_future'`, `'foster_pending'`, `'not_visible'`
+    - Migration sets all existing animals to `'available_now'`:
+        ```sql
+        UPDATE animals SET foster_visibility = 'available_now';
+        ```
     - Keep `display_placement_request` column (will be deprecated, not removed yet)
-    - Add migration to set initial `foster_visibility` values based on existing `display_placement_request` and `status`:
-        - If `display_placement_request = true`:
-            - `status = in_shelter` → `foster_visibility = available_now`
-            - `status = medical_hold` or `transferring` → `foster_visibility = available_future`
-            - Otherwise → `foster_visibility = available_now` (default)
-        - If `display_placement_request = false` or null:
-            - `foster_visibility = not_visible`
 
 2. **Update TypeScript types:**
 
-    - Add `FosterVisibility` type to `src/types/index.ts`
-    - Add `foster_visibility?: FosterVisibility` to `Animal` type
+    - Add `FosterVisibility` type to `src/types/index.ts`:
+        ```typescript
+        type FosterVisibility =
+        	| "available_now"
+        	| "available_future"
+        	| "foster_pending"
+        	| "not_visible";
+        ```
+    - Add `foster_visibility: FosterVisibility` to `Animal` type (non-nullable, not optional)
     - Keep `display_placement_request?: boolean` (marked as deprecated in comments)
 
 3. **Update database queries:**
     - Update `animalQueries.ts` to include `foster_visibility` in field selections
     - Ensure `foster_visibility` is fetched in all animal queries
+    - Remove any null checks (field is always present)
 
 **Testing:**
 
 -   Migration runs successfully
--   Existing animals have `foster_visibility` set correctly
+-   All existing animals have `foster_visibility = 'available_now'`
+-   All animals in groups have the same `foster_visibility` value
 -   TypeScript types compile without errors
--   Animal queries return `foster_visibility` field
+-   Animal queries return `foster_visibility` field (never null)
+-   New animals created without explicit `foster_visibility` get default `'available_now'`
 
-**Deliverable:** Database schema updated, types updated, migration complete.
+**Deliverable:** Database schema updated with non-nullable `foster_visibility`, types updated, migration complete.
 
 ---
 
@@ -145,7 +163,7 @@ Group create/edit forms include two new dropdowns:
 
 4. **Update `animalFormUtils.ts`:**
     - Update `animalToFormState` to include `foster_visibility`
-    - Update `getEmptyFormState` to include default `foster_visibility`
+    - Update `getEmptyFormState` to include default `foster_visibility = 'available_now'` (matches `in_shelter` status default)
     - Handle migration from `display_placement_request` if needed
 
 **Testing:**
@@ -178,11 +196,13 @@ Group create/edit forms include two new dropdowns:
 2. **Update `GroupForm.tsx` component:**
 
     - Add "Set all animals status" dropdown
-        - Options: All status values
+        - Options: "Select..." (placeholder), then all status values
+        - Default: "Select..." (empty/placeholder)
         - Helper text: "Animals in the same group are allowed to have different statuses"
         - On change: Update status for all selected animals (triggers one-way sync to `foster_visibility`)
     - Add "Set all animals FosterVisibility" dropdown
-        - Options: All `FosterVisibility` values
+        - Options: "Select..." (placeholder), then all `FosterVisibility` values
+        - Default: "Select..." (empty/placeholder)
         - Helper text: "Animals in a group must have the same FosterVisibility. This controls whether the group appears on the Fosters Needed page and what badge message is shown."
         - Show conflict warning if animals have different values
     - Add validation alert:
@@ -303,16 +323,18 @@ Group create/edit forms include two new dropdowns:
 
 ### Data Migration Strategy
 
-The initial migration sets `foster_visibility` based on existing `display_placement_request` and `status`:
+The initial migration sets all existing animals to `'available_now'`:
 
--   If `display_placement_request = true`:
-    -   `status = in_shelter` → `foster_visibility = available_now`
-    -   `status = medical_hold` or `transferring` → `foster_visibility = available_future`
-    -   Otherwise → `foster_visibility = available_now` (safe default)
--   If `display_placement_request = false` or null:
-    -   `foster_visibility = not_visible`
+```sql
+UPDATE animals SET foster_visibility = 'available_now';
+```
 
-This ensures existing data is migrated correctly while maintaining backward compatibility during the transition.
+**Rationale:**
+
+-   Simple and safe for dummy data (can be reset/modified as needed)
+-   Ensures all animals in groups have the same `foster_visibility` value (satisfies group consistency requirement)
+-   Matches the default status (`in_shelter`) and form default
+-   Coordinators can adjust values as needed after migration
 
 ### Backward Compatibility
 

@@ -17,6 +17,11 @@ export type SexSpayNeuterStatus =
 export type LifeStage = "kitten" | "adult" | "senior" | "unknown";
 export type FeLVFIVStatus = "negative" | "positive" | "pending" | "not_tested";
 export type PlacementPriority = "high" | "normal";
+export type FosterVisibility =
+	| "available_now"
+	| "available_future"
+	| "foster_pending"
+	| "not_visible";
 export type PlacementRequestStatus =
 	| "pending"
 	| "approved"
@@ -66,7 +71,9 @@ export interface Animal {
 
 	// Placement
 	status: AnimalStatus;
-	display_placement_request?: boolean; // Control if animal appears on placement request page
+	foster_visibility: FosterVisibility; // Controls whether animal appears on Fosters Needed page and what badge message is shown
+	/** @deprecated Use foster_visibility instead. This field will be removed in a future migration. */
+	display_placement_request?: boolean; // Control if animal appears on placement request page (deprecated)
 	priority?: boolean; // High priority flag for urgent placement needs
 	current_foster_id?: string; // ID of current foster (references User/Foster)
 
