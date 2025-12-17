@@ -656,3 +656,10 @@ tagging in messages
 
 foster details?? do we want that I can't remeber
 we need delete foster option. should unassign animals and groups from them on deletion
+
+
+finalizing the schema (removing unused fields)
+
+The photos load in strange on animals pages. Maybe lowering resilution would help?
+1. takes a awhile to load pics (paint them in the browser maybe??) longer on first load (faster when cached)
+2. scrolling the page also is weird and photos take a second to load. (paint issue too?)
