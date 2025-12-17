@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { Animal, SexSpayNeuterStatus, LifeStage } from "../../types";
+import type {
+	Animal,
+	SexSpayNeuterStatus,
+	LifeStage,
+	FosterVisibility,
+} from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import Button from "../../components/ui/Button";
@@ -47,6 +52,22 @@ function formatLifeStage(lifeStage: LifeStage): string {
 			return "Unknown";
 		default:
 			return lifeStage;
+	}
+}
+
+// Helper function to format foster visibility for display
+function formatFosterVisibility(visibility: FosterVisibility): string {
+	switch (visibility) {
+		case "available_now":
+			return "Available Now";
+		case "available_future":
+			return "Available Future";
+		case "foster_pending":
+			return "Foster Pending";
+		case "not_visible":
+			return "Not Visible";
+		default:
+			return visibility;
 	}
 }
 
@@ -302,12 +323,6 @@ export default function AnimalDetail() {
 									High Priority
 								</span>
 							)}
-							{/* Foster Needed Badge */}
-							{animal.display_placement_request && (
-								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-									Foster Needed
-								</span>
-							)}
 						</div>
 						{/* Group Indicator */}
 						{animal.group_id && (
@@ -372,6 +387,18 @@ export default function AnimalDetail() {
 								}
 							/>
 						</div>
+
+						{/* Visibility on Fosters Needed page */}
+						<FieldDisplay
+							label="Visibility on Fosters Needed page"
+							value={
+								animal.foster_visibility
+									? formatFosterVisibility(
+											animal.foster_visibility
+									  )
+									: null
+							}
+						/>
 
 						{/* Photos */}
 						<div>

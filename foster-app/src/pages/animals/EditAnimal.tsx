@@ -53,7 +53,7 @@ export default function EditAnimal() {
 		formState,
 		setName,
 		setStatus,
-		setDisplayPlacementRequest,
+		setFosterVisibility,
 		setSexSpayNeuterStatus,
 		setLifeStage,
 		setPrimaryBreed,
@@ -224,6 +224,9 @@ export default function EditAnimal() {
 			}
 
 			animalData.priority = formState.priority;
+			// Add foster_visibility
+			animalData.foster_visibility = formState.fosterVisibility;
+			// Keep display_placement_request for backward compatibility (deprecated)
 			animalData.display_placement_request =
 				formState.displayPlacementRequest;
 
@@ -496,7 +499,7 @@ export default function EditAnimal() {
 						formState={formState}
 						setName={setName}
 						setStatus={setStatus}
-						setDisplayPlacementRequest={setDisplayPlacementRequest}
+						setFosterVisibility={setFosterVisibility}
 						setSexSpayNeuterStatus={setSexSpayNeuterStatus}
 						setLifeStage={setLifeStage}
 						setPrimaryBreed={setPrimaryBreed}

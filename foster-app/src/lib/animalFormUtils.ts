@@ -3,13 +3,15 @@ import type {
 	AnimalStatus,
 	SexSpayNeuterStatus,
 	LifeStage,
+	FosterVisibility,
 } from "../types";
 import type { AgeUnit } from "./ageUtils";
 
 export interface AnimalFormState {
 	name: string;
 	status: AnimalStatus;
-	displayPlacementRequest: boolean;
+	fosterVisibility: FosterVisibility;
+	displayPlacementRequest: boolean; // Deprecated, kept for backward compatibility
 	sexSpayNeuterStatus: SexSpayNeuterStatus | "";
 	lifeStage: LifeStage | "";
 	primaryBreed: string;
@@ -49,6 +51,9 @@ export function animalToFormState(
 		status: exclude.includes("status")
 			? "in_shelter"
 			: animal.status || "in_shelter",
+		fosterVisibility: exclude.includes("fosterVisibility")
+			? "available_now"
+			: animal.foster_visibility || "available_now",
 		displayPlacementRequest:
 			exclude.includes("displayPlacementRequest") ||
 			animal.display_placement_request === undefined
@@ -101,7 +106,8 @@ export function getEmptyFormState(): AnimalFormState {
 	return {
 		name: "",
 		status: "in_shelter",
-		displayPlacementRequest: true,
+		fosterVisibility: "available_now", // Matches in_shelter status default
+		displayPlacementRequest: true, // Deprecated, kept for backward compatibility
 		sexSpayNeuterStatus: "",
 		lifeStage: "",
 		primaryBreed: "",

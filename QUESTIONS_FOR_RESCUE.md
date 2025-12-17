@@ -663,3 +663,16 @@ finalizing the schema (removing unused fields)
 The photos load in strange on animals pages. Maybe lowering resilution would help?
 1. takes a awhile to load pics (paint them in the browser maybe??) longer on first load (faster when cached)
 2. scrolling the page also is weird and photos take a second to load. (paint issue too?)
+
+
+I want similiar functionality for the groups form for the set all... fields 
+@GROUP_STATUS_DESIGN_DECISION.md (149-157) 
+I think that if all the foster_visability status of the animals in group are the same the group field "set all animals Visibility on Fosters Needed page" should indicate that in some way like have a green check at says "no conflicts" or "all grouped animals visability matches"  and the foster_visability drop down should be set to the groups shared foster_visability. 
+
+
+
+Q: should foster see status on animal details? pro: more info, won't ask you about it. Con: might be annoying to maintain might result in more questions actually (were are they transferring from and when(they might ask that anyway tbh) if conflicts/stale "why does it say in_shelter when I am fostering them?")
+
+Q: if on medical hold should auto sync to available future or not visable? no a critical decision but what is more common?
+
+Recommendation: Add a useUnsavedChanges hook and warn on navigation (not on reload, since reload resets everything anyway). This is a common UX pattern for forms.

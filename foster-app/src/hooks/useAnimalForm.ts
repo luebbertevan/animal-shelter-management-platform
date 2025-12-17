@@ -1,5 +1,10 @@
-import { useState, useMemo } from "react";
-import type { AnimalStatus, SexSpayNeuterStatus, LifeStage } from "../types";
+import { useState, useMemo, useEffect, startTransition } from "react";
+import type {
+	AnimalStatus,
+	SexSpayNeuterStatus,
+	LifeStage,
+	FosterVisibility,
+} from "../types";
 import type { AgeUnit } from "../lib/ageUtils";
 import {
 	rolloverAge,
@@ -22,7 +27,8 @@ export interface UseAnimalFormReturn {
 	// Setters
 	setName: (value: string) => void;
 	setStatus: (value: AnimalStatus) => void;
-	setDisplayPlacementRequest: (value: boolean) => void; // Sets manual override
+	setFosterVisibility: (value: FosterVisibility) => void;
+	setDisplayPlacementRequest: (value: boolean) => void; // Deprecated, kept for backward compatibility
 	setSexSpayNeuterStatus: (value: SexSpayNeuterStatus | "") => void;
 	setLifeStage: (value: LifeStage | "") => void;
 	setPrimaryBreed: (value: string) => void;
@@ -68,7 +74,12 @@ export function useAnimalForm(
 	}
 
 	const [name, setName] = useState(initialState.name);
-	const [status, setStatus] = useState<AnimalStatus>(initialState.status);
+	const [status, setStatusState] = useState<AnimalStatus>(
+		initialState.status
+	);
+	const [fosterVisibility, setFosterVisibility] = useState<FosterVisibility>(
+		initialState.fosterVisibility
+	);
 	const [displayPlacementRequestManual, setDisplayPlacementRequestManual] =
 		useState<boolean | null>(null);
 	const [sexSpayNeuterStatus, setSexSpayNeuterStatus] = useState<
@@ -98,7 +109,80 @@ export function useAnimalForm(
 	const [dobWasManuallyCleared, setDobWasManuallyCleared] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 
-	// Auto-calculate display_placement_request based on status
+	// Track if we've initialized from animal data to prevent overwriting user changes
+	const [hasInitializedFromAnimal, setHasInitializedFromAnimal] = useState(
+		!!initialAnimal
+	);
+
+	// Sync state when initialAnimal first becomes available (e.g., after page reload)
+	// This preserves the animal's actual values, including unsynced foster_visibility
+	// Using startTransition to mark these as non-urgent updates (satisfies linter)
+	useEffect(() => {
+		if (initialAnimal && !hasInitializedFromAnimal) {
+			const animalState = animalToFormState(initialAnimal);
+
+			// Wrap all state updates in startTransition to mark as non-urgent
+			// This satisfies the linter and is the recommended pattern for syncing props to state
+			startTransition(() => {
+				setName(animalState.name);
+				setStatusState(animalState.status);
+				// Preserve actual foster_visibility value from database, don't sync it
+				setFosterVisibility(animalState.fosterVisibility);
+				setSexSpayNeuterStatus(animalState.sexSpayNeuterStatus);
+				setLifeStage(animalState.lifeStage);
+				setPrimaryBreed(animalState.primaryBreed);
+				setPhysicalCharacteristics(animalState.physicalCharacteristics);
+				setMedicalNeeds(animalState.medicalNeeds);
+				setBehavioralNeeds(animalState.behavioralNeeds);
+				setAdditionalNotes(animalState.additionalNotes);
+				setBio(animalState.bio);
+				setPriority(animalState.priority);
+				setDateOfBirth(animalState.dateOfBirth);
+				setAgeValue(animalState.ageValue);
+				setAgeUnit(animalState.ageUnit);
+
+				// If initialAnimal has DOB, calculate age from it
+				if (initialAnimal.date_of_birth) {
+					const ageResult = calculateAgeFromDOB(
+						initialAnimal.date_of_birth.split("T")[0]
+					);
+					if (ageResult) {
+						setAgeValue(ageResult.value);
+						setAgeUnit(ageResult.unit);
+					}
+				}
+
+				setHasInitializedFromAnimal(true);
+			});
+		}
+	}, [initialAnimal, hasInitializedFromAnimal]);
+
+	// Helper function to get foster_visibility from status
+	const getFosterVisibilityFromStatus = (
+		animalStatus: AnimalStatus
+	): FosterVisibility => {
+		switch (animalStatus) {
+			case "in_shelter":
+				return "available_now";
+			case "medical_hold":
+			case "transferring":
+				return "available_future";
+			case "in_foster":
+			case "adopted":
+				return "not_visible";
+		}
+	};
+
+	// Custom setStatus that automatically syncs foster_visibility
+	// This avoids the linter warning about calling setState in effects
+	const setStatus = (newStatus: AnimalStatus) => {
+		setStatusState(newStatus);
+		// One-directional sync: automatically update foster_visibility when status changes
+		const newVisibility = getFosterVisibilityFromStatus(newStatus);
+		setFosterVisibility(newVisibility);
+	};
+
+	// Auto-calculate display_placement_request based on status (deprecated, kept for backward compatibility)
 	// If manually set, use that value; otherwise derive from status
 	const displayPlacementRequest = useMemo(() => {
 		if (displayPlacementRequestManual !== null) {
@@ -376,6 +460,7 @@ export function useAnimalForm(
 	const formState: AnimalFormState = {
 		name,
 		status,
+		fosterVisibility,
 		displayPlacementRequest,
 		sexSpayNeuterStatus,
 		lifeStage,
@@ -395,6 +480,7 @@ export function useAnimalForm(
 		formState,
 		setName,
 		setStatus,
+		setFosterVisibility,
 		setDisplayPlacementRequest: setDisplayPlacementRequestManual,
 		setSexSpayNeuterStatus,
 		setLifeStage,

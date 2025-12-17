@@ -50,7 +50,7 @@ Group create/edit forms include two new dropdowns:
     - Animals in a group can have different statuses
     - Triggers one-directional sync to `foster_visibility` for each animal
 
-2. **"Set all animals FosterVisibility"** dropdown
+2. **"Set all animals Visibility on Fosters Needed page"** dropdown
     - Allows setting `foster_visibility` for all animals in the group
     - Animals in a group MUST have the same `foster_visibility`
     - Shows conflict message if animals have different values
@@ -59,9 +59,8 @@ Group create/edit forms include two new dropdowns:
 ### Validation & User Experience
 
 -   **Conflict Detection**: On form submission, if animals have different `foster_visibility` values, show alert:
-    > **Alert: Animals in a group must have the same FosterVisibility**
--   **Form Blocking**: Alert blocks form submission and highlights the "Set all animals FosterVisibility" field
--   **Helper Text**: Forms include helper text explaining that `foster_visibility` controls Fosters Needed page display.
+    > **Alert: Animals in a group must have the same Visibility on Fosters Needed page**
+-   **Form Blocking**: Alert blocks form submission and highlights the "Set all animals Visibility on Fosters Needed page" field
 
 ### Fosters Needed Page Display
 
@@ -135,6 +134,12 @@ Group create/edit forms include two new dropdowns:
 
 **Goal:** Add `FosterVisibility` field to animal create/edit forms with one-directional sync from status.
 
+**Decisions:**
+
+-   Sync always happens when status changes (no tracking of manual vs automatic)
+-   Dropdown label: "Visibility on Fosters Needed page"
+-   Type names and database names stay the same (`FosterVisibility`, `foster_visibility`)
+
 **Tasks:**
 
 1. **Update `useAnimalForm.ts` hook:**
@@ -142,16 +147,22 @@ Group create/edit forms include two new dropdowns:
     - Add `fosterVisibility` state and setter
     - Add `setFosterVisibility` function
     - Implement one-directional sync logic:
-        - When `status` changes, automatically set `foster_visibility` based on sync rules
-        - Only sync if `foster_visibility` hasn't been manually set (or allow override)
+        - Use `useEffect` to watch `status` changes
+        - When `status` changes, automatically set `foster_visibility` based on sync rules:
+            - `in_shelter` → `available_now`
+            - `medical_hold` → `available_future`
+            - `transferring` → `available_future`
+            - `in_foster` → `not_visible`
+            - `adopted` → `not_visible`
+        - Sync happens automatically every time status changes (no manual tracking needed)
     - Update form state to include `foster_visibility`
     - Update validation if needed
 
 2. **Update `AnimalForm.tsx` component:**
 
     - Add `FosterVisibility` dropdown field
+    - Label: "Visibility on Fosters Needed page"
     - Options: "Available Now", "Available Future", "Foster Pending", "Not Visible"
-    - Add helper text: "Controls whether this animal appears on the Fosters Needed page and what badge message is shown. Does not affect internal status."
     - Wire up to form state and handlers
     - Ensure dropdown is visible and functional
 
@@ -187,7 +198,7 @@ Group create/edit forms include two new dropdowns:
 1. **Update `useGroupForm.ts` hook:**
 
     - Add state for "Set all animals status" dropdown
-    - Add state for "Set all animals FosterVisibility" dropdown
+    - Add state for "Set all animals Visibility on Fosters Needed page" dropdown
     - Add functions to set status for all selected animals
     - Add functions to set `foster_visibility` for all selected animals
     - Add validation to check for `foster_visibility` conflicts
@@ -200,16 +211,16 @@ Group create/edit forms include two new dropdowns:
         - Default: "Select..." (empty/placeholder)
         - Helper text: "Animals in the same group are allowed to have different statuses"
         - On change: Update status for all selected animals (triggers one-way sync to `foster_visibility`)
-    - Add "Set all animals FosterVisibility" dropdown
+    - Add "Set all animals Visibility on Fosters Needed page" dropdown
         - Options: "Select..." (placeholder), then all `FosterVisibility` values
         - Default: "Select..." (empty/placeholder)
-        - Helper text: "Animals in a group must have the same FosterVisibility. This controls whether the group appears on the Fosters Needed page and what badge message is shown."
+        - Helper text: "Animals in a group must have the same Visibility on Fosters Needed page. This controls whether the group appears on the Fosters Needed page and what badge message is shown."
         - Show conflict warning if animals have different values
     - Add validation alert:
         - Display when `foster_visibility` conflicts exist
-        - Message: "Alert: Animals in a group must have the same FosterVisibility"
+        - Message: "Alert: Animals in a group must have the same Visibility on Fosters Needed page"
         - Block form submission
-        - Highlight the "Set all animals FosterVisibility" field
+        - Highlight the "Set all animals Visibility on Fosters Needed page" field
     - Add helper text explaining `foster_visibility` vs status
 
 3. **Update `NewGroup.tsx` and `EditGroup.tsx`:**
@@ -221,14 +232,14 @@ Group create/edit forms include two new dropdowns:
 
 4. **Update group submission logic:**
     - When "Set all animals status" is used, update all selected animals' status (which triggers sync to `foster_visibility`)
-    - When "Set all animals FosterVisibility" is used, update all selected animals' `foster_visibility` directly
+    - When "Set all animals Visibility on Fosters Needed page" is used, update all selected animals' `foster_visibility` directly
     - Ensure all animals in group have same `foster_visibility` before allowing submission
 
 **Testing:**
 
 -   Both dropdowns appear in group create/edit forms
 -   "Set all animals status" updates status for all selected animals
--   "Set all animals FosterVisibility" updates `foster_visibility` for all selected animals
+-   "Set all animals Visibility on Fosters Needed page" updates `foster_visibility` for all selected animals
 -   Conflict detection works correctly
 -   Alert appears when conflicts exist
 -   Form submission is blocked when conflicts exist
