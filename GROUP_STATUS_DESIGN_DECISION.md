@@ -193,16 +193,34 @@ Group create/edit forms include two new dropdowns:
 
 **Goal:** Add status and FosterVisibility dropdowns to group forms with validation.
 
+**Decisions:**
+
+-   **Staged Changes**: All changes to animal status and `foster_visibility` are staged in form state and not applied to the database until form submission. This allows users to review and modify changes before committing.
+-   **No Sync in Group Forms**: The "Set all animals status" dropdown does NOT trigger one-directional sync to `foster_visibility`. Since groups must all share the same `foster_visibility`, syncing individually could create conflicts. Instead, `foster_visibility` is handled separately via the "Set all animals Visibility on Fosters Needed page" dropdown.
+-   **Visual Feedback for Matching Values**: When all animals in the group have the same `foster_visibility`:
+    -   Dropdown is pre-populated with the shared `foster_visibility` value
+    -   Display green check indicator with message: "All grouped animals visibility matches" or "No conflicts"
+    -   This provides positive feedback that the group is in a valid state
+-   **Conflict Detection**: When animals have different `foster_visibility` values:
+    -   Dropdown shows "Select..." (placeholder)
+    -   Display warning/error indicator
+    -   Show conflict message
+    -   Block form submission
+
 **Tasks:**
 
 1. **Update `useGroupForm.ts` hook:**
 
-    - Add state for "Set all animals status" dropdown
-    - Add state for "Set all animals Visibility on Fosters Needed page" dropdown
-    - Add functions to set status for all selected animals
-    - Add functions to set `foster_visibility` for all selected animals
+    - Add state for "Set all animals status" dropdown (staged changes)
+    - Add state for "Set all animals Visibility on Fosters Needed page" dropdown (staged changes)
+    - Add functions to stage status changes for all selected animals
+        - Changes are stored in form state, not applied until submission
+        - No automatic sync to `foster_visibility` (handled separately)
+    - Add functions to stage `foster_visibility` changes for all selected animals
     - Add validation to check for `foster_visibility` conflicts
-    - Return conflict information for UI display
+    - Add function to detect if all animals have matching `foster_visibility`
+    - Return conflict information and matching status for UI display
+    - Return the shared `foster_visibility` value when all animals match (for pre-populating dropdown)
 
 2. **Update `GroupForm.tsx` component:**
 
@@ -210,12 +228,17 @@ Group create/edit forms include two new dropdowns:
         - Options: "Select..." (placeholder), then all status values
         - Default: "Select..." (empty/placeholder)
         - Helper text: "Animals in the same group are allowed to have different statuses"
-        - On change: Update status for all selected animals (triggers one-way sync to `foster_visibility`)
+        - On change: Stage status changes for all selected animals (stored in form state, not applied until submission)
     - Add "Set all animals Visibility on Fosters Needed page" dropdown
         - Options: "Select..." (placeholder), then all `FosterVisibility` values
-        - Default: "Select..." (empty/placeholder)
+        - Default behavior:
+            - If all animals have matching `foster_visibility`: Pre-populate with the shared value
+            - If animals have different values: Show "Select..." (placeholder)
+        - Visual feedback:
+            - **When all animals match**: Display green check icon/indicator with message "All grouped animals visibility matches" or "No conflicts"
+            - **When animals differ**: Display warning/error indicator with conflict message
         - Helper text: "Animals in a group must have the same Visibility on Fosters Needed page. This controls whether the group appears on the Fosters Needed page and what badge message is shown."
-        - Show conflict warning if animals have different values
+        - On change: Update `foster_visibility` for all selected animals directly (no sync back to status)
     - Add validation alert:
         - Display when `foster_visibility` conflicts exist
         - Message: "Alert: Animals in a group must have the same Visibility on Fosters Needed page"
@@ -229,23 +252,39 @@ Group create/edit forms include two new dropdowns:
     - On form submission, apply status and `foster_visibility` changes to all selected animals
     - Show validation errors before submission
     - Handle conflict detection and display
+    - Initialize "Set all animals Visibility on Fosters Needed page" dropdown:
+        - Check if all selected animals have matching `foster_visibility`
+        - If yes, pre-populate dropdown with shared value
+        - If no, show "Select..." placeholder
 
 4. **Update group submission logic:**
-    - When "Set all animals status" is used, update all selected animals' status (which triggers sync to `foster_visibility`)
-    - When "Set all animals Visibility on Fosters Needed page" is used, update all selected animals' `foster_visibility` directly
+    - When "Set all animals status" is used:
+        - Apply staged status changes to all selected animals
+        - Do NOT sync `foster_visibility` from status (handled separately)
+    - When "Set all animals Visibility on Fosters Needed page" is used:
+        - Apply staged `foster_visibility` changes to all selected animals directly
+        - No sync back to status
     - Ensure all animals in group have same `foster_visibility` before allowing submission
+    - All changes are applied atomically on form submission
 
 **Testing:**
 
 -   Both dropdowns appear in group create/edit forms
 -   "Set all animals status" updates status for all selected animals
+-   "Set all animals status" triggers one-directional sync to `foster_visibility` for each animal
 -   "Set all animals Visibility on Fosters Needed page" updates `foster_visibility` for all selected animals
+-   When all animals have matching `foster_visibility`:
+    -   Dropdown is pre-populated with the shared value
+    -   Green check indicator and "All grouped animals visibility matches" message is displayed
+-   When animals have different `foster_visibility` values:
+    -   Dropdown shows "Select..." placeholder
+    -   Warning/error indicator is displayed
 -   Conflict detection works correctly
 -   Alert appears when conflicts exist
 -   Form submission is blocked when conflicts exist
 -   Helper text is clear and helpful
 
-**Deliverable:** Group forms support status and FosterVisibility bulk updates with validation.
+**Deliverable:** Group forms support status and FosterVisibility bulk updates with validation, one-directional sync, and visual feedback for matching values.
 
 ---
 
