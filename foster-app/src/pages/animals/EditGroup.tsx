@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { FormEvent } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import {
 	deleteGroup,
 } from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
+import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import type { Animal, TimestampedPhoto } from "../../types";
 import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
 
@@ -62,6 +63,7 @@ export default function EditGroup() {
 					"photos",
 					"date_of_birth",
 					"group_id",
+					"foster_visibility",
 				],
 				orderBy: "created_at",
 				orderDirection: "desc",
@@ -123,9 +125,33 @@ export default function EditGroup() {
 		setPriority,
 		selectedAnimalIds,
 		toggleAnimalSelection,
+		setStagedStatusForAll,
+		setStagedFosterVisibilityForAll,
+		stagedStatusChanges,
+		stagedFosterVisibilityChanges,
 		validateForm,
 		errors,
 	} = useGroupForm({ initialGroup: group || null });
+
+	// Get selected animals for conflict detection (after animals are fetched)
+	const selectedAnimals = useMemo(() => {
+		return animals.filter((animal) =>
+			selectedAnimalIds.includes(animal.id)
+		);
+	}, [animals, selectedAnimalIds]);
+
+	// Compute conflict detection for foster_visibility using reusable utility
+	const {
+		sharedValue: sharedFosterVisibilityComputed,
+		hasConflict: hasFosterVisibilityConflictComputed,
+	} = useMemo(
+		() =>
+			getGroupFosterVisibility(
+				selectedAnimals,
+				stagedFosterVisibilityChanges
+			),
+		[selectedAnimals, stagedFosterVisibilityChanges]
+	);
 
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
@@ -303,6 +329,14 @@ export default function EditGroup() {
 		e.preventDefault();
 		setSubmitError(null);
 
+		// Check for foster_visibility conflicts
+		if (hasFosterVisibilityConflictComputed) {
+			setSubmitError(
+				"Animals in a group must have the same Visibility on Fosters Needed page"
+			);
+			return;
+		}
+
 		if (!validateForm()) {
 			return;
 		}
@@ -474,26 +508,64 @@ export default function EditGroup() {
 
 			await updateGroup(id, profile.organization_id, groupData);
 
-			// Update animals' group_id field
-			// Remove group_id from animals that were removed from the group
-			if (removedAnimalIds.length > 0) {
-				const { error: removeError } = await supabase
-					.from("animals")
-					.update({ group_id: null })
-					.in("id", removedAnimalIds)
-					.eq("organization_id", profile.organization_id);
+			// Apply staged changes to animals: status and foster_visibility
+			// Collect all animals that need updates (removed, added, or have staged changes)
+			const allAnimalIdsToUpdate = new Set<string>([
+				...removedAnimalIds,
+				...addedAnimalIds,
+				...Array.from(stagedStatusChanges.keys()),
+				...Array.from(stagedFosterVisibilityChanges.keys()),
+			]);
 
-				if (removeError) {
-					console.error(
-						"Error removing group_id from animals:",
-						removeError
-					);
+			// Update animals with staged changes and group_id changes
+			if (allAnimalIdsToUpdate.size > 0) {
+				const updatePromises = Array.from(allAnimalIdsToUpdate).map(
+					(animalId) => {
+						const update: Record<string, unknown> = {};
+
+						// Handle group_id changes
+						if (removedAnimalIds.includes(animalId)) {
+							update.group_id = null;
+						} else if (addedAnimalIds.includes(animalId)) {
+							update.group_id = id;
+						}
+
+						// Apply staged status change if any
+						const stagedStatus = stagedStatusChanges.get(animalId);
+						if (stagedStatus) {
+							update.status = stagedStatus;
+						}
+
+						// Apply staged foster_visibility change if any
+						const stagedVisibility =
+							stagedFosterVisibilityChanges.get(animalId);
+						if (stagedVisibility) {
+							update.foster_visibility = stagedVisibility;
+						}
+
+						// Only update if there are changes
+						if (Object.keys(update).length > 0) {
+							return supabase
+								.from("animals")
+								.update(update)
+								.eq("id", animalId)
+								.eq("organization_id", profile.organization_id);
+						}
+						return Promise.resolve({ error: null });
+					}
+				);
+
+				const updateResults = await Promise.all(updatePromises);
+				const updateError = updateResults.find(
+					(result) => result.error
+				)?.error;
+				if (updateError) {
+					console.error("Error updating animals:", updateError);
 					// Don't fail the whole operation, but log the error
 				}
 			}
 
-			// Add group_id to animals that were added to the group
-			// First, check if any of these animals are already in another group
+			// Handle animals being moved from other groups (for added animals)
 			if (addedAnimalIds.length > 0) {
 				// Get current group_id for animals being added
 				const { data: animalsToAdd, error: fetchError } = await supabase
@@ -510,7 +582,7 @@ export default function EditGroup() {
 						(a) => a.group_id && a.group_id !== id
 					);
 
-					// Remove these animals from their old groups
+					// Remove these animals from their old groups' animal_ids array
 					if (animalsInOtherGroups.length > 0) {
 						const oldGroupIds = [
 							...new Set(
@@ -549,21 +621,6 @@ export default function EditGroup() {
 									);
 							}
 						}
-					}
-
-					// Update group_id for all added animals
-					const { error: updateError } = await supabase
-						.from("animals")
-						.update({ group_id: id })
-						.in("id", addedAnimalIds)
-						.eq("organization_id", profile.organization_id);
-
-					if (updateError) {
-						console.error(
-							"Error updating animals with group_id:",
-							updateError
-						);
-						// Don't fail the whole operation, but log the error
 					}
 				}
 			}
@@ -655,6 +712,18 @@ export default function EditGroup() {
 						isErrorAnimals={isErrorAnimals}
 						selectedAnimalIds={selectedAnimalIds}
 						toggleAnimalSelection={handleAnimalSelection}
+						stagedStatusChanges={stagedStatusChanges}
+						stagedFosterVisibilityChanges={
+							stagedFosterVisibilityChanges
+						}
+						setStagedStatusForAll={setStagedStatusForAll}
+						setStagedFosterVisibilityForAll={
+							setStagedFosterVisibilityForAll
+						}
+						hasFosterVisibilityConflict={
+							hasFosterVisibilityConflictComputed
+						}
+						sharedFosterVisibility={sharedFosterVisibilityComputed}
 						onPhotosChange={setSelectedPhotos}
 						existingPhotos={(group.group_photos || []).filter(
 							(photo) => !photosToDelete.includes(photo.url)

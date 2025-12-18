@@ -4,6 +4,7 @@ import type {
 	SexSpayNeuterStatus,
 	LifeStage,
 	PhotoMetadata,
+	FosterVisibility,
 } from "../../types";
 import type { AgeUnit } from "../../lib/ageUtils";
 import type { AnimalFormState } from "../../lib/animalFormUtils";
@@ -21,7 +22,7 @@ interface AnimalFormProps {
 	formState: AnimalFormState;
 	setName: (value: string) => void;
 	setStatus: (value: AnimalStatus) => void;
-	setDisplayPlacementRequest: (value: boolean) => void;
+	setFosterVisibility: (value: FosterVisibility) => void;
 	setSexSpayNeuterStatus: (value: SexSpayNeuterStatus | "") => void;
 	setLifeStage: (value: LifeStage | "") => void;
 	setPrimaryBreed: (value: string) => void;
@@ -76,7 +77,7 @@ export default function AnimalForm({
 	formState,
 	setName,
 	setStatus,
-	setDisplayPlacementRequest,
+	setFosterVisibility,
 	setSexSpayNeuterStatus,
 	setLifeStage,
 	setPrimaryBreed,
@@ -147,10 +148,18 @@ export default function AnimalForm({
 				disabled={loading}
 			/>
 
-			<Toggle
-				label="Foster Needed"
-				checked={formState.displayPlacementRequest}
-				onChange={setDisplayPlacementRequest}
+			<Select
+				label="Visibility on Fosters Needed page"
+				value={formState.fosterVisibility}
+				onChange={(e) =>
+					setFosterVisibility(e.target.value as FosterVisibility)
+				}
+				options={[
+					{ value: "available_now", label: "Available Now" },
+					{ value: "available_future", label: "Available Future" },
+					{ value: "foster_pending", label: "Foster Pending" },
+					{ value: "not_visible", label: "Not Visible" },
+				]}
 				disabled={loading}
 			/>
 

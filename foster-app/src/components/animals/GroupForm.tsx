@@ -1,8 +1,14 @@
 import type { FormEvent } from "react";
-import type { Animal, TimestampedPhoto } from "../../types";
+import type {
+	Animal,
+	TimestampedPhoto,
+	AnimalStatus,
+	FosterVisibility,
+} from "../../types";
 import Input from "../ui/Input";
 import Textarea from "../ui/Textarea";
 import Toggle from "../ui/Toggle";
+import Select from "../ui/Select";
 import Button from "../ui/Button";
 import ErrorMessage from "../ui/ErrorMessage";
 import LoadingSpinner from "../ui/LoadingSpinner";
@@ -27,6 +33,16 @@ interface GroupFormProps {
 	isErrorAnimals: boolean;
 	selectedAnimalIds: string[];
 	toggleAnimalSelection: (animalId: string) => void;
+
+	// Staged changes for status and foster_visibility
+	stagedStatusChanges: Map<string, AnimalStatus>;
+	stagedFosterVisibilityChanges: Map<string, FosterVisibility>;
+	setStagedStatusForAll: (status: AnimalStatus | "") => void;
+	setStagedFosterVisibilityForAll: (
+		visibility: FosterVisibility | ""
+	) => void;
+	hasFosterVisibilityConflict: boolean;
+	sharedFosterVisibility: FosterVisibility | null;
 
 	// Photo upload
 	onPhotosChange: (photos: File[]) => void;
@@ -62,6 +78,11 @@ export default function GroupForm({
 	isErrorAnimals,
 	selectedAnimalIds,
 	toggleAnimalSelection,
+	stagedStatusChanges,
+	setStagedStatusForAll,
+	setStagedFosterVisibilityForAll,
+	hasFosterVisibilityConflict,
+	sharedFosterVisibility,
 	onPhotosChange,
 	existingPhotos = [],
 	onRemovePhoto,
@@ -87,6 +108,18 @@ export default function GroupForm({
 		if (!aSelected && bSelected) return 1;
 		return 0; // Maintain original order within each group
 	});
+
+	// Compute shared status value for the dropdown (if all selected animals have the same staged status)
+	const sharedStagedStatus = (() => {
+		if (selectedAnimalIds.length === 0) return "";
+		const statuses = selectedAnimalIds
+			.map((id) => stagedStatusChanges.get(id))
+			.filter((status): status is AnimalStatus => !!status);
+		if (statuses.length === 0) return "";
+		const uniqueStatuses = new Set(statuses);
+		return uniqueStatuses.size === 1 ? statuses[0] : "";
+	})();
+
 	return (
 		<form onSubmit={onSubmit} className="space-y-6">
 			<Input
@@ -116,6 +149,101 @@ export default function GroupForm({
 				onChange={setPriority}
 				disabled={loading}
 			/>
+
+			{/* Set all animals status dropdown */}
+			{selectedAnimalIds.length > 0 && (
+				<Select
+					label="Set all animals status"
+					value={sharedStagedStatus}
+					onChange={(e) =>
+						setStagedStatusForAll(
+							(e.target.value || "") as AnimalStatus | ""
+						)
+					}
+					options={[
+						{ value: "", label: "Select..." },
+						{ value: "in_shelter", label: "In Shelter" },
+						{ value: "in_foster", label: "In Foster" },
+						{ value: "adopted", label: "Adopted" },
+						{ value: "medical_hold", label: "Medical Hold" },
+						{ value: "transferring", label: "Transferring" },
+					]}
+					disabled={loading}
+				/>
+			)}
+			{selectedAnimalIds.length > 0 && (
+				<p className="text-sm text-gray-500 -mt-2">
+					Animals in the same group are allowed to have different
+					statuses
+				</p>
+			)}
+
+			{/* Set all animals Visibility on Fosters Needed page dropdown */}
+			{selectedAnimalIds.length > 0 && (
+				<div>
+					<Select
+						label="Set all animals Visibility on Fosters Needed page"
+						value={
+							sharedFosterVisibility !== null
+								? sharedFosterVisibility
+								: ""
+						}
+						onChange={(e) =>
+							setStagedFosterVisibilityForAll(
+								(e.target.value || "") as FosterVisibility | ""
+							)
+						}
+						options={[
+							{ value: "", label: "Select..." },
+							{ value: "available_now", label: "Available Now" },
+							{
+								value: "available_future",
+								label: "Available Future",
+							},
+							{
+								value: "foster_pending",
+								label: "Foster Pending",
+							},
+							{ value: "not_visible", label: "Not Visible" },
+						]}
+						disabled={loading}
+						error={
+							hasFosterVisibilityConflict
+								? errors.fosterVisibility
+								: undefined
+						}
+					/>
+					{hasFosterVisibilityConflict ? (
+						<div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+							<p className="text-sm text-red-800 font-medium">
+								⚠️ Animals in a group must have the same
+								Visibility on Fosters Needed page
+							</p>
+						</div>
+					) : sharedFosterVisibility !== null ? (
+						<div className="mt-2 flex items-center gap-2 text-sm text-green-700">
+							<svg
+								className="w-5 h-5"
+								fill="currentColor"
+								viewBox="0 0 20 20"
+							>
+								<path
+									fillRule="evenodd"
+									d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+									clipRule="evenodd"
+								/>
+							</svg>
+							<span>All grouped animals visibility matches</span>
+						</div>
+					) : null}
+					<p className="text-sm text-gray-500 mt-2">
+						Animals in a group must have the same Visibility on
+						Fosters Needed page. This controls whether the group
+						appears on the Fosters Needed page and what badge
+						message is shown.
+					</p>
+				</div>
+			)}
 
 			{/* Photo Upload Section */}
 			<PhotoUpload
@@ -204,7 +332,14 @@ export default function GroupForm({
 				)}
 			</div>
 
-			{Object.keys(errors).length > 0 && (
+			{hasFosterVisibilityConflict && (
+				<ErrorMessage>
+					Alert: Animals in a group must have the same Visibility on
+					Fosters Needed page
+				</ErrorMessage>
+			)}
+
+			{Object.keys(errors).length > 0 && !hasFosterVisibilityConflict && (
 				<ErrorMessage>
 					Please fix the errors above before submitting.
 				</ErrorMessage>
@@ -247,7 +382,10 @@ export default function GroupForm({
 			)}
 
 			<div className="flex gap-4">
-				<Button type="submit" disabled={loading}>
+				<Button
+					type="submit"
+					disabled={loading || hasFosterVisibilityConflict}
+				>
 					{loading
 						? submitButtonText.includes("Create")
 							? "Creating..."

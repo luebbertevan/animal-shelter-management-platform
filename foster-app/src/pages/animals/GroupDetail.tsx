@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
@@ -7,13 +7,16 @@ import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
 import AnimalCard from "../../components/animals/AnimalCard";
+import FieldDisplay from "../../components/animals/FieldDisplay";
 import { fetchGroupById } from "../../lib/groupQueries";
 import { fetchAnimalsByIds } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
 import {
 	formatDateForDisplay,
 	hasMeaningfulUpdate,
+	formatFosterVisibility,
 } from "../../lib/metadataUtils";
+import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import { fetchFosterById } from "../../lib/fosterQueries";
 
 export default function GroupDetail() {
@@ -66,6 +69,7 @@ export default function GroupDetail() {
 						"photos",
 						"date_of_birth",
 						"group_id",
+						"foster_visibility",
 					],
 				}
 			);
@@ -98,6 +102,12 @@ export default function GroupDetail() {
 	});
 
 	const photoUrls = group?.group_photos?.map((photo) => photo.url) || [];
+
+	// Compute group foster_visibility (should be same for all animals)
+	const { sharedValue: groupFosterVisibility, hasConflict } = useMemo(
+		() => getGroupFosterVisibility(animals),
+		[animals]
+	);
 
 	// Handle photo click
 	const handlePhotoClick = (index: number) => {
@@ -256,6 +266,28 @@ export default function GroupDetail() {
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
 									High Priority
 								</span>
+							</div>
+						)}
+
+						{/* Visibility on Fosters Needed page */}
+						<FieldDisplay
+							label="Visibility on Fosters Needed page"
+							value={
+								groupFosterVisibility
+									? formatFosterVisibility(
+											groupFosterVisibility
+									  )
+									: null
+							}
+						/>
+						{hasConflict && (
+							<div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+								<p className="text-sm text-red-800 font-medium">
+									⚠️ Warning: Animals in this group have
+									different Visibility on Fosters Needed page
+									values. This may indicate a data
+									inconsistency.
+								</p>
 							</div>
 						)}
 					</div>

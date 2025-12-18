@@ -30,7 +30,7 @@ export default function NewAnimal() {
 		formState,
 		setName,
 		setStatus,
-		setDisplayPlacementRequest,
+		setFosterVisibility,
 		setSexSpayNeuterStatus,
 		setLifeStage,
 		setPrimaryBreed,
@@ -170,8 +170,8 @@ export default function NewAnimal() {
 
 			// Add boolean fields
 			animalData.priority = formState.priority;
-			animalData.display_placement_request =
-				formState.displayPlacementRequest;
+			// Add foster_visibility
+			animalData.foster_visibility = formState.fosterVisibility;
 
 			// Add date_of_birth (calculate from age if age provided and DOB not provided)
 			let finalDOB: string | null = null;
@@ -351,7 +351,7 @@ export default function NewAnimal() {
 						formState={formState}
 						setName={setName}
 						setStatus={setStatus}
-						setDisplayPlacementRequest={setDisplayPlacementRequest}
+						setFosterVisibility={setFosterVisibility}
 						setSexSpayNeuterStatus={setSexSpayNeuterStatus}
 						setLifeStage={setLifeStage}
 						setPrimaryBreed={setPrimaryBreed}

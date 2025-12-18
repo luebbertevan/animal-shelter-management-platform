@@ -1,3 +1,5 @@
+import type { FosterVisibility } from "../types";
+
 /**
  * Format a date string for display
  */
@@ -29,4 +31,22 @@ export function hasMeaningfulUpdate(
 	// at slightly different times during record creation
 	const timeDifference = Math.abs(updatedTime - createdTime);
 	return timeDifference >= 1000;
+}
+
+/**
+ * Format foster visibility enum value for display
+ */
+export function formatFosterVisibility(visibility: FosterVisibility): string {
+	switch (visibility) {
+		case "available_now":
+			return "Available Now";
+		case "available_future":
+			return "Available Future";
+		case "foster_pending":
+			return "Foster Pending";
+		case "not_visible":
+			return "Not Visible";
+		default:
+			return visibility;
+	}
 }

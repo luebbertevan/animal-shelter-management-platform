@@ -7,7 +7,7 @@ import {
 import type { Animal } from "../types";
 
 export interface FetchAnimalsOptions {
-	// Fields to select. Default: ["id", "name", "status", "sex_spay_neuter_status", "priority"]
+	// Fields to select. Default: ["id", "name", "status", "sex_spay_neuter_status", "priority", "foster_visibility"]
 	// Pass "*" to select all fields
 	fields?: string[];
 	// Order by field. Default: "created_at"
@@ -27,7 +27,14 @@ export async function fetchAnimals(
 	options: FetchAnimalsOptions = {}
 ): Promise<Animal[]> {
 	const {
-		fields = ["id", "name", "status", "sex_spay_neuter_status", "priority"],
+		fields = [
+			"id",
+			"name",
+			"status",
+			"sex_spay_neuter_status",
+			"priority",
+			"foster_visibility",
+		],
 		orderBy = "created_at",
 		orderDirection = "desc",
 		checkOffline = false,
@@ -131,7 +138,7 @@ export async function fetchAnimalById(
 
 export interface FetchAnimalsByIdsOptions {
 	/**
-	 * Fields to select. Default: ["id", "name", "priority"]
+	 * Fields to select. Default: ["id", "name", "priority", "foster_visibility"]
 	 */
 	fields?: string[];
 }
@@ -144,7 +151,7 @@ export async function fetchAnimalsByIds(
 	organizationId: string,
 	options: FetchAnimalsByIdsOptions = {}
 ): Promise<Animal[]> {
-	const { fields = ["id", "name", "priority"] } = options;
+	const { fields = ["id", "name", "priority", "foster_visibility"] } = options;
 
 	if (animalIds.length === 0) {
 		return [];
@@ -176,7 +183,7 @@ export async function fetchAnimalsByIds(
 }
 
 export interface FetchAnimalsByFosterIdOptions {
-	// Fields to select. Default: ["id", "name", "priority"]
+	// Fields to select. Default: ["id", "name", "priority", "foster_visibility"]
 	fields?: string[];
 }
 
@@ -186,7 +193,7 @@ export async function fetchAnimalsByFosterId(
 	organizationId: string,
 	options: FetchAnimalsByFosterIdOptions = {}
 ): Promise<Animal[]> {
-	const { fields = ["id", "name", "priority"] } = options;
+	const { fields = ["id", "name", "priority", "foster_visibility"] } = options;
 
 	try {
 		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
@@ -217,7 +224,7 @@ export async function fetchAnimalsByFosterId(
 }
 
 export interface FetchAssignedAnimalsOptions {
-	// Fields to select. Default: ["id", "name", "status", "sex_spay_neuter_status", "priority", "group_id"]
+	// Fields to select. Default: ["id", "name", "status", "sex_spay_neuter_status", "priority", "group_id", "foster_visibility"]
 	// Pass "*" to select all fields
 	fields?: string[];
 }
@@ -239,6 +246,7 @@ export async function fetchAssignedAnimals(
 			"sex_spay_neuter_status",
 			"priority",
 			"group_id",
+			"foster_visibility",
 		],
 	} = options;
 

@@ -1,505 +1,410 @@
-# Group Status & Display Settings Design Decision
+# FosterVisibility Design Decision
 
-## Background & Context
+## Decision Summary
 
-This document outlines a critical design decision regarding how animal status and display settings should work for animals that are part of groups (e.g., litters of kittens). The current system needs to determine:
+**FosterVisibility** is the single source of truth for whether an animal or group appears on the Fosters Needed page and what availability message is displayed.
 
-1. **When should groups appear on the "Fosters Needed" page?**
-2. **Should animals in the same group have synchronized status/display settings?**
-3. **How should conflicts be resolved when animals in a group have different statuses?**
-
----
-
-## Current Planned Policy for Individual Animals
-
-### Display Setting (Master Control)
-
--   The **display setting** is the master control for whether an animal appears on the "Fosters Needed" page
--   When display is enabled, the system shows one of these statuses:
-    -   **Available Now** - Animal is ready for foster placement immediately
-    -   **Available Future** - Animal will be available for foster placement soon
-    -   **Foster Pending** - Animal has an active foster request
-
-### Status-to-Display Logic (Proposed)
-
--   **In Shelter** → Display as "Available Now"
--   **Medical Hold** or **Transferring** → Display as "Available Future"
--   **Has Foster Request** → Display as "Foster Pending"
--   **In Foster** or **Adopted** → Do NOT display on Fosters Needed page
-    -   _Edge case:_ Animal in foster/adopted but needs to return to foster system → Should display as "Available Future"
-
-### Automatic Status Updates (Proposed)
-
--   **Foster request accepted** → Set status to "In Foster" and display to false
--   **Animal adopted** → Set status to "Adopted" and unassign foster
--   **Returned to shelter** → Set status to "In Shelter" and unassign foster if relevant
-
----
-
-## The Core Problem
-
-When animals are grouped together (e.g., a litter of 3 kittens), we need to decide:
-
-1. **Should all animals in a group have the same status and display settings?**
-2. **What happens when one animal's status changes? Should it affect the group?**
-3. **How do we determine the group's display status on the Fosters Needed page if animals have different statuses?**
-
-### Current Challenge
-
--   Display on Fosters Needed page is currently based on individual animal settings
--   Groups may contain animals with different statuses (e.g., one kitten ready, one on medical hold)
--   No clear policy for how to handle these conflicts
-
----
-
-## ⭐ Recommended Solution: Single "Foster Availability" Field
-
-### Overview
-
-**Replace the boolean `display_placement_request` with a single enum field that handles both visibility and the three display states.**
-
-This approach simplifies the data model while maintaining full flexibility for coordinators and providing clear rules for groups.
-
-### The Solution
-
-**New Field: `foster_availability`**
+### Type Definition
 
 ```typescript
-type FosterAvailability =
+type FosterVisibility =
 	| "available_now" // Show on Fosters Needed as "Available Now"
 	| "available_future" // Show as "Available Future"
 	| "foster_pending" // Show as "Foster Pending"
-	| null; // Don't display on Fosters Needed page
+	| "not_visible"; // Don't display on Fosters Needed page
 ```
 
 ### Key Principles
 
-1. **One Field Controls Everything**: The `foster_availability` field is the single source of truth for the Fosters Needed page
-2. **Status Remains Separate**: The `status` field (`in_shelter`, `in_foster`, `adopted`, etc.) is kept for internal tracking/filtering only
-3. **Coordinator-Controlled**: Coordinators set `foster_availability` directly - no automatic derivation from status
-4. **Simple Group Rules**: Clear priority logic when animals in a group have different values
+1. **Single Source of Truth**: `foster_visibility` field controls both visibility and message on Fosters Needed page
+2. **Status Remains Separate**: The `status` field (`in_shelter`, `in_foster`, `adopted`, etc.) is kept for internal tracking and filtering only
+3. **One-Directional Sync**: Changing `status` in create/edit forms can sync to `foster_visibility`, but `foster_visibility` changes do NOT sync back to `status`
+4. **No Enforcement**: There is no enforcement that `status` and `foster_visibility` must match
 
-### How It Works
+### Status-to-FosterVisibility Sync Rules
 
-#### For Individual Animals
+When `status` is changed, `foster_visibility` is automatically set according to these rules (one-way only):
 
--   Coordinator sets `foster_availability` directly via dropdown
--   Values: `"available_now"`, `"available_future"`, `"foster_pending"`, or `null`
--   Status field remains independent and used only for internal filtering/searching
+-   `in_shelter` → `available_now`
+-   `medical_hold` → `available_future`
+-   `transferring` → `available_future`
+-   `in_foster` → `not_visible`
+-   `adopted` → `not_visible`
 
-#### For Groups
+**Important**: This sync only happens when status is changed. Changing `foster_visibility` does NOT change `status`.
 
--   **Display Rule**: Show the group if ANY animal has a non-null `foster_availability`
--   **Status Priority**: When animals have different values, show the "most available" status:
-    -   Priority: `available_now` > `foster_pending` > `available_future`
--   **Optional Sync Feature**: Add a "Sync availability" button in group edit UI that sets all animals in the group to the same value
+### Group Rules
 
-### Example Group Logic
+1. **FosterVisibility Must Match**: All animals in a group must have the same `foster_visibility` value
+2. **Status Can Differ**: Animals in the same group are allowed to have different `status` values
+3. **Group Display**: A group appears on Fosters Needed page if its animals have a non-`not_visible` `foster_visibility` value
+4. **Group Message**: The group displays the same message as its animals' `foster_visibility` value
 
-```typescript
-function getGroupAvailability(animals: Animal[]): FosterAvailability | null {
-	const availabilities = animals
-		.map((a) => a.foster_availability)
-		.filter((a) => a !== null);
+### Group Form Features
 
-	if (availabilities.length === 0) return null;
+Group create/edit forms include two new dropdowns:
 
-	// Priority: available_now > foster_pending > available_future
-	if (availabilities.includes("available_now")) return "available_now";
-	if (availabilities.includes("foster_pending")) return "foster_pending";
-	return "available_future";
-}
+1. **"Set all animals status"** dropdown
+
+    - Allows setting status for all animals in the group
+    - Animals in a group can have different statuses
+    - Triggers one-directional sync to `foster_visibility` for each animal
+
+2. **"Set all animals Visibility on Fosters Needed page"** dropdown
+    - Allows setting `foster_visibility` for all animals in the group
+    - Animals in a group MUST have the same `foster_visibility`
+    - Shows conflict message if animals have different values
+    - Blocks form submission if conflicts exist
+
+### Validation & User Experience
+
+-   **Conflict Detection**: On form submission, if animals have different `foster_visibility` values, show alert:
+    > **Alert: Animals in a group must have the same Visibility on Fosters Needed page**
+-   **Form Blocking**: Alert blocks form submission and highlights the "Set all animals Visibility on Fosters Needed page" field
+
+### Fosters Needed Page Display
+
+-   `not_visible`: Animal/group does NOT appear on Fosters Needed page
+-   `available_now`: Appears with "Available Now" badge
+-   `available_future`: Appears with "Available Future" badge
+-   `foster_pending`: Appears with "Foster Pending" badge
+
+---
+
+## Development Plan
+
+### Phase 1: Database Schema & Types
+
+**Goal:** Add non-nullable `foster_visibility` field to database and update TypeScript types.
+
+**Decisions:**
+
+-   `foster_visibility` is **NOT NULL** (required field, we depend on it)
+-   Database default: `'available_now'`
+-   TypeScript type: `FosterVisibility` (non-nullable)
+-   Migration: Set all existing animals to `'available_now'` (ensures groups are consistent, dummy data can be reset)
+
+**Tasks:**
+
+1. **Create database migration:**
+
+    - Add `foster_visibility` column to `animals` table:
+        - Type: `TEXT` (or enum if supported)
+        - Constraint: `NOT NULL`
+        - Default: `'available_now'`
+        - Values: `'available_now'`, `'available_future'`, `'foster_pending'`, `'not_visible'`
+    - Migration sets all existing animals to `'available_now'`:
+        ```sql
+        UPDATE animals SET foster_visibility = 'available_now';
+        ```
+
+2. **Update TypeScript types:**
+
+    - Add `FosterVisibility` type to `src/types/index.ts`:
+        ```typescript
+        type FosterVisibility =
+        	| "available_now"
+        	| "available_future"
+        	| "foster_pending"
+        	| "not_visible";
+        ```
+    - Add `foster_visibility: FosterVisibility` to `Animal` type (non-nullable, not optional)
+
+3. **Update database queries:**
+    - Update `animalQueries.ts` to include `foster_visibility` in field selections
+    - Ensure `foster_visibility` is fetched in all animal queries
+    - Remove any null checks (field is always present)
+
+**Testing:**
+
+-   Migration runs successfully
+-   All existing animals have `foster_visibility = 'available_now'`
+-   All animals in groups have the same `foster_visibility` value
+-   TypeScript types compile without errors
+-   Animal queries return `foster_visibility` field (never null)
+-   New animals created without explicit `foster_visibility` get default `'available_now'`
+
+**Deliverable:** Database schema updated with non-nullable `foster_visibility`, types updated, migration complete.
+
+---
+
+### Phase 2: Animal Form Updates
+
+**Goal:** Add `FosterVisibility` field to animal create/edit forms with one-directional sync from status.
+
+**Decisions:**
+
+-   Sync always happens when status changes (no tracking of manual vs automatic)
+-   Dropdown label: "Visibility on Fosters Needed page"
+-   Type names and database names stay the same (`FosterVisibility`, `foster_visibility`)
+
+**Tasks:**
+
+1. **Update `useAnimalForm.ts` hook:**
+
+    - Add `fosterVisibility` state and setter
+    - Add `setFosterVisibility` function
+    - Implement one-directional sync logic:
+        - Use `useEffect` to watch `status` changes
+        - When `status` changes, automatically set `foster_visibility` based on sync rules:
+            - `in_shelter` → `available_now`
+            - `medical_hold` → `available_future`
+            - `transferring` → `available_future`
+            - `in_foster` → `not_visible`
+            - `adopted` → `not_visible`
+        - Sync happens automatically every time status changes (no manual tracking needed)
+    - Update form state to include `foster_visibility`
+    - Update validation if needed
+
+2. **Update `AnimalForm.tsx` component:**
+
+    - Add `FosterVisibility` dropdown field
+    - Label: "Visibility on Fosters Needed page"
+    - Options: "Available Now", "Available Future", "Foster Pending", "Not Visible"
+    - Wire up to form state and handlers
+    - Ensure dropdown is visible and functional
+
+3. **Update `NewAnimal.tsx` and `EditAnimal.tsx`:**
+
+    - Include `foster_visibility` in form submission
+    - Ensure `foster_visibility` is saved to database
+    - Handle initial values for edit mode
+
+4. **Update `animalFormUtils.ts`:**
+    - Update `animalToFormState` to include `foster_visibility`
+    - Update `getEmptyFormState` to include default `foster_visibility = 'available_now'` (matches `in_shelter` status default)
+
+**Testing:**
+
+-   `FosterVisibility` dropdown appears in create/edit forms
+-   Changing status automatically updates `foster_visibility` (one-way sync)
+-   Manually changing `foster_visibility` does NOT change status
+-   Form submission saves `foster_visibility` correctly
+-   Edit form pre-populates `foster_visibility` correctly
+
+**Deliverable:** Animal forms support `FosterVisibility` with one-directional sync from status.
+
+---
+
+### Phase 3: Group Form Updates
+
+**Goal:** Add status and FosterVisibility dropdowns to group forms with validation.
+
+**Decisions:**
+
+-   **Staged Changes**: All changes to animal status and `foster_visibility` are staged in form state and not applied to the database until form submission. This allows users to review and modify changes before committing.
+-   **No Sync in Group Forms**: The "Set all animals status" dropdown does NOT trigger one-directional sync to `foster_visibility`. Since groups must all share the same `foster_visibility`, syncing individually could create conflicts. Instead, `foster_visibility` is handled separately via the "Set all animals Visibility on Fosters Needed page" dropdown.
+-   **Visual Feedback for Matching Values**: When all animals in the group have the same `foster_visibility`:
+    -   Dropdown is pre-populated with the shared `foster_visibility` value
+    -   Display green check indicator with message: "All grouped animals visibility matches" or "No conflicts"
+    -   This provides positive feedback that the group is in a valid state
+-   **Conflict Detection**: When animals have different `foster_visibility` values:
+    -   Dropdown shows "Select..." (placeholder)
+    -   Display warning/error indicator
+    -   Show conflict message
+    -   Block form submission
+
+**Tasks:**
+
+1. **Update `useGroupForm.ts` hook:**
+
+    - Add state for "Set all animals status" dropdown (staged changes)
+    - Add state for "Set all animals Visibility on Fosters Needed page" dropdown (staged changes)
+    - Add functions to stage status changes for all selected animals
+        - Changes are stored in form state, not applied until submission
+        - No automatic sync to `foster_visibility` (handled separately)
+    - Add functions to stage `foster_visibility` changes for all selected animals
+    - Add validation to check for `foster_visibility` conflicts
+    - Add function to detect if all animals have matching `foster_visibility`
+    - Return conflict information and matching status for UI display
+    - Return the shared `foster_visibility` value when all animals match (for pre-populating dropdown)
+
+2. **Update `GroupForm.tsx` component:**
+
+    - Add "Set all animals status" dropdown
+        - Options: "Select..." (placeholder), then all status values
+        - Default: "Select..." (empty/placeholder)
+        - Helper text: "Animals in the same group are allowed to have different statuses"
+        - On change: Stage status changes for all selected animals (stored in form state, not applied until submission)
+    - Add "Set all animals Visibility on Fosters Needed page" dropdown
+        - Options: "Select..." (placeholder), then all `FosterVisibility` values
+        - Default behavior:
+            - If all animals have matching `foster_visibility`: Pre-populate with the shared value
+            - If animals have different values: Show "Select..." (placeholder)
+        - Visual feedback:
+            - **When all animals match**: Display green check icon/indicator with message "All grouped animals visibility matches" or "No conflicts"
+            - **When animals differ**: Display warning/error indicator with conflict message
+        - Helper text: "Animals in a group must have the same Visibility on Fosters Needed page. This controls whether the group appears on the Fosters Needed page and what badge message is shown."
+        - On change: Update `foster_visibility` for all selected animals directly (no sync back to status)
+    - Add validation alert:
+        - Display when `foster_visibility` conflicts exist
+        - Message: "Alert: Animals in a group must have the same Visibility on Fosters Needed page"
+        - Block form submission
+        - Highlight the "Set all animals Visibility on Fosters Needed page" field
+    - Add helper text explaining `foster_visibility` vs status
+
+3. **Update `NewGroup.tsx` and `EditGroup.tsx`:**
+
+    - Wire up new dropdowns to form handlers
+    - On form submission, apply status and `foster_visibility` changes to all selected animals
+    - Show validation errors before submission
+    - Handle conflict detection and display
+    - Initialize "Set all animals Visibility on Fosters Needed page" dropdown:
+        - Check if all selected animals have matching `foster_visibility`
+        - If yes, pre-populate dropdown with shared value
+        - If no, show "Select..." placeholder
+
+4. **Update group submission logic:**
+    - When "Set all animals status" is used:
+        - Apply staged status changes to all selected animals
+        - Do NOT sync `foster_visibility` from status (handled separately)
+    - When "Set all animals Visibility on Fosters Needed page" is used:
+        - Apply staged `foster_visibility` changes to all selected animals directly
+        - No sync back to status
+    - Ensure all animals in group have same `foster_visibility` before allowing submission
+    - All changes are applied atomically on form submission
+
+**Testing:**
+
+-   Both dropdowns appear in group create/edit forms
+-   "Set all animals status" updates status for all selected animals
+-   "Set all animals status" triggers one-directional sync to `foster_visibility` for each animal
+-   "Set all animals Visibility on Fosters Needed page" updates `foster_visibility` for all selected animals
+-   When all animals have matching `foster_visibility`:
+    -   Dropdown is pre-populated with the shared value
+    -   Green check indicator and "All grouped animals visibility matches" message is displayed
+-   When animals have different `foster_visibility` values:
+    -   Dropdown shows "Select..." placeholder
+    -   Warning/error indicator is displayed
+-   Conflict detection works correctly
+-   Alert appears when conflicts exist
+-   Form submission is blocked when conflicts exist
+-   Helper text is clear and helpful
+
+**Deliverable:** Group forms support status and FosterVisibility bulk updates with validation, one-directional sync, and visual feedback for matching values.
+
+---
+
+### Phase 4: Cleanup & Deprecation ✅ COMPLETE
+
+**Goal:** Remove `display_placement_request` usage throughout codebase.
+
+**Tasks:**
+
+1. **Remove `display_placement_request` from forms:** ✅
+
+    - Removed from `useAnimalForm.ts` hook
+    - Removed from `animalFormUtils.ts`
+
+2. **Update all references:** ✅
+
+    - Searched codebase for `display_placement_request`
+    - Removed all references from `NewAnimal.tsx` and `EditAnimal.tsx`
+    - Removed unused code
+
+3. **Update database:** ✅
+
+    - Created migration `20251217214523_remove_display_placement_request.sql` to drop `display_placement_request` column
+
+4. **Update types:** ✅
+    - Removed `display_placement_request` from TypeScript `Animal` type
+
+**Testing:**
+
+-   ✅ No references to `display_placement_request` in active code
+-   ✅ All functionality works with `foster_visibility` only
+-   ✅ TypeScript compiles without errors
+-   ✅ Migration created to drop database column
+
+**Deliverable:** `display_placement_request` completely removed from codebase and database. Codebase uses `foster_visibility` exclusively.
+
+---
+
+### Phase 5: Update Fosters Needed Page (Deferred)
+
+**Note:** The Fosters Needed page is not yet implemented. This phase's design decisions will need to be merged into the main development plan when the Fosters Needed page is implemented. For now, this phase is documented but deferred.
+
+**Goal:** Update Fosters Needed page to use `foster_visibility` instead of `display_placement_request`.
+
+**Tasks:**
+
+1. **Find and update Fosters Needed page:**
+
+    - Locate the page/component that displays animals needing fosters
+    - Update query to filter by `foster_visibility != 'not_visible'` instead of `display_placement_request = true`
+    - Update display logic to show correct badge based on `foster_visibility` value:
+        - `available_now` → "Available Now" badge
+        - `available_future` → "Available Future" badge
+        - `foster_pending` → "Foster Pending" badge
+
+2. **Update group display logic:**
+
+    - Groups appear if any animal has non-`not_visible` `foster_visibility`
+    - Since we enforce same `foster_visibility` for all animals in group, use that value for badge
+    - Display group with appropriate badge message
+
+3. **Update any related queries:**
+
+    - Update `animalQueries.ts` or related query functions
+    - Ensure Fosters Needed queries use `foster_visibility` field
+    - Remove references to `display_placement_request` in Fosters Needed logic
+
+4. **Update `AnimalDetail.tsx`:**
+    - Remove or update any `display_placement_request` checks
+    - Update to use `foster_visibility` if displaying Fosters Needed information
+
+**Testing:**
+
+-   Fosters Needed page shows animals with non-`not_visible` `foster_visibility`
+-   Correct badges are displayed based on `foster_visibility` value
+-   Groups appear correctly with appropriate badges
+-   Animals with `not_visible` do not appear on Fosters Needed page
+
+**Deliverable:** Fosters Needed page uses `foster_visibility` for display logic.
+
+---
+
+## Migration Notes
+
+### Data Migration Strategy
+
+The initial migration sets all existing animals to `'available_now'`:
+
+```sql
+UPDATE animals SET foster_visibility = 'available_now';
 ```
 
-### Benefits
+**Rationale:**
 
-✅ **Solves the Core Problem**: One field handles all three display states  
-✅ **No Synchronization Conflicts**: Each animal has its own value - no forced syncing  
-✅ **Maximum Flexibility**: Coordinators have full control over what appears  
-✅ **Simple Group Logic**: Clear priority rule resolves mixed statuses  
-✅ **Status Preserved**: Internal status tracking remains for filtering/searching  
-✅ **Future-Proof**: Easy to add automation later if needed
+-   Simple and safe for dummy data (can be reset/modified as needed)
+-   Ensures all animals in groups have the same `foster_visibility` value (satisfies group consistency requirement)
+-   Matches the default status (`in_shelter`) and form default
+-   Coordinators can adjust values as needed after migration
 
-### Optional Future Automation
+### Backward Compatibility
 
-If automation is desired later, add simple event-based rules:
-
--   **Foster request accepted** → Set `foster_availability = null`
--   **Animal adopted** → Set `foster_availability = null`
--   **Returned to shelter** → Coordinator manually sets to `"available_now"` or `"available_future"`
-
-### Data Model Change
-
-**BEFORE (Complex):**
-
-```typescript
-{
-  status: "in_shelter" | "in_foster" | "adopted" | ...
-  display_placement_request?: boolean  // Just show/hide
-  // Need complex logic to derive display status from status
-}
-```
-
-**AFTER (Simple):**
-
-```typescript
-{
-  status: "in_shelter" | "in_foster" | "adopted" | ...  // For internal use only
-  foster_availability: "available_now" | "available_future" | "foster_pending" | null
-  // This field controls everything for Fosters Needed page
-}
-```
-
-### Migration Path
-
-1. Add `foster_availability` field to animals table (nullable enum)
-2. Migrate existing data:
-    - If `display_placement_request = true` → Set based on status or let coordinator set manually
-    - If `display_placement_request = false` → Set to `null`
-3. Update UI: Replace checkbox with dropdown (Available Now / Available Future / Foster Pending / Not Displayed)
-4. Update group display logic to use priority rule
-5. Remove `display_placement_request` field after migration
-
-### Why This Is Better Than Other Options
-
--   **Simpler than Option 1** (Full Sync): No forced synchronization, more flexible
--   **Clearer than Option 2** (No Sync): Has explicit priority rules for groups
--   **More Complete than Option 3** (Partial Sync): Handles all three display states, not just show/hide
--   **More Direct than Option 4** (Group-Level): Single field per animal, simpler data model
--   **More Flexible than Option 5** (Status-Only): Keeps status separate for internal use
--   **Cleaner than Option 6** (Separate Fields): One field instead of two
--   **More Complete than Option 7** (Display Only): Preserves status for internal tracking
+-   `display_placement_request` field has been completely removed from database and codebase
+-   Code uses `foster_visibility` exclusively
+-   No breaking changes to existing functionality
 
 ---
 
-## Options Considered
-
-### Option 1: Full Synchronization (Enforced)
-
-**Approach:** All animals in a group must have identical status and display settings. When one changes, all change.
-
-**Pros:**
-
--   Simple to implement and understand
--   Easy to resolve display status (all animals have same status)
--   Automates updates across the group
--   Reduces manual work
-
-**Cons:**
-
--   Less flexibility for edge cases
--   Cannot handle situations where animals in a group legitimately have different statuses
--   May cause unintended side effects (e.g., changing one animal's status affects entire group)
-
-**Implementation:**
-
--   Enforce synchronization during group creation/editing
--   When status changes, update all animals in group
--   Display setting changes propagate to all group members
-
----
-
-### Option 2: No Synchronization (Manual Control)
-
-**Approach:** Animals in groups can have independent status and display settings. No automatic synchronization.
-
-**Pros:**
-
--   Maximum flexibility
--   Handles edge cases naturally
--   No unintended side effects
-
-**Cons:**
-
--   Complex logic needed to resolve group display status
--   More manual work required
--   Difficult to determine when group should appear on Fosters Needed page
--   Risk of inconsistent data
-
-**Implementation:**
-
--   Display entire group if ANY animal in group is marked for display
--   Need prioritization logic to determine which status to show (Available Now vs Available Future vs Foster Pending)
-
----
-
-### Option 3: Partial Synchronization (Display Only)
-
-**Approach:** Display settings are synchronized and enforced, but status can differ between animals in a group.
-
-**Pros:**
-
--   Balances automation with flexibility
--   Clear display rules (all animals in group have same display setting)
--   Allows different statuses for legitimate cases
-
-**Cons:**
-
--   Still need prioritization logic to resolve display status when statuses differ
--   More complex than full synchronization
--   May be confusing (same display but different statuses)
-
-**Implementation:**
-
--   Enforce display setting synchronization
--   Allow different statuses
--   Use prioritization logic: Available Now > Foster Pending > Available Future
-
----
-
-### Option 4: Group-Level Display Setting
-
-**Approach:** Add a display setting at the group level (in group create/edit UI). This setting synchronizes all animals' display settings when toggled.
-
-**Pros:**
-
--   Clear control point for coordinators
--   Can be UI-only (synchronizes underlying animal settings)
--   Intuitive workflow
-
-**Cons:**
-
--   Still need to resolve conflicts if statuses differ
--   Adds complexity to group management
--   May not solve the core conflict resolution problem
-
----
-
-### Option 5: Simplify to Status-Only
-
-**Approach:** Remove separate display setting. Use only animal status to determine visibility on Fosters Needed page.
-
-**Pros:**
-
--   Simpler data model
--   One source of truth
--   Clearer logic
-
-**Cons:**
-
--   May need additional statuses to handle edge cases
--   Less granular control
--   Still need to decide on synchronization
-
-**Proposed Statuses:**
-
--   In Shelter (Available Now)
--   Transferring (Available Future)
--   On Hold/Medical Hold (Available Future)
--   In Foster (Not Available)
--   Adopted (Not Available)
-
----
-
-### Option 6: Separate Status and Display Fields
-
-**Approach:** Keep both fields but make them independent:
-
--   **Animal Status:** Internal operational status (In Shelter, Medical Hold, Transferring, Adopted, In Foster)
--   **Foster Request Message:** Display status (Available Now, Available Future, Foster Pending, Not Displayed)
-
-**Pros:**
-
--   Clear separation of concerns
--   Operational status separate from display needs
--   Handles edge cases
-
-**Cons:**
-
--   More complex data model
--   Still need synchronization decisions
--   Two fields to maintain
-
----
-
-### Option 7: Ultra-Simple (Display Only)
-
-**Approach:** Remove animal status entirely. Only track display setting: Available Now, Available Future, Foster Pending, Not Displayed.
-
-**Pros:**
-
--   Simplest possible solution
--   One field to manage
--   Clear purpose
-
-**Cons:**
-
--   Loses operational status tracking
--   May not meet all needs
--   Less automation possible
-
----
-
-## Edge Cases to Consider
-
-1. **Group with Mixed Statuses:** 3 kittens, one ready, one on medical hold, one being transferred
-2. **Status Change During Group Membership:** Animal's status changes while in a group
-3. **Group Adoption:** Entire group adopted together
-4. **Partial Group Foster:** Some animals in group go to foster, others stay in shelter
-5. **Return to Foster System:** Animal in foster/adopted needs to return to foster system
-6. **"In Cafe" Status:** Do we need a separate status similar to "In Foster" but with different rules?
-
----
-
-## Decision Questions for the Rescue Team
-
-### 1. Group Display on Fosters Needed Page
-
-**Question:** When should a group appear on the "Fosters Needed" page?
-
--   [ ] **A)** Only if ALL animals in the group are marked for display
--   [ ] **B)** If ANY animal in the group is marked for display
--   [ ] **C)** Only if a group-level display setting is enabled
--   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 2. Status Synchronization
-
-**Question:** Should animals in the same group be required to have the same status?
-
--   [ ] **A)** Yes, always synchronized (when one changes, all change)
--   [ ] **B)** No, animals can have different statuses independently
--   [ ] **C)** Synchronized only for certain statuses (please specify which): **\*\*\*\***\_**\*\*\*\***
--   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
-**Follow-up:** If statuses can differ, how should we handle the group's display status on Fosters Needed page?
-
--   [ ] Show the "most available" status (Available Now > Foster Pending > Available Future)
--   [ ] Show the "least available" status
--   [ ] Show all statuses somehow
--   [ ] Other: **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 3. Display Setting Synchronization
-
-**Question:** Should the display setting (whether to show on Fosters Needed page) be synchronized for all animals in a group?
-
--   [ ] **A)** Yes, always synchronized (enforced)
--   [ ] **B)** No, can differ between animals
--   [ ] **C)** Synchronized by default, but can be overridden per animal
--   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 4. Data Model Preference
-
-**Question:** Which approach do you prefer for tracking status and display?
-
--   [ ] **A)** Single "Status" field that controls both operational status and display
--   [ ] **B)** Separate "Status" (operational) and "Display Setting" (for Fosters Needed page)
--   [ ] **C)** Only "Display Setting" field (remove status tracking)
--   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 5. Automation vs. Manual Control
-
-**Question:** How much automation do you want for status/display updates?
-
--   [ ] **A)** Maximum automation (system updates status/display based on events like foster assignments, adoptions)
--   [ ] **B)** Moderate automation (some automatic updates, but manual override always available)
--   [ ] **C)** Minimal automation (mostly manual control, system only updates in clear cases)
--   [ ] **D)** No automation (all updates manual)
-
-**Follow-up:** Which events should trigger automatic updates?
-
--   [ ] Foster request accepted → Set to "In Foster", display off
--   [ ] Animal adopted → Set to "Adopted", display off, unassign foster
--   [ ] Returned to shelter → Set to "In Shelter", display on, unassign foster
--   [ ] Other: **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 6. Group Creation/Editing Behavior
-
-**Question:** When creating or editing a group, what should happen if you add an animal with display setting enabled?
-
--   [ ] **A)** Automatically enable display for all animals in the group
--   [ ] **B)** Keep each animal's display setting as-is
--   [ ] **C)** Warn coordinator but don't auto-sync
--   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 7. Edge Case: Mixed Statuses in Group
-
-**Question:** If animals in a group have different statuses (e.g., one "In Shelter", one "Medical Hold"), how should this be handled?
-
--   [ ] **A)** Prevent this situation (enforce same status)
--   [ ] **B)** Allow it, show group with "most available" status
--   [ ] **C)** Allow it, show group with "least available" status
--   [ ] **D)** Allow it, don't show group on Fosters Needed page if statuses conflict
--   [ ] **E)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 8. Edge Case: Return to Foster System
-
-**Question:** If an animal is "In Foster" or "Adopted" but needs to return to the foster system, how should this be handled?
-
--   [ ] **A)** Change status back to "In Shelter" and enable display
--   [ ] **B)** Keep status but allow display to be manually enabled
--   [ ] **C)** Create a new status like "Needs Re-Foster"
--   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 9. "In Cafe" Status
-
-**Question:** Do you need a separate status for animals that are "In Cafe" (similar to "In Foster" but different location/rules)?
-
--   [ ] **A)** Yes, we need "In Cafe" as a separate status
--   [ ] **B)** No, "In Cafe" can be handled as "In Foster" or another existing status
--   [ ] **C)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
-**If yes:** Should "In Cafe" follow the same display rules as "In Foster" (not displayed on Fosters Needed page)?
-
----
-
-### 10. Group Adoption/Foster Assignment
-
-**Question:** When an entire group is adopted or assigned to foster, should this automatically update all animals in the group?
-
--   [ ] **A)** Yes, automatically update all animals' status and display
--   [ ] **B)** No, update each animal individually
--   [ ] **C)** Prompt coordinator to confirm before updating all
--   [ ] **D)** Other (please specify): **\*\*\*\***\_**\*\*\*\***
-
----
-
-### 11. Priority Recommendation
-
-**Question:** Based on the options above, which approach do you think would work best for your workflow?
-
-**Please rank your top 3 preferences:**
-
-1. ***
-2. ***
-3. ***
-
-**Why?** (What factors are most important: simplicity, flexibility, automation, etc.?)
-
----
-
----
-
-## Recommended Next Steps
-
-1. **Review the recommended solution** (⭐ section above) with the rescue team
-2. **Discuss if the recommendation meets your needs** or if modifications are needed
-3. **Review alternative options** if the recommendation doesn't fit your workflow
-4. **Answer the decision questions** below to finalize details
-5. **Discuss edge cases** that are common in your operations
-6. **Finalize the approach** before implementation begins
-7. **Document the decision** for future reference
+## Review Checkpoints
+
+After each phase:
+
+-   ✅ Code compiles without errors
+-   ✅ Database migrations run successfully
+-   ✅ Forms work correctly
+-   ✅ Validation works as expected
+-   ✅ No regressions in existing functionality
+-   ✅ (Phase 5 deferred - Fosters Needed page not yet implemented)
 
 ---
 
 ## Notes
 
--   This decision affects core functionality of the Fosters Needed page
--   The chosen approach will impact group creation, editing, and status change workflows
--   Consider both current needs and future scalability
--   Simpler solutions may be better than complex ones that handle rare edge cases
+-   This change affects core functionality of the Fosters Needed page
+-   Group creation/editing workflows are significantly enhanced
+-   One-directional sync provides automation while maintaining flexibility
+-   Enforcement of same `foster_visibility` for groups ensures consistent display

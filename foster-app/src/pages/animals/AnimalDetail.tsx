@@ -50,6 +50,8 @@ function formatLifeStage(lifeStage: LifeStage): string {
 	}
 }
 
+import { formatFosterVisibility } from "../../lib/metadataUtils";
+
 // Helper function to format status for display
 function formatStatus(status: string): string {
 	return status
@@ -131,7 +133,7 @@ export default function AnimalDetail() {
 
 	// Fetch group name if animal is in a group
 	const { data: groupName } = useQuery<string | null, Error>({
-		queryKey: ["group", animal?.group_id],
+		queryKey: ["group-name", animal?.group_id],
 		queryFn: async () => {
 			if (!animal?.group_id) {
 				return null;
@@ -302,12 +304,6 @@ export default function AnimalDetail() {
 									High Priority
 								</span>
 							)}
-							{/* Foster Needed Badge */}
-							{animal.display_placement_request && (
-								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-									Foster Needed
-								</span>
-							)}
 						</div>
 						{/* Group Indicator */}
 						{animal.group_id && (
@@ -372,6 +368,18 @@ export default function AnimalDetail() {
 								}
 							/>
 						</div>
+
+						{/* Visibility on Fosters Needed page */}
+						<FieldDisplay
+							label="Visibility on Fosters Needed page"
+							value={
+								animal.foster_visibility
+									? formatFosterVisibility(
+											animal.foster_visibility
+									  )
+									: null
+							}
+						/>
 
 						{/* Photos */}
 						<div>
