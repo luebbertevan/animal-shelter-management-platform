@@ -414,11 +414,12 @@ export default function EditGroup() {
 				await Promise.all(deletePromises);
 			}
 
-			// Upload new photos if any
-			const existingPhotos = (group.group_photos || []).filter(
+			// Handle photo updates (additions and deletions)
+			const existingPhotos = group.group_photos || [];
+			const remainingPhotos = existingPhotos.filter(
 				(photo) => !photosToDelete.includes(photo.url)
 			);
-			let photoMetadata: TimestampedPhoto[] = [...existingPhotos];
+			const photoMetadata: TimestampedPhoto[] = [...remainingPhotos];
 
 			if (selectedPhotos.length > 0) {
 				setPhotoUploadError(null);
@@ -484,7 +485,9 @@ export default function EditGroup() {
 					).length;
 
 					// Add successful uploads to metadata
-					photoMetadata = [...photoMetadata, ...successfulUploads];
+					if (successfulUploads.length > 0) {
+						photoMetadata.push(...successfulUploads);
+					}
 
 					// Show error message if some uploads failed
 					if (failedUploads > 0) {
@@ -502,7 +505,7 @@ export default function EditGroup() {
 				}
 			}
 
-			// Include photos in group update
+			// Include photos in group update (always update to ensure consistency)
 			groupData.group_photos = photoMetadata;
 
 			await updateGroup(id, profile.organization_id, groupData);
