@@ -67,12 +67,15 @@ export default function NavigationBar() {
 		<nav className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
 			<div className="max-w-7xl mx-auto px-4">
 				<div className="flex items-center justify-between h-20">
-					<div className="flex items-center h-full py-0.5">
+					<div className="flex items-center h-full py-0.5 gap-3 sm:gap-4">
 						<img
 							src="/co_kitty_coalition_logo.avif"
 							alt="Co Kitty Coalition"
 							className="h-full max-h-full w-auto object-contain"
 						/>
+						<span className="hidden sm:block text-pink-600 font-semibold text-lg sm:text-xl md:text-2xl lg:text-3xl">
+							Fosty
+						</span>
 					</div>
 
 					<div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
