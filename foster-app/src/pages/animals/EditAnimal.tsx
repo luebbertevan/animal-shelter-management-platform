@@ -302,9 +302,6 @@ export default function EditAnimal() {
 			animalData.priority = formState.priority;
 			// Add foster_visibility
 			animalData.foster_visibility = formState.fosterVisibility;
-			// Keep display_placement_request for backward compatibility (deprecated)
-			animalData.display_placement_request =
-				formState.displayPlacementRequest;
 
 			// If updating all animals in group, update them all
 			if (updateAllInGroup && animal.group_id && group?.animal_ids) {

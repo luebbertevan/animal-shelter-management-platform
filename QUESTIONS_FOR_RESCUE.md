@@ -628,5 +628,9 @@ Recommendation: Add a useUnsavedChanges hook and warn on navigation (not on relo
 
 
 
-
+Light redesign phase:
+Go through the pages for the demo. polish there design and color scheme.
+use the co kitty coalition colors
+add a nave bar with the co kitty coalition logo on it. 
 Lets show the name and not email addres of however is logged in
+In the animals details page the 

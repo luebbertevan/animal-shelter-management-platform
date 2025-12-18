@@ -11,7 +11,6 @@ export interface AnimalFormState {
 	name: string;
 	status: AnimalStatus;
 	fosterVisibility: FosterVisibility;
-	displayPlacementRequest: boolean; // Deprecated, kept for backward compatibility
 	sexSpayNeuterStatus: SexSpayNeuterStatus | "";
 	lifeStage: LifeStage | "";
 	primaryBreed: string;
@@ -54,11 +53,6 @@ export function animalToFormState(
 		fosterVisibility: exclude.includes("fosterVisibility")
 			? "available_now"
 			: animal.foster_visibility || "available_now",
-		displayPlacementRequest:
-			exclude.includes("displayPlacementRequest") ||
-			animal.display_placement_request === undefined
-				? true
-				: animal.display_placement_request,
 		sexSpayNeuterStatus:
 			exclude.includes("sexSpayNeuterStatus") ||
 			!animal.sex_spay_neuter_status
@@ -107,7 +101,6 @@ export function getEmptyFormState(): AnimalFormState {
 		name: "",
 		status: "in_shelter",
 		fosterVisibility: "available_now", // Matches in_shelter status default
-		displayPlacementRequest: true, // Deprecated, kept for backward compatibility
 		sexSpayNeuterStatus: "",
 		lifeStage: "",
 		primaryBreed: "",

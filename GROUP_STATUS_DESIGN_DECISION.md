@@ -97,7 +97,6 @@ Group create/edit forms include two new dropdowns:
         ```sql
         UPDATE animals SET foster_visibility = 'available_now';
         ```
-    - Keep `display_placement_request` column (will be deprecated, not removed yet)
 
 2. **Update TypeScript types:**
 
@@ -110,7 +109,6 @@ Group create/edit forms include two new dropdowns:
         	| "not_visible";
         ```
     - Add `foster_visibility: FosterVisibility` to `Animal` type (non-nullable, not optional)
-    - Keep `display_placement_request?: boolean` (marked as deprecated in comments)
 
 3. **Update database queries:**
     - Update `animalQueries.ts` to include `foster_visibility` in field selections
@@ -175,7 +173,6 @@ Group create/edit forms include two new dropdowns:
 4. **Update `animalFormUtils.ts`:**
     - Update `animalToFormState` to include `foster_visibility`
     - Update `getEmptyFormState` to include default `foster_visibility = 'available_now'` (matches `in_shelter` status default)
-    - Handle migration from `display_placement_request` if needed
 
 **Testing:**
 
@@ -288,40 +285,38 @@ Group create/edit forms include two new dropdowns:
 
 ---
 
-### Phase 4: Cleanup & Deprecation
+### Phase 4: Cleanup & Deprecation ✅ COMPLETE
 
-**Goal:** Remove or deprecate `display_placement_request` usage throughout codebase.
+**Goal:** Remove `display_placement_request` usage throughout codebase.
 
 **Tasks:**
 
-1. **Remove `display_placement_request` from forms:**
+1. **Remove `display_placement_request` from forms:** ✅
 
-    - Remove from `AnimalForm.tsx` if still present
-    - Remove from `useAnimalForm.ts` hook
-    - Remove from `animalFormUtils.ts`
+    - Removed from `useAnimalForm.ts` hook
+    - Removed from `animalFormUtils.ts`
 
-2. **Update all references:**
+2. **Update all references:** ✅
 
-    - Search codebase for `display_placement_request`
-    - Replace with `foster_visibility` where appropriate
-    - Remove unused code
+    - Searched codebase for `display_placement_request`
+    - Removed all references from `NewAnimal.tsx` and `EditAnimal.tsx`
+    - Removed unused code
 
-3. **Update database (optional - can be done later):**
+3. **Update database:** ✅
 
-    - Create migration to remove `display_placement_request` column (or leave unused)
-    - Document that field is deprecated
+    - Created migration `20251217214523_remove_display_placement_request.sql` to drop `display_placement_request` column
 
-4. **Update types:**
-    - Mark `display_placement_request` as deprecated in TypeScript types
-    - Add migration notes in comments
+4. **Update types:** ✅
+    - Removed `display_placement_request` from TypeScript `Animal` type
 
 **Testing:**
 
--   No references to `display_placement_request` in active code
--   All functionality works with `foster_visibility` only
--   TypeScript compiles without errors
+-   ✅ No references to `display_placement_request` in active code
+-   ✅ All functionality works with `foster_visibility` only
+-   ✅ TypeScript compiles without errors
+-   ✅ Migration created to drop database column
 
-**Deliverable:** `display_placement_request` removed/deprecated, codebase uses `foster_visibility` exclusively.
+**Deliverable:** `display_placement_request` completely removed from codebase and database. Codebase uses `foster_visibility` exclusively.
 
 ---
 
@@ -388,8 +383,8 @@ UPDATE animals SET foster_visibility = 'available_now';
 
 ### Backward Compatibility
 
--   `display_placement_request` field remains in database (can be removed later)
--   Code is updated to use `foster_visibility` exclusively
+-   `display_placement_request` field has been completely removed from database and codebase
+-   Code uses `foster_visibility` exclusively
 -   No breaking changes to existing functionality
 
 ---

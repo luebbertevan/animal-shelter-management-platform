@@ -172,9 +172,6 @@ export default function NewAnimal() {
 			animalData.priority = formState.priority;
 			// Add foster_visibility
 			animalData.foster_visibility = formState.fosterVisibility;
-			// Keep display_placement_request for backward compatibility (deprecated)
-			animalData.display_placement_request =
-				formState.displayPlacementRequest;
 
 			// Add date_of_birth (calculate from age if age provided and DOB not provided)
 			let finalDOB: string | null = null;

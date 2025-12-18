@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, startTransition } from "react";
+import { useState, useEffect, startTransition } from "react";
 import type {
 	AnimalStatus,
 	SexSpayNeuterStatus,
@@ -28,7 +28,6 @@ export interface UseAnimalFormReturn {
 	setName: (value: string) => void;
 	setStatus: (value: AnimalStatus) => void;
 	setFosterVisibility: (value: FosterVisibility) => void;
-	setDisplayPlacementRequest: (value: boolean) => void; // Deprecated, kept for backward compatibility
 	setSexSpayNeuterStatus: (value: SexSpayNeuterStatus | "") => void;
 	setLifeStage: (value: LifeStage | "") => void;
 	setPrimaryBreed: (value: string) => void;
@@ -80,8 +79,6 @@ export function useAnimalForm(
 	const [fosterVisibility, setFosterVisibility] = useState<FosterVisibility>(
 		initialState.fosterVisibility
 	);
-	const [displayPlacementRequestManual, setDisplayPlacementRequestManual] =
-		useState<boolean | null>(null);
 	const [sexSpayNeuterStatus, setSexSpayNeuterStatus] = useState<
 		SexSpayNeuterStatus | ""
 	>(initialState.sexSpayNeuterStatus);
@@ -181,19 +178,6 @@ export function useAnimalForm(
 		const newVisibility = getFosterVisibilityFromStatus(newStatus);
 		setFosterVisibility(newVisibility);
 	};
-
-	// Auto-calculate display_placement_request based on status (deprecated, kept for backward compatibility)
-	// If manually set, use that value; otherwise derive from status
-	const displayPlacementRequest = useMemo(() => {
-		if (displayPlacementRequestManual !== null) {
-			return displayPlacementRequestManual;
-		}
-		return (
-			status === "in_shelter" ||
-			status === "medical_hold" ||
-			status === "transferring"
-		);
-	}, [status, displayPlacementRequestManual]);
 
 	// Get today's date in YYYY-MM-DD format for date input max attribute
 	const getTodayDateString = (): string => {
@@ -461,7 +445,6 @@ export function useAnimalForm(
 		name,
 		status,
 		fosterVisibility,
-		displayPlacementRequest,
 		sexSpayNeuterStatus,
 		lifeStage,
 		primaryBreed,
@@ -481,7 +464,6 @@ export function useAnimalForm(
 		setName,
 		setStatus,
 		setFosterVisibility,
-		setDisplayPlacementRequest: setDisplayPlacementRequestManual,
 		setSexSpayNeuterStatus,
 		setLifeStage,
 		setPrimaryBreed,
