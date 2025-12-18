@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { useGroupForm } from "../../hooks/useGroupForm";
-import NavLinkButton from "../../components/ui/NavLinkButton";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import GroupForm from "../../components/animals/GroupForm";
@@ -669,9 +668,7 @@ export default function EditGroup() {
 		return (
 			<div className="min-h-screen p-4 bg-gray-50">
 				<div className="max-w-4xl mx-auto">
-					<div className="mb-6">
-						<NavLinkButton to="/groups" label="Back to Groups" />
-					</div>
+					<div className="mb-6"></div>
 					<div className="bg-white rounded-lg shadow-sm p-6">
 						<ErrorMessage>
 							{groupError
@@ -690,16 +687,20 @@ export default function EditGroup() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
-				<div className="mb-6">
-					<NavLinkButton
-						to={id ? `/groups/${id}` : "/groups"}
-						label="Back to Group"
-					/>
-				</div>
 				<div className="bg-white rounded-lg shadow-md p-6">
-					<h1 className="text-2xl font-bold text-gray-900 mb-6">
-						Edit Group
-					</h1>
+					<div className="flex items-center justify-between mb-6">
+						<h1 className="text-2xl font-bold text-gray-900">
+							Edit Group
+						</h1>
+						<button
+							onClick={() =>
+								navigate(id ? `/groups/${id}` : "/groups")
+							}
+							className="text-sm text-pink-600 hover:text-pink-700 hover:underline font-medium"
+						>
+							Cancel
+						</button>
+					</div>
 
 					<GroupForm
 						formState={formState}

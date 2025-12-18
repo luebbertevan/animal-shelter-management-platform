@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { useAnimalForm } from "../../hooks/useAnimalForm";
-import NavLinkButton from "../../components/ui/NavLinkButton";
 import AnimalForm from "../../components/animals/AnimalForm";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import {
@@ -339,9 +338,6 @@ export default function NewAnimal() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
-				<div className="mb-6">
-					<NavLinkButton to="/dashboard" label="Back to Dashboard" />
-				</div>
 				<div className="bg-white rounded-lg shadow-md p-6">
 					<h1 className="text-2xl font-bold text-gray-900 mb-6">
 						Create New Animal

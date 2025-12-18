@@ -111,24 +111,21 @@ export default function GroupsList() {
 								the system.
 							</p>
 						</div>
-						<button
-							type="button"
-							onClick={() => refetch()}
-							className="text-sm text-pink-600 hover:text-pink-700 font-medium"
-							disabled={isLoading}
-						>
-							Refresh
-						</button>
-					</div>
-					<div className="space-y-4">
-						<Link to="/dashboard" className="block">
-							<Button variant="outline">Back to Dashboard</Button>
-						</Link>
-						{isCoordinator && (
-							<Link to="/groups/new" className="block">
-								<Button>Add Group</Button>
-							</Link>
-						)}
+						<div className="flex items-center gap-3">
+							{isCoordinator && (
+								<Link to="/groups/new">
+									<Button>Add Group</Button>
+								</Link>
+							)}
+							<button
+								type="button"
+								onClick={() => refetch()}
+								className="text-sm text-pink-600 hover:text-pink-700 font-medium"
+								disabled={isLoading}
+							>
+								Refresh
+							</button>
+						</div>
 					</div>
 				</div>
 

@@ -15,6 +15,7 @@ import ConversationsList from "./pages/messaging/ConversationsList";
 import FostersList from "./pages/fosters/FostersList";
 import FosterDetail from "./pages/fosters/FosterDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ProtectedLayout from "./components/ProtectedLayout";
 
 function App() {
 	return (
@@ -26,7 +27,9 @@ function App() {
 					path="/dashboard"
 					element={
 						<ProtectedRoute>
-							<Dashboard />
+							<ProtectedLayout>
+								<Dashboard />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -34,7 +37,9 @@ function App() {
 					path="/animals"
 					element={
 						<ProtectedRoute>
-							<AnimalsList />
+							<ProtectedLayout>
+								<AnimalsList />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -42,7 +47,9 @@ function App() {
 					path="/animals/new"
 					element={
 						<ProtectedRoute>
-							<NewAnimal />
+							<ProtectedLayout>
+								<NewAnimal />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -50,7 +57,9 @@ function App() {
 					path="/animals/:id/edit"
 					element={
 						<ProtectedRoute>
-							<EditAnimal />
+							<ProtectedLayout>
+								<EditAnimal />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -58,7 +67,9 @@ function App() {
 					path="/animals/:id/:slug?"
 					element={
 						<ProtectedRoute>
-							<AnimalDetail />
+							<ProtectedLayout>
+								<AnimalDetail />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -66,7 +77,9 @@ function App() {
 					path="/groups"
 					element={
 						<ProtectedRoute>
-							<GroupsList />
+							<ProtectedLayout>
+								<GroupsList />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -74,7 +87,9 @@ function App() {
 					path="/groups/new"
 					element={
 						<ProtectedRoute>
-							<NewGroup />
+							<ProtectedLayout>
+								<NewGroup />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -82,7 +97,9 @@ function App() {
 					path="/groups/:id/edit"
 					element={
 						<ProtectedRoute>
-							<EditGroup />
+							<ProtectedLayout>
+								<EditGroup />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -90,7 +107,9 @@ function App() {
 					path="/groups/:id"
 					element={
 						<ProtectedRoute>
-							<GroupDetail />
+							<ProtectedLayout>
+								<GroupDetail />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -98,7 +117,9 @@ function App() {
 					path="/chats"
 					element={
 						<ProtectedRoute>
-							<ConversationsList />
+							<ProtectedLayout>
+								<ConversationsList />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -106,7 +127,9 @@ function App() {
 					path="/chat/:conversationId"
 					element={
 						<ProtectedRoute>
-							<ConversationDetail />
+							<ProtectedLayout>
+								<ConversationDetail />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -114,7 +137,9 @@ function App() {
 					path="/fosters"
 					element={
 						<ProtectedRoute>
-							<FostersList />
+							<ProtectedLayout>
+								<FostersList />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>
@@ -122,7 +147,9 @@ function App() {
 					path="/fosters/:id"
 					element={
 						<ProtectedRoute>
-							<FosterDetail />
+							<ProtectedLayout>
+								<FosterDetail />
+							</ProtectedLayout>
 						</ProtectedRoute>
 					}
 				/>

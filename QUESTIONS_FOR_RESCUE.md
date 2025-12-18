@@ -634,3 +634,24 @@ use the co kitty coalition colors
 add a nave bar with the co kitty coalition logo on it. 
 Lets show the name and not email addres of however is logged in
 In the animals details page the 
+
+color palette 
+
+favicon
+very dark gray #1A1A1A
+very dark cyan #183D47
+light cyan #C7E0E0
+dark cyan #316269
+orange #AB5E34
+vivid orange #F4B56B
+white #E6E6E6
+muted green #72886B
+light orange #DAB5A0
+
+
+Errors #8C3A2B
+
+website variation
+muted green #678476
+light muted green #BCCCBC
+orange #C68A5F

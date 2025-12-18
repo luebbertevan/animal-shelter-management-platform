@@ -92,7 +92,7 @@ export default function AnimalsList() {
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
-			<div className="w-full">
+			<div className="max-w-5xl mx-auto">
 				<div className="mb-6">
 					<div className="flex items-center justify-between mb-4">
 						<div>
@@ -104,24 +104,21 @@ export default function AnimalsList() {
 								system.
 							</p>
 						</div>
-						<button
-							type="button"
-							onClick={() => refetch()}
-							className="text-sm text-pink-600 hover:text-pink-700 font-medium"
-							disabled={isLoading}
-						>
-							Refresh
-						</button>
-					</div>
-					<div className="space-y-4">
-						<Link to="/dashboard" className="block">
-							<Button variant="outline">Back to Dashboard</Button>
-						</Link>
-						{profile.role === "coordinator" && (
-							<Link to="/animals/new" className="block">
-								<Button>Add Animal</Button>
-							</Link>
-						)}
+						<div className="flex items-center gap-3">
+							{profile.role === "coordinator" && (
+								<Link to="/animals/new">
+									<Button>Add Animal</Button>
+								</Link>
+							)}
+							<button
+								type="button"
+								onClick={() => refetch()}
+								className="text-sm text-pink-600 hover:text-pink-700 font-medium"
+								disabled={isLoading}
+							>
+								Refresh
+							</button>
+						</div>
 					</div>
 				</div>
 

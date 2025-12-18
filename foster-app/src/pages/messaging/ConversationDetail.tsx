@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams} from "react-router-dom";
 import { useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
@@ -7,7 +7,6 @@ import type { Conversation } from "../../types";
 import MessageList from "../../components/messaging/MessageList";
 import MessageInput from "../../components/messaging/MessageInput";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import Button from "../../components/ui/Button";
 import { getErrorMessage } from "../../lib/errorUtils";
 import { extractFullName } from "../../lib/supabaseUtils";
 
@@ -47,7 +46,6 @@ async function fetchConversation(
 
 export default function ConversationDetail() {
 	const { conversationId } = useParams<{ conversationId: string }>();
-	const navigate = useNavigate();
 	const { profile } = useProtectedAuth();
 	const queryClient = useQueryClient();
 	const scrollableContainerRef = useRef<HTMLDivElement>(null);
@@ -85,7 +83,6 @@ export default function ConversationDetail() {
 							? error.message
 							: "Failed to load conversation"}
 					</p>
-					<Button onClick={() => navigate(-1)}>Go Back</Button>
 				</div>
 			</div>
 		);
@@ -128,27 +125,10 @@ export default function ConversationDetail() {
 		}
 	};
 
-	// Determine back button navigation based on user role
-	const handleBack = () => {
-		if (profile.role === "foster") {
-			navigate("/dashboard");
-		} else {
-			// Coordinators navigate to conversation list
-			navigate("/chats");
-		}
-	};
-
 	return (
 		<div className="mobile-viewport flex flex-col bg-gray-50 overflow-hidden">
 			{/* Header */}
-			<div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4 shadow-sm flex-shrink-0">
-				<Button
-					onClick={handleBack}
-					variant="outline"
-					className="w-auto"
-				>
-					← Back
-				</Button>
+			<div className="bg-white border-b border-gray-200 p-4 shadow-sm flex-shrink-0">
 				{headerText && (
 					<h1 className="text-xl font-semibold text-gray-800">
 						{headerText}
