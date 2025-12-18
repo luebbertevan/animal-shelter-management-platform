@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type {
@@ -16,7 +17,54 @@ import GroupCard from "../../components/animals/GroupCard";
 import { fetchFosterById } from "../../lib/fosterQueries";
 import { fetchAnimalsByFosterId, fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroupsByFosterId } from "../../lib/groupQueries";
-import { isOffline } from "../../lib/errorUtils";
+import { isOffline, getErrorMessage } from "../../lib/errorUtils";
+
+async function fetchFosterConversation(userId: string, organizationId: string) {
+	const { data, error } = await supabase
+		.from("conversations")
+		.select("id")
+		.eq("type", "foster_chat")
+		.eq("foster_profile_id", userId)
+		.eq("organization_id", organizationId)
+		.single();
+
+	if (error) {
+		if (error.code === "PGRST116") {
+			return null;
+		}
+		throw new Error(
+			getErrorMessage(
+				error,
+				"Failed to load conversation. Please try again."
+			)
+		);
+	}
+
+	return data?.id || null;
+}
+
+async function fetchCoordinatorGroupChat(organizationId: string) {
+	const { data, error } = await supabase
+		.from("conversations")
+		.select("id")
+		.eq("type", "coordinator_group")
+		.eq("organization_id", organizationId)
+		.single();
+
+	if (error) {
+		if (error.code === "PGRST116") {
+			return null;
+		}
+		throw new Error(
+			getErrorMessage(
+				error,
+				"Failed to load conversation. Please try again."
+			)
+		);
+	}
+
+	return data?.id || null;
+}
 
 export default function FosterDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -203,6 +251,28 @@ export default function FosterDetail() {
 	const hasAssignedItems =
 		filteredAnimals.length > 0 || assignedGroups.length > 0;
 
+	// Fetch conversation ID for the foster/coordinator
+	const { data: conversationId } = useQuery<string | null>({
+		queryKey: [
+			foster?.role === "coordinator"
+				? "coordinatorGroupChat"
+				: "fosterConversation",
+			foster?.id,
+			profile.organization_id,
+		],
+		queryFn: async () => {
+			if (!foster) return null;
+			if (foster.role === "coordinator") {
+				return fetchCoordinatorGroupChat(profile.organization_id);
+			}
+			return fetchFosterConversation(foster.id, profile.organization_id);
+		},
+		enabled: !!foster && isCoordinator && foster.id !== user.id,
+	});
+
+	// Determine if we should show the chat icon (don't show for current user)
+	const showChatIcon = foster && foster.id !== user.id && conversationId;
+
 	if (isLoading) {
 		return (
 			<div className="min-h-screen p-4 bg-gray-50">
@@ -293,6 +363,15 @@ export default function FosterDetail() {
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
 									Coordinator
 								</span>
+							)}
+							{showChatIcon && (
+								<Link
+									to={`/chat/${conversationId}`}
+									className="ml-auto p-2 rounded-lg hover:bg-gray-100 transition-colors"
+									aria-label="Chat"
+								>
+									<ChatBubbleLeftIcon className="h-6 w-6 text-gray-700" />
+								</Link>
 							)}
 						</div>
 					</div>

@@ -1,10 +1,155 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
+import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import { fetchFosters } from "../../lib/fosterQueries";
-import { isOffline } from "../../lib/errorUtils";
+import { isOffline, getErrorMessage } from "../../lib/errorUtils";
+import type { User, Foster } from "../../types";
+
+async function fetchFosterConversation(userId: string, organizationId: string) {
+	const { data, error } = await supabase
+		.from("conversations")
+		.select("id")
+		.eq("type", "foster_chat")
+		.eq("foster_profile_id", userId)
+		.eq("organization_id", organizationId)
+		.single();
+
+	if (error) {
+		if (error.code === "PGRST116") {
+			return null;
+		}
+		throw new Error(
+			getErrorMessage(
+				error,
+				"Failed to load conversation. Please try again."
+			)
+		);
+	}
+
+	return data?.id || null;
+}
+
+async function fetchCoordinatorGroupChat(organizationId: string) {
+	const { data, error } = await supabase
+		.from("conversations")
+		.select("id")
+		.eq("type", "coordinator_group")
+		.eq("organization_id", organizationId)
+		.single();
+
+	if (error) {
+		if (error.code === "PGRST116") {
+			return null;
+		}
+		throw new Error(
+			getErrorMessage(
+				error,
+				"Failed to load conversation. Please try again."
+			)
+		);
+	}
+
+	return data?.id || null;
+}
+
+function FosterCard({
+	foster,
+	currentUserId,
+	organizationId,
+}: {
+	foster: User;
+	currentUserId: string;
+	organizationId: string;
+}) {
+	// Fetch conversation ID for this foster
+	const { data: conversationId } = useQuery<string | null>({
+		queryKey: [
+			foster.role === "coordinator"
+				? "coordinatorGroupChat"
+				: "fosterConversation",
+			foster.id,
+			organizationId,
+		],
+		queryFn: async () => {
+			if (foster.role === "coordinator") {
+				return fetchCoordinatorGroupChat(organizationId);
+			}
+			return fetchFosterConversation(foster.id, organizationId);
+		},
+		enabled: foster.id !== currentUserId,
+	});
+
+	// Don't show chat icon for current user
+	const showChatIcon = foster.id !== currentUserId && conversationId;
+
+	return (
+		<div className="bg-white rounded-lg shadow-sm p-5 border border-pink-100 hover:shadow-md transition-shadow relative">
+			<div className="flex items-start justify-between mb-3">
+				<Link to={`/fosters/${foster.id}`} className="flex-1">
+					<h2 className="text-lg font-semibold text-gray-900">
+						{foster.full_name?.trim() || "Unnamed Foster"}
+					</h2>
+				</Link>
+				<div className="flex items-center gap-2 ml-2">
+					{foster.role === "coordinator" && (
+						<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+							Coordinator
+						</span>
+					)}
+					{showChatIcon && (
+						<Link
+							to={`/chat/${conversationId}`}
+							onClick={(e) => e.stopPropagation()}
+							className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+							aria-label="Chat"
+						>
+							<ChatBubbleLeftIcon className="h-5 w-5 text-gray-700" />
+						</Link>
+					)}
+				</div>
+			</div>
+
+			<Link to={`/fosters/${foster.id}`} className="block">
+				<div className="space-y-2 text-sm">
+					{foster.email && (
+						<p>
+							<span className="text-gray-500">Email:</span>{" "}
+							<span className="font-medium">{foster.email}</span>
+						</p>
+					)}
+					{foster.role === "foster" &&
+						(foster as Foster).phone_number && (
+							<p>
+								<span className="text-gray-500">Phone:</span>{" "}
+								<span className="font-medium">
+									{(foster as Foster).phone_number}
+								</span>
+							</p>
+						)}
+					{foster.role === "foster" &&
+						(foster as Foster).availability != null && (
+							<p>
+								<span
+									className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+										(foster as Foster).availability
+											? "bg-green-100 text-green-800"
+											: "bg-gray-100 text-gray-800"
+									}`}
+								>
+									{(foster as Foster).availability
+										? "Available"
+										: "Not Available"}
+								</span>
+							</p>
+						)}
+				</div>
+			</Link>
+		</div>
+	);
+}
 
 export default function FostersList() {
 	const { user, profile, isCoordinator } = useProtectedAuth();
@@ -124,65 +269,14 @@ export default function FostersList() {
 
 				{fosters.length > 0 && (
 					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{fosters.map((foster) => {
-							return (
-								<Link
-									key={foster.id}
-									to={`/fosters/${foster.id}`}
-									className="bg-white rounded-lg shadow-sm p-5 border border-pink-100 hover:shadow-md transition-shadow cursor-pointer block"
-								>
-									<div className="flex items-center justify-between mb-3">
-										<h2 className="text-lg font-semibold text-gray-900">
-											{foster.full_name?.trim() ||
-												"Unnamed Foster"}
-										</h2>
-										{foster.role === "coordinator" && (
-											<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-												Coordinator
-											</span>
-										)}
-									</div>
-
-									<div className="space-y-2 text-sm">
-										{foster.email && (
-											<p>
-												<span className="text-gray-500">
-													Email:
-												</span>{" "}
-												<span className="font-medium">
-													{foster.email}
-												</span>
-											</p>
-										)}
-										{foster.phone_number && (
-											<p>
-												<span className="text-gray-500">
-													Phone:
-												</span>{" "}
-												<span className="font-medium">
-													{foster.phone_number}
-												</span>
-											</p>
-										)}
-										{foster.availability != null && (
-											<p>
-												<span
-													className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-														foster.availability
-															? "bg-green-100 text-green-800"
-															: "bg-gray-100 text-gray-800"
-													}`}
-												>
-													{foster.availability
-														? "Available"
-														: "Not Available"}
-												</span>
-											</p>
-										)}
-									</div>
-								</Link>
-							);
-						})}
+						{fosters.map((foster) => (
+							<FosterCard
+								key={foster.id}
+								foster={foster}
+								currentUserId={user.id}
+								organizationId={profile.organization_id}
+							/>
+						))}
 					</div>
 				)}
 			</div>
