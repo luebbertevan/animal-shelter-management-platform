@@ -19,7 +19,7 @@ export default function NewGroup() {
 	const navigate = useNavigate();
 	const { user, profile } = useProtectedAuth();
 
-	// Use the form hook
+	// Use the form hook (before animals are fetched)
 	const {
 		formState,
 		setName,
@@ -27,6 +27,10 @@ export default function NewGroup() {
 		setPriority,
 		selectedAnimalIds,
 		toggleAnimalSelection,
+		setStagedStatusForAll,
+		setStagedFosterVisibilityForAll,
+		stagedStatusChanges,
+		stagedFosterVisibilityChanges,
 		validateForm,
 		errors,
 	} = useGroupForm();
@@ -75,6 +79,7 @@ export default function NewGroup() {
 					"photos",
 					"date_of_birth",
 					"group_id",
+					"foster_visibility",
 				],
 				orderBy: "created_at",
 				orderDirection: "desc",
@@ -127,13 +132,50 @@ export default function NewGroup() {
 		},
 	});
 
-	// Smart priority defaulting: check if any selected animal is high priority
+	// Get selected animals for conflict detection (after animals are fetched)
 	const selectedAnimals = useMemo(() => {
 		return animals.filter((animal) =>
 			selectedAnimalIds.includes(animal.id)
 		);
 	}, [animals, selectedAnimalIds]);
 
+	// Compute conflict detection for foster_visibility
+	const hasFosterVisibilityConflictComputed = useMemo(() => {
+		if (selectedAnimals.length === 0) {
+			return false;
+		}
+
+		// Get effective foster_visibility for each animal (staged change or current value)
+		const visibilityValues = selectedAnimals.map((animal) => {
+			const staged = stagedFosterVisibilityChanges.get(animal.id);
+			return staged || animal.foster_visibility;
+		});
+		const uniqueValues = new Set(visibilityValues);
+
+		return uniqueValues.size > 1;
+	}, [selectedAnimals, stagedFosterVisibilityChanges]);
+
+	const sharedFosterVisibilityComputed = useMemo(() => {
+		if (
+			selectedAnimals.length === 0 ||
+			hasFosterVisibilityConflictComputed
+		) {
+			return null;
+		}
+
+		const visibilityValues = selectedAnimals.map((animal) => {
+			const staged = stagedFosterVisibilityChanges.get(animal.id);
+			return staged || animal.foster_visibility;
+		});
+
+		return visibilityValues[0] || null;
+	}, [
+		selectedAnimals,
+		stagedFosterVisibilityChanges,
+		hasFosterVisibilityConflictComputed,
+	]);
+
+	// Smart priority defaulting: check if any selected animal is high priority
 	const hasHighPriorityAnimal = useMemo(() => {
 		return selectedAnimals.some((animal) => animal.priority === true);
 	}, [selectedAnimals]);
@@ -235,6 +277,14 @@ export default function NewGroup() {
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		setSubmitError(null);
+
+		// Check for foster_visibility conflicts
+		if (hasFosterVisibilityConflictComputed) {
+			setSubmitError(
+				"Animals in a group must have the same Visibility on Fosters Needed page"
+			);
+			return;
+		}
 
 		if (!validateForm()) {
 			return;
@@ -457,12 +507,45 @@ export default function NewGroup() {
 				}
 			}
 
-			// Update all selected animals to set their group_id
-			const { error: updateError } = await supabase
-				.from("animals")
-				.update({ group_id: newGroup.id })
-				.in("id", selectedAnimalIds)
-				.eq("organization_id", profile.organization_id);
+			// Apply staged changes to animals: status and foster_visibility
+			const animalUpdates: Record<string, unknown>[] = [];
+
+			selectedAnimalIds.forEach((animalId) => {
+				const update: Record<string, unknown> = {
+					group_id: newGroup.id,
+				};
+
+				// Apply staged status change if any
+				const stagedStatus = stagedStatusChanges.get(animalId);
+				if (stagedStatus) {
+					update.status = stagedStatus;
+				}
+
+				// Apply staged foster_visibility change if any
+				const stagedVisibility =
+					stagedFosterVisibilityChanges.get(animalId);
+				if (stagedVisibility) {
+					update.foster_visibility = stagedVisibility;
+				}
+
+				animalUpdates.push({ id: animalId, ...update });
+			});
+
+			// Update all selected animals with group_id and any staged changes
+			// We need to update each animal individually since they may have different updates
+			const updatePromises = animalUpdates.map((update) => {
+				const { id, ...updateData } = update;
+				return supabase
+					.from("animals")
+					.update(updateData)
+					.eq("id", id)
+					.eq("organization_id", profile.organization_id);
+			});
+
+			const updateResults = await Promise.all(updatePromises);
+			const updateError = updateResults.find(
+				(result) => result.error
+			)?.error;
 
 			if (updateError) {
 				console.error(
@@ -519,6 +602,18 @@ export default function NewGroup() {
 						isErrorAnimals={isErrorAnimals}
 						selectedAnimalIds={selectedAnimalIds}
 						toggleAnimalSelection={handleAnimalSelection}
+						stagedStatusChanges={stagedStatusChanges}
+						stagedFosterVisibilityChanges={
+							stagedFosterVisibilityChanges
+						}
+						setStagedStatusForAll={setStagedStatusForAll}
+						setStagedFosterVisibilityForAll={
+							setStagedFosterVisibilityForAll
+						}
+						hasFosterVisibilityConflict={
+							hasFosterVisibilityConflictComputed
+						}
+						sharedFosterVisibility={sharedFosterVisibilityComputed}
 						onPhotosChange={setSelectedPhotos}
 						photoError={photoUploadError}
 						onSubmit={handleSubmit}

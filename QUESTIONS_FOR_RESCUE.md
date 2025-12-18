@@ -676,3 +676,10 @@ Q: should foster see status on animal details? pro: more info, won't ask you abo
 Q: if on medical hold should auto sync to available future or not visable? no a critical decision but what is more common?
 
 Recommendation: Add a useUnsavedChanges hook and warn on navigation (not on reload, since reload resets everything anyway). This is a common UX pattern for forms.
+
+also I just realized that if we try to update an animal in the edit animal form and they are in a group we need to somehow enforce that we are not breaking the rule that all animals in a group foste visibility matches. the best was to do this is proably 
+if animal is in group. and visiability is changed Alert (<animal_name> is in group: <group_name>, all animals in a group must have the same viability. button: change all animals in group to (selected visability) button: cancel 
+
+The group details needs to show visability on foster needed page
+
+Lets show the name and not email addres of however is logged in
