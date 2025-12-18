@@ -12,7 +12,7 @@ export default function ProtectedLayout({
 	return (
 		<>
 			<NavigationBar />
-			<div className="pt-16">{children}</div>
+			<div className="pt-20">{children}</div>
 		</>
 	);
 }

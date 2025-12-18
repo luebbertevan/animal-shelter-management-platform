@@ -61,22 +61,32 @@ export default function NavigationBar() {
 	return (
 		<nav className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
 			<div className="max-w-7xl mx-auto px-4">
-				<div className="flex items-center justify-between h-16">
-					<button
-						onClick={() => navigate("/dashboard")}
-						className="flex items-center justify-center p-3 rounded-lg hover:bg-gray-100 transition-colors"
-						aria-label="Home"
-					>
-						<HomeIcon className="h-6 w-6 text-gray-700" />
-					</button>
+				<div className="flex items-center justify-between h-20">
+					<div className="flex items-center h-full py-0.5">
+						<img
+							src="/co_kitty_coalition_logo.avif"
+							alt="Co Kitty Coalition"
+							className="h-full max-h-full w-auto object-contain"
+						/>
+					</div>
 
-					<button
-						onClick={handleChatClick}
-						className="flex items-center justify-center p-3 rounded-lg hover:bg-gray-100 transition-colors"
-						aria-label="Chat"
-					>
-						<ChatBubbleLeftIcon className="h-6 w-6 text-gray-700" />
-					</button>
+					<div className="flex items-center gap-2">
+						<button
+							onClick={() => navigate("/dashboard")}
+							className="flex items-center justify-center p-3 rounded-lg hover:bg-gray-100 transition-colors"
+							aria-label="Home"
+						>
+							<HomeIcon className="h-6 w-6 text-gray-700" />
+						</button>
+
+						<button
+							onClick={handleChatClick}
+							className="flex items-center justify-center p-3 rounded-lg hover:bg-gray-100 transition-colors"
+							aria-label="Chat"
+						>
+							<ChatBubbleLeftIcon className="h-6 w-6 text-gray-700" />
+						</button>
+					</div>
 				</div>
 			</div>
 		</nav>
