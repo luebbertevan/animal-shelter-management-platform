@@ -374,12 +374,16 @@ export default function EditAnimal() {
 				return;
 			}
 
-			// Upload new photos if any
+			// Handle photo updates (additions and deletions)
 			const existingPhotos = animal.photos || [];
 			const remainingPhotos = existingPhotos.filter(
 				(photo) => !photosToDelete.includes(photo.url)
 			);
 			const photoMetadata: PhotoMetadata[] = [...remainingPhotos];
+
+			// Track if photos were modified (either deleted or added)
+			const photosWereDeleted = photosToDelete.length > 0;
+			let photosWereAdded = false;
 
 			if (selectedPhotos.length > 0) {
 				setUploadingPhotos(true);
@@ -421,25 +425,11 @@ export default function EditAnimal() {
 								uploaded_at: new Date().toISOString(),
 								uploaded_by: user.id,
 							});
+							photosWereAdded = true;
 						}
 					});
 
 					setUploadingPhotos(false);
-
-					// Update animal with photo metadata
-					if (photoMetadata.length !== existingPhotos.length) {
-						const { error: photoUpdateError } = await supabase
-							.from("animals")
-							.update({ photos: photoMetadata })
-							.eq("id", id);
-
-						if (photoUpdateError) {
-							console.error(
-								"Error updating animal photos:",
-								photoUpdateError
-							);
-						}
-					}
 
 					if (failedUploads > 0) {
 						setPhotoUploadError(
@@ -455,21 +445,26 @@ export default function EditAnimal() {
 						"Animal updated successfully, but photo upload failed."
 					);
 				}
-			} else {
-				// No new photos, but photos may have been deleted
-				// Update photo metadata to reflect deletions
-				if (photoMetadata.length !== existingPhotos.length) {
-					const { error: photoUpdateError } = await supabase
-						.from("animals")
-						.update({ photos: photoMetadata })
-						.eq("id", id);
+			}
 
-					if (photoUpdateError) {
-						console.error(
-							"Error updating animal photos:",
-							photoUpdateError
-						);
-					}
+			// Update photo metadata in database if photos were added or deleted
+			if (photosWereDeleted || photosWereAdded) {
+				const { error: photoUpdateError } = await supabase
+					.from("animals")
+					.update({ photos: photoMetadata })
+					.eq("id", id);
+
+				if (photoUpdateError) {
+					console.error(
+						"Error updating animal photos:",
+						photoUpdateError
+					);
+					setSubmitError(
+						getErrorMessage(
+							photoUpdateError,
+							"Failed to update photo metadata. Please try again."
+						)
+					);
 				}
 			}
 

@@ -1,4 +1,4 @@
-import { useParams} from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
@@ -131,7 +131,18 @@ export default function ConversationDetail() {
 			<div className="bg-white border-b border-gray-200 p-4 shadow-sm flex-shrink-0">
 				{headerText && (
 					<h1 className="text-xl font-semibold text-gray-800">
-						{headerText}
+						{profile.role === "coordinator" &&
+						conversation.type === "foster_chat" &&
+						conversation.foster_profile_id ? (
+							<Link
+								to={`/fosters/${conversation.foster_profile_id}`}
+								className="text-pink-600 hover:text-pink-700 hover:underline"
+							>
+								{headerText}
+							</Link>
+						) : (
+							headerText
+						)}
 					</h1>
 				)}
 			</div>
