@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Animal, SexSpayNeuterStatus, LifeStage } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import NavLinkButton from "../../components/ui/NavLinkButton";
-import Button from "../../components/ui/Button";
 import FieldDisplay from "../../components/animals/FieldDisplay";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
 import { fetchAnimalById } from "../../lib/animalQueries";
@@ -110,7 +108,6 @@ function formatAgeForDisplay(
 
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
-	const navigate = useNavigate();
 	const { user, profile, isCoordinator } = useProtectedAuth();
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -199,10 +196,6 @@ export default function AnimalDetail() {
 									? error.message
 									: "Unable to load animal details. Please try again."}
 							</p>
-							<NavLinkButton
-								to="/animals"
-								label="Back to Animals"
-							/>
 						</div>
 					</div>
 				</div>
@@ -225,20 +218,12 @@ export default function AnimalDetail() {
 									check your internet connection and try
 									again.
 								</p>
-								<NavLinkButton
-									to="/animals"
-									label="Back to Animals"
-								/>
 							</div>
 						) : (
 							<>
 								<p className="text-gray-600 mb-4">
 									Animal not found.
 								</p>
-								<NavLinkButton
-									to="/animals"
-									label="Back to Animals"
-								/>
 							</>
 						)}
 					</div>
@@ -263,29 +248,22 @@ export default function AnimalDetail() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
-				<div className="mb-6 space-y-4">
-					<NavLinkButton to="/animals" label="Back to Animals" />
-					{/* Edit Button */}
-					{isCoordinator && (
-						<Button
-							variant="outline"
-							onClick={() => {
-								if (id) {
-									navigate(`/animals/${id}/edit`);
-								}
-							}}
-						>
-							Edit
-						</Button>
-					)}
-				</div>
-
 				<div className="bg-white rounded-lg shadow-sm p-6">
 					{/* Header Section */}
 					<div className="mb-6">
-						<h1 className="text-2xl font-bold text-gray-900 mb-2">
-							{animal.name?.trim() || "Unnamed Animal"}
-						</h1>
+						<div className="flex items-center justify-between mb-2">
+							<h1 className="text-2xl font-bold text-gray-900">
+								{animal.name?.trim() || "Unnamed Animal"}
+							</h1>
+							{isCoordinator && (
+								<Link
+									to={`/animals/${id}/edit`}
+									className="px-4 py-2 border-2 border-pink-500 text-pink-600 rounded-md hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								>
+									Edit
+								</Link>
+							)}
+						</div>
 						{/* Badges under name */}
 						<div className="flex items-center gap-2 mb-2">
 							{/* Status Badge */}

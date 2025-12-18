@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { AnimalGroup, Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import NavLinkButton from "../../components/ui/NavLinkButton";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
 import AnimalCard from "../../components/animals/AnimalCard";
 import FieldDisplay from "../../components/animals/FieldDisplay";
@@ -142,10 +141,6 @@ export default function GroupDetail() {
 									? error.message
 									: "Unable to load group details. Please try again."}
 							</p>
-							<NavLinkButton
-								to="/groups"
-								label="Back to Groups"
-							/>
 						</div>
 					</div>
 				</div>
@@ -168,20 +163,12 @@ export default function GroupDetail() {
 									check your internet connection and try
 									again.
 								</p>
-								<NavLinkButton
-									to="/groups"
-									label="Back to Groups"
-								/>
 							</div>
 						) : (
 							<>
 								<p className="text-gray-600 mb-4">
 									Group not found.
 								</p>
-								<NavLinkButton
-									to="/groups"
-									label="Back to Groups"
-								/>
 							</>
 						)}
 					</div>
@@ -204,21 +191,18 @@ export default function GroupDetail() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
-				<div className="mb-6">
-					<NavLinkButton to="/groups" label="Back to Groups" />
-				</div>
-
 				<div className="bg-white rounded-lg shadow-sm p-6">
 					<div className="mb-6 flex items-center justify-between">
 						<h1 className="text-2xl font-bold text-gray-900">
 							{group.name?.trim() || "Unnamed Group"}
 						</h1>
 						{isCoordinator && (
-							<NavLinkButton
+							<Link
 								to={`/groups/${id}/edit`}
-								label="Edit"
-								variant="outline"
-							/>
+								className="px-4 py-2 border-2 border-pink-500 text-pink-600 rounded-md hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+							>
+								Edit
+							</Link>
 						)}
 					</div>
 

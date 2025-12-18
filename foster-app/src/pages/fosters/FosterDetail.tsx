@@ -11,7 +11,6 @@ import type {
 	PhotoMetadata,
 } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import NavLinkButton from "../../components/ui/NavLinkButton";
 import AnimalCard from "../../components/animals/AnimalCard";
 import GroupCard from "../../components/animals/GroupCard";
 import { fetchFosterById } from "../../lib/fosterQueries";
@@ -296,10 +295,6 @@ export default function FosterDetail() {
 									? error.message
 									: "Unable to load foster details. Please try again."}
 							</p>
-							<NavLinkButton
-								to="/fosters"
-								label="Back to Fosters"
-							/>
 						</div>
 					</div>
 				</div>
@@ -322,20 +317,12 @@ export default function FosterDetail() {
 									check your internet connection and try
 									again.
 								</p>
-								<NavLinkButton
-									to="/fosters"
-									label="Back to Fosters"
-								/>
 							</div>
 						) : (
 							<>
 								<p className="text-gray-600 mb-4">
 									Foster not found.
 								</p>
-								<NavLinkButton
-									to="/fosters"
-									label="Back to Fosters"
-								/>
 							</>
 						)}
 					</div>
@@ -347,10 +334,6 @@ export default function FosterDetail() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
-				<div className="mb-6">
-					<NavLinkButton to="/fosters" label="Back to Fosters" />
-				</div>
-
 				<div className="bg-white rounded-lg shadow-sm p-6 mb-6">
 					<div className="mb-6">
 						<div className="flex items-center gap-3 mb-2">

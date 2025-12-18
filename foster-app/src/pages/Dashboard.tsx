@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { useProtectedAuth } from "../hooks/useProtectedAuth";
-import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import AnimalCard from "../components/animals/AnimalCard";
 import GroupCard from "../components/animals/GroupCard";
@@ -177,23 +176,11 @@ export default function Dashboard() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
-				<div className="bg-white rounded-lg shadow-md p-6 mb-4">
-					<div className="flex justify-between items-center mb-4">
-						<div>
-							{profile.organization_name && (
-								<p className="text-lg font-semibold text-pink-600 mb-2">
-									{profile.organization_name}
-								</p>
-							)}
-							<h1 className="text-2xl font-bold text-gray-900">
-								Dashboard
-							</h1>
-							<p className="text-sm text-gray-600 mt-1">
-								Signed in as {user.email}
-							</p>
-						</div>
-					</div>
-				</div>
+				{profile.organization_name && (
+					<h1 className="text-3xl font-semibold text-pink-600 mb-4">
+						{profile.organization_name}
+					</h1>
+				)}
 
 				{showFosteringSection && (
 					<div className="mb-4">
@@ -222,13 +209,16 @@ export default function Dashboard() {
 					</div>
 				)}
 
-				<div className="bg-white rounded-lg shadow-md p-6">
-					<h2 className="text-lg font-semibold text-gray-900 mb-4">
-						Account
-					</h2>
-					<Button variant="outline" onClick={handleLogout}>
-						Log out
-					</Button>
+				<div className="mt-8 pb-4 text-center">
+					<p className="text-sm text-gray-600">
+						Signed in as {user.email}{" "}
+						<button
+							onClick={handleLogout}
+							className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
+						>
+							Log out
+						</button>
+					</p>
 				</div>
 			</div>
 		</div>

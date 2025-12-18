@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { useAnimalForm } from "../../hooks/useAnimalForm";
-import NavLinkButton from "../../components/ui/NavLinkButton";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import AnimalForm from "../../components/animals/AnimalForm";
@@ -574,9 +573,7 @@ export default function EditAnimal() {
 		return (
 			<div className="min-h-screen p-4 bg-gray-50">
 				<div className="max-w-4xl mx-auto">
-					<div className="mb-6">
-						<NavLinkButton to="/animals" label="Back to Animals" />
-					</div>
+					<div className="mb-6"></div>
 					<div className="bg-white rounded-lg shadow-sm p-6">
 						<ErrorMessage>
 							{animalError
@@ -595,16 +592,20 @@ export default function EditAnimal() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
-				<div className="mb-6">
-					<NavLinkButton
-						to={id ? `/animals/${id}` : "/animals"}
-						label="Back to Animal"
-					/>
-				</div>
 				<div className="bg-white rounded-lg shadow-md p-6">
-					<h1 className="text-2xl font-bold text-gray-900 mb-6">
-						Edit Animal
-					</h1>
+					<div className="flex items-center justify-between mb-6">
+						<h1 className="text-2xl font-bold text-gray-900">
+							Edit Animal
+						</h1>
+						<button
+							onClick={() =>
+								navigate(id ? `/animals/${id}` : "/animals")
+							}
+							className="text-sm text-pink-600 hover:text-pink-700 hover:underline font-medium"
+						>
+							Cancel
+						</button>
+					</div>
 
 					<AnimalForm
 						formState={formState}
