@@ -13,6 +13,7 @@ import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { createGroup, findGroupContainingAnimal } from "../../lib/groupQueries";
 import { uploadGroupPhoto } from "../../lib/photoUtils";
+import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import type { TimestampedPhoto } from "../../types";
 
 export default function NewGroup() {
@@ -139,41 +140,18 @@ export default function NewGroup() {
 		);
 	}, [animals, selectedAnimalIds]);
 
-	// Compute conflict detection for foster_visibility
-	const hasFosterVisibilityConflictComputed = useMemo(() => {
-		if (selectedAnimals.length === 0) {
-			return false;
-		}
-
-		// Get effective foster_visibility for each animal (staged change or current value)
-		const visibilityValues = selectedAnimals.map((animal) => {
-			const staged = stagedFosterVisibilityChanges.get(animal.id);
-			return staged || animal.foster_visibility;
-		});
-		const uniqueValues = new Set(visibilityValues);
-
-		return uniqueValues.size > 1;
-	}, [selectedAnimals, stagedFosterVisibilityChanges]);
-
-	const sharedFosterVisibilityComputed = useMemo(() => {
-		if (
-			selectedAnimals.length === 0 ||
-			hasFosterVisibilityConflictComputed
-		) {
-			return null;
-		}
-
-		const visibilityValues = selectedAnimals.map((animal) => {
-			const staged = stagedFosterVisibilityChanges.get(animal.id);
-			return staged || animal.foster_visibility;
-		});
-
-		return visibilityValues[0] || null;
-	}, [
-		selectedAnimals,
-		stagedFosterVisibilityChanges,
-		hasFosterVisibilityConflictComputed,
-	]);
+	// Compute conflict detection for foster_visibility using reusable utility
+	const {
+		sharedValue: sharedFosterVisibilityComputed,
+		hasConflict: hasFosterVisibilityConflictComputed,
+	} = useMemo(
+		() =>
+			getGroupFosterVisibility(
+				selectedAnimals,
+				stagedFosterVisibilityChanges
+			),
+		[selectedAnimals, stagedFosterVisibilityChanges]
+	);
 
 	// Smart priority defaulting: check if any selected animal is high priority
 	const hasHighPriorityAnimal = useMemo(() => {

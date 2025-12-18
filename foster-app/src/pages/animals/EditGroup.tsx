@@ -18,6 +18,7 @@ import {
 	deleteGroup,
 } from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
+import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import type { Animal, TimestampedPhoto } from "../../types";
 import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
 
@@ -139,41 +140,18 @@ export default function EditGroup() {
 		);
 	}, [animals, selectedAnimalIds]);
 
-	// Compute conflict detection for foster_visibility
-	const hasFosterVisibilityConflictComputed = useMemo(() => {
-		if (selectedAnimals.length === 0) {
-			return false;
-		}
-
-		// Get effective foster_visibility for each animal (staged change or current value)
-		const visibilityValues = selectedAnimals.map((animal) => {
-			const staged = stagedFosterVisibilityChanges.get(animal.id);
-			return staged || animal.foster_visibility;
-		});
-		const uniqueValues = new Set(visibilityValues);
-
-		return uniqueValues.size > 1;
-	}, [selectedAnimals, stagedFosterVisibilityChanges]);
-
-	const sharedFosterVisibilityComputed = useMemo(() => {
-		if (
-			selectedAnimals.length === 0 ||
-			hasFosterVisibilityConflictComputed
-		) {
-			return null;
-		}
-
-		const visibilityValues = selectedAnimals.map((animal) => {
-			const staged = stagedFosterVisibilityChanges.get(animal.id);
-			return staged || animal.foster_visibility;
-		});
-
-		return visibilityValues[0] || null;
-	}, [
-		selectedAnimals,
-		stagedFosterVisibilityChanges,
-		hasFosterVisibilityConflictComputed,
-	]);
+	// Compute conflict detection for foster_visibility using reusable utility
+	const {
+		sharedValue: sharedFosterVisibilityComputed,
+		hasConflict: hasFosterVisibilityConflictComputed,
+	} = useMemo(
+		() =>
+			getGroupFosterVisibility(
+				selectedAnimals,
+				stagedFosterVisibilityChanges
+			),
+		[selectedAnimals, stagedFosterVisibilityChanges]
+	);
 
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);

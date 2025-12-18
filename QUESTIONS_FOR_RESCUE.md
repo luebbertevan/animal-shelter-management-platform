@@ -654,7 +654,7 @@ search & filter
 tagging in messages
 
 
-foster details?? do we want that I can't remeber
+foster details?? do we want that I can't remeber. we want phone number only
 we need delete foster option. should unassign animals and groups from them on deletion
 
 
@@ -663,11 +663,6 @@ finalizing the schema (removing unused fields)
 The photos load in strange on animals pages. Maybe lowering resilution would help?
 1. takes a awhile to load pics (paint them in the browser maybe??) longer on first load (faster when cached)
 2. scrolling the page also is weird and photos take a second to load. (paint issue too?)
-
-
-I want similiar functionality for the groups form for the set all... fields 
-@GROUP_STATUS_DESIGN_DECISION.md (149-157) 
-I think that if all the foster_visability status of the animals in group are the same the group field "set all animals Visibility on Fosters Needed page" should indicate that in some way like have a green check at says "no conflicts" or "all grouped animals visability matches"  and the foster_visability drop down should be set to the groups shared foster_visability. 
 
 
 

@@ -2,12 +2,7 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type {
-	Animal,
-	SexSpayNeuterStatus,
-	LifeStage,
-	FosterVisibility,
-} from "../../types";
+import type { Animal, SexSpayNeuterStatus, LifeStage } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import NavLinkButton from "../../components/ui/NavLinkButton";
 import Button from "../../components/ui/Button";
@@ -55,21 +50,7 @@ function formatLifeStage(lifeStage: LifeStage): string {
 	}
 }
 
-// Helper function to format foster visibility for display
-function formatFosterVisibility(visibility: FosterVisibility): string {
-	switch (visibility) {
-		case "available_now":
-			return "Available Now";
-		case "available_future":
-			return "Available Future";
-		case "foster_pending":
-			return "Foster Pending";
-		case "not_visible":
-			return "Not Visible";
-		default:
-			return visibility;
-	}
-}
+import { formatFosterVisibility } from "../../lib/metadataUtils";
 
 // Helper function to format status for display
 function formatStatus(status: string): string {
