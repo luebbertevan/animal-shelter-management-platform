@@ -1,4 +1,4 @@
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useMemo } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
@@ -14,7 +14,7 @@ import type { Animal, LifeStage, PhotoMetadata } from "../types";
 export default function Dashboard() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { user, profile, isCoordinator } = useProtectedAuth();
+	const { user, profile } = useProtectedAuth();
 
 	// Fetch assigned animals for Currently Fostering section
 	const { data: assignedAnimals = [], isLoading: isLoadingAnimals } =
@@ -192,22 +192,6 @@ export default function Dashboard() {
 								Signed in as {user.email}
 							</p>
 						</div>
-					</div>
-				</div>
-
-				<div className="bg-white rounded-lg shadow-md p-6 mb-4">
-					<div className="flex flex-wrap gap-4">
-						<Link to="/animals" className="block">
-							<Button>Animals</Button>
-						</Link>
-						<Link to="/groups" className="block">
-							<Button>Groups</Button>
-						</Link>
-						{isCoordinator && (
-							<Link to="/fosters" className="block">
-								<Button>Fosters</Button>
-							</Link>
-						)}
 					</div>
 				</div>
 

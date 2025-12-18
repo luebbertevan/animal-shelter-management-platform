@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { HomeIcon, ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
 import { useProtectedAuth } from "../hooks/useProtectedAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +32,7 @@ async function fetchFosterConversation(userId: string, organizationId: string) {
 
 export default function NavigationBar() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { user, profile, isFoster, isCoordinator } = useProtectedAuth();
 
 	// Fetch conversation ID only for fosters
@@ -58,6 +59,10 @@ export default function NavigationBar() {
 		}
 	};
 
+	const isActive = (path: string) => {
+		return location.pathname.startsWith(path);
+	};
+
 	return (
 		<nav className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
 			<div className="max-w-7xl mx-auto px-4">
@@ -70,22 +75,56 @@ export default function NavigationBar() {
 						/>
 					</div>
 
-					<div className="flex items-center gap-2">
-						<button
-							onClick={() => navigate("/dashboard")}
-							className="flex items-center justify-center p-3 rounded-lg hover:bg-gray-100 transition-colors"
-							aria-label="Home"
+					<div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+						<Link
+							to="/animals"
+							className={`text-sm sm:text-base md:text-lg lg:text-xl font-medium transition-colors ${
+								isActive("/animals")
+									? "text-gray-900"
+									: "text-gray-600 hover:text-gray-900"
+							}`}
 						>
-							<HomeIcon className="h-6 w-6 text-gray-700" />
-						</button>
+							Animals
+						</Link>
+						<Link
+							to="/groups"
+							className={`text-sm sm:text-base md:text-lg lg:text-xl font-medium transition-colors ${
+								isActive("/groups")
+									? "text-gray-900"
+									: "text-gray-600 hover:text-gray-900"
+							}`}
+						>
+							Groups
+						</Link>
+						{isCoordinator && (
+							<Link
+								to="/fosters"
+								className={`text-sm sm:text-base md:text-lg lg:text-xl font-medium transition-colors ${
+									isActive("/fosters")
+										? "text-gray-900"
+										: "text-gray-600 hover:text-gray-900"
+								}`}
+							>
+								Fosters
+							</Link>
+						)}
+						<div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-2 md:ml-4">
+							<button
+								onClick={() => navigate("/dashboard")}
+								className="flex items-center justify-center p-2 md:p-3 rounded-lg hover:bg-gray-100 transition-colors"
+								aria-label="Home"
+							>
+								<HomeIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
+							</button>
 
-						<button
-							onClick={handleChatClick}
-							className="flex items-center justify-center p-3 rounded-lg hover:bg-gray-100 transition-colors"
-							aria-label="Chat"
-						>
-							<ChatBubbleLeftIcon className="h-6 w-6 text-gray-700" />
-						</button>
+							<button
+								onClick={handleChatClick}
+								className="flex items-center justify-center p-2 md:p-3 rounded-lg hover:bg-gray-100 transition-colors"
+								aria-label="Chat"
+							>
+								<ChatBubbleLeftIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
