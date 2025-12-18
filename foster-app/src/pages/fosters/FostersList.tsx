@@ -63,11 +63,6 @@ export default function FostersList() {
 							Refresh
 						</button>
 					</div>
-					<div className="space-y-4">
-						<Link to="/dashboard" className="block">
-							<Button variant="outline">Back to Dashboard</Button>
-						</Link>
-					</div>
 				</div>
 
 				{isLoading && (

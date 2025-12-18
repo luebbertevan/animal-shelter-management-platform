@@ -121,9 +121,6 @@ export default function GroupsList() {
 						</button>
 					</div>
 					<div className="space-y-4">
-						<Link to="/dashboard" className="block">
-							<Button variant="outline">Back to Dashboard</Button>
-						</Link>
 						{isCoordinator && (
 							<Link to="/groups/new" className="block">
 								<Button>Add Group</Button>

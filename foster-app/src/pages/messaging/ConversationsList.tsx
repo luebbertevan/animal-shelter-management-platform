@@ -1,10 +1,9 @@
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Conversation } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import Button from "../../components/ui/Button";
 import { getErrorMessage } from "../../lib/errorUtils";
 import { extractFullName } from "../../lib/supabaseUtils";
 
@@ -68,7 +67,6 @@ async function fetchConversations(organizationId: string) {
 }
 
 export default function ConversationsList() {
-	const navigate = useNavigate();
 	const { profile } = useProtectedAuth();
 
 	const {
@@ -99,13 +97,6 @@ export default function ConversationsList() {
 						? error.message
 						: "Failed to load conversations"}
 				</p>
-				<Button
-					onClick={() => navigate("/dashboard")}
-					variant="secondary"
-					className="w-auto"
-				>
-					Go to Dashboard
-				</Button>
 			</div>
 		);
 	}
@@ -115,14 +106,7 @@ export default function ConversationsList() {
 			<div className="min-h-screen p-4 bg-gray-50">
 				<div className="max-w-4xl mx-auto">
 					<div className="bg-white rounded-lg shadow-md p-6">
-						<div className="flex items-center gap-4 mb-4">
-							<Button
-								variant="outline"
-								onClick={() => navigate("/dashboard")}
-								className="w-auto"
-							>
-								← Back
-							</Button>
+						<div className="mb-4">
 							<h1 className="text-2xl font-bold text-gray-900">
 								Chats
 							</h1>
@@ -144,14 +128,7 @@ export default function ConversationsList() {
 		<div className="min-h-screen bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white shadow-sm">
-					<div className="p-4 border-b border-gray-200 flex items-center gap-4">
-						<Button
-							variant="outline"
-							onClick={() => navigate("/dashboard")}
-							className="w-auto"
-						>
-							← Back
-						</Button>
+					<div className="p-4 border-b border-gray-200">
 						<h1 className="text-2xl font-bold text-gray-900">
 							Chats
 						</h1>
@@ -167,12 +144,10 @@ export default function ConversationsList() {
 								conversation.type === "coordinator_group";
 
 							return (
-								<button
+								<Link
 									key={conversation.id}
-									onClick={() =>
-										navigate(`/chat/${conversation.id}`)
-									}
-									className={`w-full p-4 text-left transition-colors border border-pink-300 rounded-lg ${
+									to={`/chat/${conversation.id}`}
+									className={`block w-full p-4 text-left transition-colors border border-pink-300 rounded-lg ${
 										isCoordinatorChat
 											? "bg-pink-50 hover:bg-pink-100"
 											: "bg-white hover:bg-gray-50"
@@ -181,7 +156,7 @@ export default function ConversationsList() {
 									<h2 className="text-lg font-semibold text-gray-900">
 										{displayName}
 									</h2>
-								</button>
+								</Link>
 							);
 						})}
 					</div>

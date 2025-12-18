@@ -7,49 +7,14 @@ import Button from "../components/ui/Button";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import AnimalCard from "../components/animals/AnimalCard";
 import GroupCard from "../components/animals/GroupCard";
-import { getErrorMessage } from "../lib/errorUtils";
 import { fetchAssignedAnimals, fetchAnimals } from "../lib/animalQueries";
 import { fetchAssignedGroups } from "../lib/groupQueries";
 import type { Animal, LifeStage, PhotoMetadata } from "../types";
 
-async function fetchFosterConversation(userId: string, organizationId: string) {
-	const { data, error } = await supabase
-		.from("conversations")
-		.select("id")
-		.eq("type", "foster_chat")
-		.eq("foster_profile_id", userId)
-		.eq("organization_id", organizationId)
-		.single();
-
-	if (error) {
-		// If no conversation found, for edge cases, return null
-		if (error.code === "PGRST116") {
-			return null;
-		}
-		throw new Error(
-			getErrorMessage(
-				error,
-				"Failed to load conversation. Please try again."
-			)
-		);
-	}
-
-	return data?.id || null;
-}
-
 export default function Dashboard() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { user, profile, isFoster, isCoordinator } = useProtectedAuth();
-
-	// Fetch foster's conversation ID if user is a foster
-	const { data: conversationId } = useQuery<string | null>({
-		queryKey: ["fosterConversation", user.id, profile.organization_id],
-		queryFn: async () => {
-			return fetchFosterConversation(user.id, profile.organization_id);
-		},
-		enabled: isFoster,
-	});
+	const { user, profile, isCoordinator } = useProtectedAuth();
 
 	// Fetch assigned animals for Currently Fostering section
 	const { data: assignedAnimals = [], isLoading: isLoadingAnimals } =
@@ -241,19 +206,6 @@ export default function Dashboard() {
 						{isCoordinator && (
 							<Link to="/fosters" className="block">
 								<Button>Fosters</Button>
-							</Link>
-						)}
-						{isFoster && conversationId && (
-							<Link
-								to={`/chat/${conversationId}`}
-								className="block"
-							>
-								<Button>Chat</Button>
-							</Link>
-						)}
-						{isCoordinator && (
-							<Link to="/chats" className="block">
-								<Button>Chats</Button>
 							</Link>
 						)}
 					</div>
