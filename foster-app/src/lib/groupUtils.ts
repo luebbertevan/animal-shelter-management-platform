@@ -59,3 +59,42 @@ export function getGroupFosterVisibility(
 	};
 }
 
+/**
+ * Check if changing an animal's foster_visibility would create a conflict
+ * with other animals in its group.
+ *
+ * @param animal - The animal whose visibility is being changed
+ * @param newVisibility - The proposed new foster_visibility value
+ * @param groupAnimals - All animals in the group (including the animal being changed)
+ * @returns true if the change would create a conflict, false otherwise
+ */
+export function wouldFosterVisibilityChangeConflict(
+	animal: Animal,
+	newVisibility: FosterVisibility,
+	groupAnimals: Animal[]
+): boolean {
+	// If not changing, no conflict
+	if (animal.foster_visibility === newVisibility) {
+		return false;
+	}
+
+	// Get other animals in the group (excluding the one being changed)
+	const otherAnimals = groupAnimals.filter((a) => a.id !== animal.id);
+
+	// If no other animals, no conflict
+	if (otherAnimals.length === 0) {
+		return false;
+	}
+
+	// Get visibility values of other animals
+	const otherAnimalsVisibility = otherAnimals.map((a) => a.foster_visibility);
+	const uniqueVisibility = new Set(otherAnimalsVisibility);
+
+	// Conflict exists if:
+	// 1. Other animals already have different visibility values (conflict already exists)
+	// 2. The new value doesn't match the existing shared value (would create conflict)
+	return (
+		uniqueVisibility.size > 1 ||
+		(uniqueVisibility.size === 1 && !uniqueVisibility.has(newVisibility))
+	);
+}

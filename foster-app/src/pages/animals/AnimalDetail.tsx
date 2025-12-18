@@ -133,7 +133,7 @@ export default function AnimalDetail() {
 
 	// Fetch group name if animal is in a group
 	const { data: groupName } = useQuery<string | null, Error>({
-		queryKey: ["group", animal?.group_id],
+		queryKey: ["group-name", animal?.group_id],
 		queryFn: async () => {
 			if (!animal?.group_id) {
 				return null;

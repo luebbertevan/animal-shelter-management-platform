@@ -9,12 +9,17 @@ import NavLinkButton from "../../components/ui/NavLinkButton";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import AnimalForm from "../../components/animals/AnimalForm";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import {
 	fetchBreedSuggestions,
 	fetchPhysicalCharacteristicsSuggestions,
 	fetchAnimalById,
+	fetchAnimalsByIds,
 } from "../../lib/animalQueries";
+import { fetchGroupById } from "../../lib/groupQueries";
+import { formatFosterVisibility } from "../../lib/metadataUtils";
+import { wouldFosterVisibilityChangeConflict } from "../../lib/groupUtils";
 import { calculateDOBFromAge } from "../../lib/ageUtils";
 import { uploadAnimalPhoto, deleteAnimalPhoto } from "../../lib/photoUtils";
 import { deleteAnimal } from "../../lib/animalUtils";
@@ -23,6 +28,8 @@ import type {
 	SexSpayNeuterStatus,
 	LifeStage,
 	PhotoMetadata,
+	Animal,
+	FosterVisibility,
 } from "../../types";
 
 export default function EditAnimal() {
@@ -86,6 +93,11 @@ export default function EditAnimal() {
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+	// Group conflict modal state
+	const [showGroupConflictModal, setShowGroupConflictModal] = useState(false);
+	const [originalFosterVisibility, setOriginalFosterVisibility] =
+		useState<FosterVisibility | null>(null);
+
 	// Fetch breed suggestions (must be before early return)
 	const { data: breedSuggestions = [], isLoading: isLoadingBreeds } =
 		useQuery<string[]>({
@@ -108,6 +120,41 @@ export default function EditAnimal() {
 			fetchPhysicalCharacteristicsSuggestions(profile.organization_id),
 		staleTime: 5 * 60 * 1000,
 		enabled: !!profile.organization_id,
+	});
+
+	// Fetch group info if animal is in a group
+	const { data: group } = useQuery({
+		queryKey: ["group", animal?.group_id],
+		queryFn: async () => {
+			if (!animal?.group_id) {
+				return null;
+			}
+			return fetchGroupById(animal.group_id, profile.organization_id);
+		},
+		enabled: !!animal?.group_id && isCoordinator,
+	});
+
+	// Fetch all animals in the group to check for conflicts
+	const { data: groupAnimals = [] } = useQuery<Animal[], Error>({
+		queryKey: [
+			"group-animals",
+			user.id,
+			profile.organization_id,
+			group?.animal_ids,
+		],
+		queryFn: async () => {
+			if (!group?.animal_ids || group.animal_ids.length === 0) {
+				return [];
+			}
+			return fetchAnimalsByIds(
+				group.animal_ids,
+				profile.organization_id,
+				{
+					fields: ["id", "foster_visibility"],
+				}
+			);
+		},
+		enabled: !!group && !!group.animal_ids && isCoordinator,
 	});
 
 	// Redirect non-coordinators (after all hooks)
@@ -156,6 +203,35 @@ export default function EditAnimal() {
 			return;
 		}
 
+		if (!id || !animal) {
+			setSubmitError("Animal ID is required");
+			return;
+		}
+
+		// Check if animal is in a group and if foster_visibility change would conflict
+		if (
+			animal.group_id &&
+			group &&
+			groupAnimals.length > 0 &&
+			wouldFosterVisibilityChangeConflict(
+				animal,
+				formState.fosterVisibility,
+				groupAnimals
+			)
+		) {
+			// Store the original foster_visibility value before showing modal
+			setOriginalFosterVisibility(animal.foster_visibility);
+			// Show modal to ask user if they want to update all animals in group
+			setShowGroupConflictModal(true);
+			return;
+		}
+
+		// No conflict, proceed with normal submit
+		await performSubmit(false);
+	};
+
+	// Perform the actual submission
+	const performSubmit = async (updateAllInGroup: boolean) => {
 		if (!id || !animal) {
 			setSubmitError("Animal ID is required");
 			return;
@@ -229,6 +305,27 @@ export default function EditAnimal() {
 			// Keep display_placement_request for backward compatibility (deprecated)
 			animalData.display_placement_request =
 				formState.displayPlacementRequest;
+
+			// If updating all animals in group, update them all
+			if (updateAllInGroup && animal.group_id && group?.animal_ids) {
+				const { error: groupUpdateError } = await supabase
+					.from("animals")
+					.update({ foster_visibility: formState.fosterVisibility })
+					.in("id", group.animal_ids)
+					.eq("organization_id", profile.organization_id);
+
+				if (groupUpdateError) {
+					console.error(
+						"Error updating group animals' foster_visibility:",
+						groupUpdateError
+					);
+					setSubmitError(
+						"Failed to update all animals in group. Please try again."
+					);
+					setLoading(false);
+					return;
+				}
+			}
 
 			// Add date_of_birth
 			let finalDOB: string | null = null;
@@ -387,6 +484,23 @@ export default function EditAnimal() {
 			queryClient.invalidateQueries({
 				queryKey: ["animals", user.id, profile.organization_id, id],
 			});
+			// If we updated all animals in group, invalidate group queries too
+			if (updateAllInGroup && animal.group_id) {
+				queryClient.invalidateQueries({
+					queryKey: ["group", animal.group_id],
+				});
+				queryClient.invalidateQueries({
+					queryKey: [
+						"group-animals",
+						user.id,
+						profile.organization_id,
+						group?.animal_ids,
+					],
+				});
+				queryClient.invalidateQueries({
+					queryKey: ["groups", user.id, profile.organization_id],
+				});
+			}
 
 			setSuccessMessage("Animal updated successfully!");
 
@@ -550,6 +664,59 @@ export default function EditAnimal() {
 						onDeleteConfirm={handleDelete}
 						deleting={deleting}
 					/>
+
+					{/* Group Conflict Modal */}
+					{group && (
+						<ConfirmModal
+							isOpen={showGroupConflictModal}
+							title="Group Visibility Conflict"
+							message={
+								<>
+									<p className="mb-2">
+										{animal.name || "This animal"} is in
+										group:{" "}
+										<strong>
+											{group.name || "Unnamed Group"}
+										</strong>
+									</p>
+									<p className="mb-2">
+										All animals in a group must have the
+										same Visibility on Fosters Needed page.
+									</p>
+									<p>
+										Would you like to change all animals in
+										this group to{" "}
+										<strong>
+											{formatFosterVisibility(
+												formState.fosterVisibility
+											)}
+										</strong>
+										?
+									</p>
+								</>
+							}
+							confirmLabel={`Change all animals in group to ${formatFosterVisibility(
+								formState.fosterVisibility
+							)}`}
+							cancelLabel="Cancel"
+							onConfirm={async () => {
+								setShowGroupConflictModal(false);
+								// Update all animals in group
+								await performSubmit(true);
+							}}
+							onCancel={() => {
+								setShowGroupConflictModal(false);
+								// Revert foster_visibility to original value
+								if (originalFosterVisibility) {
+									setFosterVisibility(
+										originalFosterVisibility
+									);
+								}
+								setOriginalFosterVisibility(null);
+							}}
+							variant="default"
+						/>
+					)}
 				</div>
 			</div>
 		</div>
