@@ -339,9 +339,17 @@ export default function NewAnimal() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-md p-6">
-					<h1 className="text-2xl font-bold text-gray-900 mb-6">
-						Create New Animal
-					</h1>
+					<div className="flex items-center justify-between mb-6">
+						<h1 className="text-2xl font-bold text-gray-900">
+							Create New Animal
+						</h1>
+						<button
+							onClick={() => navigate("/animals")}
+							className="text-sm text-pink-600 hover:text-pink-700 hover:underline font-medium"
+						>
+							Cancel
+						</button>
+					</div>
 
 					<AnimalForm
 						formState={formState}

@@ -3744,6 +3744,128 @@ The preview card should show minimal, scannable information for quick browsing:
 
 ---
 
+## Phase: Fosters Needed Page
+
+**Goal:** Create a page where fosters can browse animals and groups needing placement. This page replaces the Animals and Groups list pages for fosters (but coordinators can still see both the old lists and the new Fosters Needed page).
+
+---
+
+### Fosters Needed Page
+
+**Goal:** Display animals and groups that need foster placement, allowing fosters to browse and request them. This page replaces the Animals and Groups list pages for fosters, while coordinators can access both the old lists and this new page.
+
+**Component Reusability:**
+
+-   Reuse AnimalCard and GroupCard components from Animals List and Groups List pages
+-   Both fosters and coordinators can view this page (same components, different permissions)
+-   Design for consistency with Animals List and Groups List pages
+
+**Navigation Updates:**
+
+-   Add "Fosters Needed" link to NavigationBar (visible to all users)
+-   For fosters: Replace "Animals" and "Groups" links with "Fosters Needed" link
+-   For coordinators: Show "Animals", "Groups", and "Fosters Needed" links (all three)
+-   Update page headers: Add "Fosters Needed" header text to both Animals List and Groups List pages (for coordinators)
+
+**Tasks:**
+
+1. **Create Fosters Needed page** (`src/pages/fosters/FostersNeeded.tsx`):
+
+    - Fetch animals filtered by:
+        - `foster_visibility != 'not_visible'` (only show animals that are visible to fosters)
+        - `group_id IS NULL` (only show animals that are NOT in a group - groups are displayed separately)
+        - Order by: `priority DESC, created_at ASC` (high priority first, then oldest first)
+    - Fetch groups filtered by:
+        - Groups where all animals have `foster_visibility != 'not_visible'` (groups appear if their animals are visible)
+        - Note: Group creation/editing enforces that all animals in a group have the same `foster_visibility`, so we can check any animal in the group
+        - Order by: `priority DESC, created_at ASC` (high priority first, then oldest first)
+    - Combine animals and groups into a single sorted list (mixed together, not separated)
+    - Sort combined list by: `priority DESC, created_at ASC` (high priority first, then oldest first)
+    - Display animals and groups together in a single browseable grid format (same grid layout as Animals List and Groups List)
+    - Show key information: name, photos, priority indicator
+    - Display visibility badge on animal cards showing `foster_visibility` value:
+        - **"Available Now"** badge for `foster_visibility = 'available_now'`
+        - **"Available Future"** badge for `foster_visibility = 'available_future'`
+        - **"Foster Pending"** badge for `foster_visibility = 'foster_pending'`
+        - Badge should be displayed on the AnimalCard component (similar to priority badge)
+    - Display visibility badge on group cards showing the group's `foster_visibility` value (same badge types as animals)
+        - Groups inherit `foster_visibility` from their animals (all animals in a group have the same value)
+    - Link to animal/group detail pages for more information
+    - Mobile-first responsive design
+
+2. **Update AnimalCard component** (`src/components/animals/AnimalCard.tsx`):
+
+    - Add optional `foster_visibility` prop to display visibility badge
+    - Badge should be displayed similar to priority badge (top-right overlay on photo)
+    - Badge styling:
+        - "Available Now": Light green badge (e.g., `bg-green-100 text-green-800`)
+        - "Available Future": Blue badge (e.g., `bg-blue-100 text-blue-800`)
+        - "Foster Pending": Yellow badge (e.g., `bg-yellow-100 text-yellow-800`)
+    - Badge should only show when `foster_visibility` is provided and not `'not_visible'`
+
+3. **Update GroupCard component** (`src/components/animals/GroupCard.tsx`):
+
+    - Add optional `foster_visibility` prop to display visibility badge
+    - Badge should be displayed similar to priority badge (top-right overlay on photo)
+    - Badge styling (same as AnimalCard):
+        - "Available Now": Light green badge (e.g., `bg-green-100 text-green-800`)
+        - "Available Future": Blue badge (e.g., `bg-blue-100 text-blue-800`)
+        - "Foster Pending": Yellow badge (e.g., `bg-yellow-100 text-yellow-800`)
+    - Badge should only show when `foster_visibility` is provided and not `'not_visible'`
+
+4. **Update NavigationBar** (`src/components/NavigationBar.tsx`):
+
+    - For fosters: Replace "Animals" and "Groups" links with "Fosters Needed" link
+    - For coordinators: Show "Animals", "Groups", and "Fosters Needed" links (all three visible)
+    - Update active state detection to handle `/fosters-needed` route
+
+5. **Update Animals List page** (`src/pages/animals/AnimalsList.tsx`):
+
+    - Add "Fosters Needed" header text/link in the page header (for coordinators)
+    - Only visible to coordinators (fosters won't see this page)
+
+6. **Update Groups List page** (`src/pages/animals/GroupsList.tsx`):
+
+    - Add "Fosters Needed" header text/link in the page header (for coordinators)
+    - Only visible to coordinators (fosters won't see this page)
+
+7. **Update routing** (`src/App.tsx` or routing file):
+
+    - Add route `/fosters-needed` (accessible to all users)
+    - Update route protection: Animals List and Groups List should only be accessible to coordinators
+    - Fosters should be redirected to Fosters Needed page if they try to access `/animals` or `/groups`
+
+**Implementation Notes:**
+
+-   **Visibility Logic:** Animals appear on Fosters Needed page if `foster_visibility != 'not_visible'` AND `group_id IS NULL`
+-   **Group Visibility:** Groups appear if their animals have `foster_visibility != 'not_visible'` (group creation/editing enforces consistency)
+-   **Mixed Display:** Animals and groups are combined into a single sorted list and displayed together in the same grid
+-   **Sorting:** Combined list sorted by `priority DESC, created_at ASC` (high priority first, then oldest first)
+-   **Component Reuse:** AnimalCard and GroupCard are reused from existing list pages
+-   **Badge Display:** Visibility badges are shown on both AnimalCard and GroupCard when `foster_visibility` is provided (only on Fosters Needed page)
+-   **Badge Colors:** Available Now (light green), Available Future (blue), Foster Pending (yellow)
+
+**Testing:**
+
+-   Fosters see "Fosters Needed" link in navigation (not "Animals" or "Groups")
+-   Coordinators see "Animals", "Groups", and "Fosters Needed" links in navigation
+-   Fosters can view animals/groups needing placement on Fosters Needed page
+-   Only animals with `foster_visibility != 'not_visible'` appear
+-   Only animals NOT in groups appear (groups are shown separately)
+-   Groups appear based on their animals' visibility
+-   Animals and groups are mixed together in the same grid (not separated)
+-   Combined list is sorted correctly: high priority items first, then sorted by created_at (oldest first)
+-   Visibility badges display correctly on animal cards (light green for Available Now, blue for Available Future, yellow for Foster Pending)
+-   Visibility badges display correctly on group cards (same colors as animals)
+-   AnimalCard and GroupCard components work correctly on Fosters Needed page
+-   Coordinators can still access Animals List and Groups List pages
+-   Fosters are redirected if they try to access `/animals` or `/groups` directly
+-   Mobile layout is usable
+
+**Deliverable:** Fosters Needed page working with proper visibility filtering, sorting, and navigation updates. Animals and groups displayed together in a mixed grid. AnimalCard and GroupCard updated to show visibility badges with correct colors. Navigation updated so fosters see "Fosters Needed" instead of "Animals"/"Groups", while coordinators see all three.
+
+---
+
 ### Copy Data from Animal Feature
 
 **Goal:** Allow coordinators to copy data from an existing animal when creating a new animal, pre-filling the form with most fields (excluding name, bio, and photos).
@@ -3953,99 +4075,6 @@ The preview card should show minimal, scannable information for quick browsing:
 -   Error handling works for invalid fosters, network errors, etc.
 
 **Deliverable:** Foster assignment working for animals and groups with automatic consistency enforcement and conflict resolution.
-
----
-
-## Phase: Fosters Needed Page
-
-**Goal:** Create a page where fosters can browse animals and groups needing placement and request them through messaging.
-
----
-
-### Fosters Needed Page
-
-**Goal:** Display animals and groups that need foster placement, allowing fosters to browse and request them.
-
-**Component Reusability:**
-
--   Reuse AnimalCard and GroupCard components from View Animals and View Groups pages
--   Share search and filter components across all list pages
--   Both fosters and coordinators can view this page (same components, different permissions)
--   Design for consistency with View Animals and View Groups pages
-
-**Tasks:**
-
-1. **Create Fosters Needed page** (`src/pages/fosters/FostersNeeded.tsx`):
-
-    - Fetch animals and groups filtered by:
-        - `display_placement_request = true` (boolean field controls visibility on placement page)
-        - Status determines availability category:
-            - **Available Now**: `status = 'in_shelter'`
-            - **Available Future**: `status IN ('transferring', 'medical_hold')`
-            - **Foster Pending**: Animals/groups where a foster has made a request (tracked via messages with tags)
-    - Display animals and groups in a browseable list/grid format
-    - Show key information: name, photos, priority indicator, basic needs, availability category
-    - Group or filter by availability category (Available Now, Available Future, Foster Pending)
-    - Use search/filter components from Reusable Search & Filter Component to allow filtering by:
-        - Species
-        - Priority (high priority animals/groups)
-        - Group vs individual animals
-        - Availability category (Available Now, Available Future, Foster Pending)
-    - Link to animal/group detail pages for more information
-    - Mobile-first responsive design
-
-2. **Add "Request to Foster" functionality:**
-
-    - Add "Request to Foster" button on animal/group detail pages (foster-only)
-    - Button should be visible on Fosters Needed page items and detail pages
-    - When clicked, open messaging interface with auto-filled content:
-        - Navigate to foster's conversation (foster chat)
-        - Pre-fill message content with request template:
-            - Include animal/group name
-            - Include basic information (species, priority if applicable)
-            - Template: "Hi, I'm interested in fostering [Animal/Group Name]. [Optional: Add any relevant information about my experience or availability]."
-        - Auto-tag the animal/group in the message (using tagging from Update Database Schema for Foster Tagging and related milestones)
-        - Allow foster to edit message before sending
-        - Send message to coordinators (visible in coordinator group chat and foster's conversation)
-
-3. **Update routing:**
-
-    - Add route `/fosters-needed` (accessible to all users, but primarily for fosters)
-    - Add navigation link for fosters (e.g., in Dashboard or navigation menu)
-
-4. **Handle request flow:**
-
-    - When foster clicks "Request to Foster":
-        - Check if foster already has an active request for this animal/group (optional - prevent duplicates)
-        - Open conversation with pre-filled message
-        - Auto-tag animal/group in message
-        - Foster can edit and send message
-        - Coordinators see request in their conversation list and coordinator group chat
-
-5. **Display request status (optional enhancement):**
-    - Show if foster has already requested an animal/group
-    - Display "Requested" indicator on animals/groups that have been requested
-    - Allow viewing previous requests in conversation history
-
-**Implementation Notes:**
-
--   **Messaging Integration:** Requests go through the existing messaging system (Messaging System phase), ensuring all coordinators can see requests
--   **Auto-tagging:** Uses message tagging feature (Update Database Schema for Foster Tagging and related milestones) to link requests to specific animals/groups
--   **No New Database Tables:** Uses existing `animals`, `animal_groups`, and `messages` tables with `message_links` for tagging
--   **Simple Request Flow:** Fosters send a message with auto-filled content and tags - coordinators respond through existing messaging
-
-**Testing:**
-
--   Fosters can view animals/groups needing placement
--   Can filter by species, priority, and group status
--   "Request to Foster" button opens conversation with pre-filled message
--   Message includes animal/group tag
--   Coordinators see requests in their conversation list
--   Requests appear in coordinator group chat
--   Foster can edit message before sending
--   Mobile layout is usable
-
-**Deliverable:** Fosters Needed page working with request functionality through messaging system.
 
 ---
 
