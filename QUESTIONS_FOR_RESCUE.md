@@ -635,6 +635,11 @@ add a nave bar with the co kitty coalition logo on it.
 Lets show the name and not email addres of however is logged in
 In the animals details page the 
 
+The dashboard should have stats, metrics and missing data fields graphics
+
+
+
+
 color palette 
 
 favicon

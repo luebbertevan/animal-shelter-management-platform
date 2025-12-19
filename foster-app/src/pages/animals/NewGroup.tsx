@@ -6,7 +6,6 @@ import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { useGroupForm } from "../../hooks/useGroupForm";
 import type { Animal } from "../../types";
-import NavLinkButton from "../../components/ui/NavLinkButton";
 import GroupForm from "../../components/animals/GroupForm";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
@@ -561,13 +560,18 @@ export default function NewGroup() {
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
-				<div className="mb-6">
-					<NavLinkButton to="/groups" label="Back to Groups" />
-				</div>
 				<div className="bg-white rounded-lg shadow-md p-6">
-					<h1 className="text-2xl font-bold text-gray-900 mb-6">
-						Create New Group
-					</h1>
+					<div className="flex items-center justify-between mb-6">
+						<h1 className="text-2xl font-bold text-gray-900">
+							Create New Group
+						</h1>
+						<button
+							onClick={() => navigate("/animals")}
+							className="text-sm text-pink-600 hover:text-pink-700 hover:underline font-medium"
+						>
+							Cancel
+						</button>
+					</div>
 
 					<GroupForm
 						formState={formState}
