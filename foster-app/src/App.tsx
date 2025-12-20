@@ -16,6 +16,8 @@ import FostersList from "./pages/fosters/FostersList";
 import FosterDetail from "./pages/fosters/FosterDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProtectedLayout from "./components/ProtectedLayout";
+import CoordinatorOnlyRoute from "./components/CoordinatorOnlyRoute";
+import FostersNeeded from "./pages/fosters/FostersNeeded";
 
 function App() {
 	return (
@@ -37,9 +39,11 @@ function App() {
 					path="/animals"
 					element={
 						<ProtectedRoute>
-							<ProtectedLayout>
-								<AnimalsList />
-							</ProtectedLayout>
+							<CoordinatorOnlyRoute>
+								<ProtectedLayout>
+									<AnimalsList />
+								</ProtectedLayout>
+							</CoordinatorOnlyRoute>
 						</ProtectedRoute>
 					}
 				/>
@@ -77,9 +81,11 @@ function App() {
 					path="/groups"
 					element={
 						<ProtectedRoute>
-							<ProtectedLayout>
-								<GroupsList />
-							</ProtectedLayout>
+							<CoordinatorOnlyRoute>
+								<ProtectedLayout>
+									<GroupsList />
+								</ProtectedLayout>
+							</CoordinatorOnlyRoute>
 						</ProtectedRoute>
 					}
 				/>
@@ -129,6 +135,16 @@ function App() {
 						<ProtectedRoute>
 							<ProtectedLayout>
 								<ConversationDetail />
+							</ProtectedLayout>
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/fosters-needed"
+					element={
+						<ProtectedRoute>
+							<ProtectedLayout>
+								<FostersNeeded />
 							</ProtectedLayout>
 						</ProtectedRoute>
 					}

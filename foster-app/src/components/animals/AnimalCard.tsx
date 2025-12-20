@@ -1,5 +1,9 @@
 import { Link, useNavigate } from "react-router-dom";
-import type { Animal, SexSpayNeuterStatus } from "../../types";
+import type {
+	Animal,
+	SexSpayNeuterStatus,
+	FosterVisibility,
+} from "../../types";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 
 // Helper function to create a URL-friendly slug from a name
@@ -79,6 +83,36 @@ interface AnimalCardProps {
 		group_name?: string; // Optional group name if animal is in a group
 	};
 	hideGroupIndicator?: boolean; // If true, hide the "In group" indicator
+	foster_visibility?: FosterVisibility; // Optional visibility badge for Fosters Needed page
+}
+
+// Helper function to get visibility badge text and styling
+function getVisibilityBadge(
+	visibility: FosterVisibility | undefined
+): { text: string; className: string } | null {
+	if (!visibility || visibility === "not_visible") {
+		return null;
+	}
+
+	switch (visibility) {
+		case "available_now":
+			return {
+				text: "Available Now",
+				className: "bg-green-100 text-green-800",
+			};
+		case "available_future":
+			return {
+				text: "Available Future",
+				className: "bg-blue-100 text-blue-800",
+			};
+		case "foster_pending":
+			return {
+				text: "Foster Pending",
+				className: "bg-yellow-100 text-yellow-800",
+			};
+		default:
+			return null;
+	}
 }
 
 /**
@@ -88,6 +122,7 @@ interface AnimalCardProps {
 export default function AnimalCard({
 	animal,
 	hideGroupIndicator = false,
+	foster_visibility,
 }: AnimalCardProps) {
 	const navigate = useNavigate();
 	const slug = createSlug(animal.name);
@@ -97,6 +132,7 @@ export default function AnimalCard({
 	const sexDisplay = animal.sex_spay_neuter_status
 		? formatSexSpayNeuterStatus(animal.sex_spay_neuter_status)
 		: null;
+	const visibilityBadge = getVisibilityBadge(foster_visibility);
 
 	// Build compact info string: "12 week old male" or just "male" if no age
 	const infoParts: string[] = [];
@@ -145,14 +181,21 @@ export default function AnimalCard({
 						/>
 					</svg>
 				)}
-				{/* Priority badge overlay */}
-				{animal.priority && (
-					<div className="absolute top-2 right-2">
+				{/* Badges overlay - priority and visibility */}
+				<div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+					{animal.priority && (
 						<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
 							High Priority
 						</span>
-					</div>
-				)}
+					)}
+					{visibilityBadge && (
+						<span
+							className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${visibilityBadge.className}`}
+						>
+							{visibilityBadge.text}
+						</span>
+					)}
+				</div>
 			</div>
 
 			{/* Bottom banner with name, age, and sex */}
