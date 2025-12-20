@@ -1,5 +1,10 @@
 import { Link } from "react-router-dom";
-import type { AnimalGroup, LifeStage, PhotoMetadata } from "../../types";
+import type {
+	AnimalGroup,
+	LifeStage,
+	PhotoMetadata,
+	FosterVisibility,
+} from "../../types";
 import {
 	formatLifeStageSummary,
 	getGridLayoutClasses,
@@ -26,6 +31,36 @@ interface GroupCardProps {
 		string,
 		{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
 	>;
+	foster_visibility?: FosterVisibility; // Optional visibility badge for Fosters Needed page
+}
+
+// Helper function to get visibility badge text and styling (same as AnimalCard)
+function getVisibilityBadge(
+	visibility: FosterVisibility | undefined
+): { text: string; className: string } | null {
+	if (!visibility || visibility === "not_visible") {
+		return null;
+	}
+
+	switch (visibility) {
+		case "available_now":
+			return {
+				text: "Available Now",
+				className: "bg-green-100 text-green-800",
+			};
+		case "available_future":
+			return {
+				text: "Available Future",
+				className: "bg-blue-100 text-blue-800",
+			};
+		case "foster_pending":
+			return {
+				text: "Foster Pending",
+				className: "bg-yellow-100 text-yellow-800",
+			};
+		default:
+			return null;
+	}
 }
 
 /**
@@ -33,9 +68,14 @@ interface GroupCardProps {
  * Matches AnimalCard size and styling
  * Links to the group detail page when clicked
  */
-export default function GroupCard({ group, animalData }: GroupCardProps) {
+export default function GroupCard({
+	group,
+	animalData,
+	foster_visibility,
+}: GroupCardProps) {
 	const animalCount = group.animal_ids?.length || 0;
 	const isEmpty = animalCount === 0;
+	const visibilityBadge = getVisibilityBadge(foster_visibility);
 
 	// Determine photo to display
 	let displayPhotos: string[] = [];
@@ -121,14 +161,21 @@ export default function GroupCard({ group, animalData }: GroupCardProps) {
 						/>
 					</svg>
 				)}
-				{/* Priority badge overlay (same position as AnimalCard) */}
-				{group.priority && (
-					<div className="absolute top-2 right-2">
+				{/* Badges overlay - priority and visibility (same position as AnimalCard) */}
+				<div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+					{group.priority && (
 						<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
 							High Priority
 						</span>
-					</div>
-				)}
+					)}
+					{visibilityBadge && (
+						<span
+							className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${visibilityBadge.className}`}
+						>
+							{visibilityBadge.text}
+						</span>
+					)}
+				</div>
 			</div>
 
 			{/* Bottom banner with name and life stage summary (matches AnimalCard) */}

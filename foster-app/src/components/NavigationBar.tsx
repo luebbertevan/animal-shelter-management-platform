@@ -30,9 +30,25 @@ async function fetchFosterConversation(userId: string, organizationId: string) {
 	return data?.id || null;
 }
 
+// Helper component for navigation links
+function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
+	const location = useLocation();
+	const isActive = location.pathname.startsWith(to);
+
+	return (
+		<Link
+			to={to}
+			className={`text-sm sm:text-base md:text-lg lg:text-xl font-medium transition-colors ${
+				isActive ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
+			}`}
+		>
+			{children}
+		</Link>
+	);
+}
+
 export default function NavigationBar() {
 	const navigate = useNavigate();
-	const location = useLocation();
 	const { user, profile, isFoster, isCoordinator } = useProtectedAuth();
 
 	// Fetch conversation ID only for fosters
@@ -59,10 +75,6 @@ export default function NavigationBar() {
 		}
 	};
 
-	const isActive = (path: string) => {
-		return location.pathname.startsWith(path);
-	};
-
 	return (
 		<nav className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
 			<div className="max-w-7xl mx-auto px-4">
@@ -79,37 +91,23 @@ export default function NavigationBar() {
 					</div>
 
 					<div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
-						<Link
-							to="/animals"
-							className={`text-sm sm:text-base md:text-lg lg:text-xl font-medium transition-colors ${
-								isActive("/animals")
-									? "text-gray-900"
-									: "text-gray-600 hover:text-gray-900"
-							}`}
-						>
-							Animals
-						</Link>
-						<Link
-							to="/groups"
-							className={`text-sm sm:text-base md:text-lg lg:text-xl font-medium transition-colors ${
-								isActive("/groups")
-									? "text-gray-900"
-									: "text-gray-600 hover:text-gray-900"
-							}`}
-						>
-							Groups
-						</Link>
+						{isFoster ? (
+							// Fosters see "Fosters Needed" instead of "Animals" and "Groups"
+							<NavLink to="/fosters-needed">
+								Fosters Needed
+							</NavLink>
+						) : (
+							// Coordinators see "Animals", "Groups", and "Fosters Needed"
+							<>
+								<NavLink to="/animals">Animals</NavLink>
+								<NavLink to="/groups">Groups</NavLink>
+								<NavLink to="/fosters-needed">
+									Fosters Needed
+								</NavLink>
+							</>
+						)}
 						{isCoordinator && (
-							<Link
-								to="/fosters"
-								className={`text-sm sm:text-base md:text-lg lg:text-xl font-medium transition-colors ${
-									isActive("/fosters")
-										? "text-gray-900"
-										: "text-gray-600 hover:text-gray-900"
-								}`}
-							>
-								Fosters
-							</Link>
+							<NavLink to="/fosters">Fosters</NavLink>
 						)}
 						<div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-2 md:ml-4">
 							<button

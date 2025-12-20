@@ -637,7 +637,13 @@ In the animals details page the
 
 The dashboard should have stats, metrics and missing data fields graphics
 
+Chat is too wide. needs a design rework
 
+Hitting enter in forms is buggy af.
+
+coordinators on mobile: weird spacing for teh headers. (fosters needed header is strange)
+
+refresh button is kinda confusing tbh
 
 
 color palette 
