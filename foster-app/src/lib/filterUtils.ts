@@ -8,6 +8,11 @@ import type {
 	FosterVisibility,
 } from "../types";
 
+/**
+ * Default page size for pagination across list pages
+ */
+export const DEFAULT_PAGE_SIZE = 50;
+
 // Generic type for Supabase query builder that supports chaining
 // This represents a query that can be chained with .eq(), .not(), .order(), etc.
 type SupabaseQuery = {
@@ -238,7 +243,7 @@ export function filtersToQueryParams(
 	filters: AnimalFilters | GroupFilters | FosterFilters,
 	searchTerm: string = "",
 	page: number = 1,
-	pageSize: number = 10
+	pageSize: number = DEFAULT_PAGE_SIZE
 ): URLSearchParams {
 	const params = new URLSearchParams();
 
@@ -262,7 +267,7 @@ export function filtersToQueryParams(
 	if (page > 1) {
 		params.set("page", String(page));
 	}
-	if (pageSize !== 10) {
+	if (pageSize !== DEFAULT_PAGE_SIZE) {
 		// Only include pageSize if it's not the default
 		params.set("pageSize", String(pageSize));
 	}
@@ -287,7 +292,7 @@ export function queryParamsToFilters<
 	const filters = { ...defaultFilters } as T;
 	let searchTerm = "";
 	let page = 1;
-	let pageSize = 10;
+	let pageSize = DEFAULT_PAGE_SIZE;
 
 	// Extract search term
 	const search = searchParams.get("search");

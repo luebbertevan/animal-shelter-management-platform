@@ -9,6 +9,7 @@ import Pagination from "../../components/shared/Pagination";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
 import { supabase } from "../../lib/supabase";
+import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 
 export default function AnimalsList() {
 	const { user, profile } = useProtectedAuth();
@@ -17,7 +18,10 @@ export default function AnimalsList() {
 
 	// Get pagination from URL
 	const page = parseInt(searchParams.get("page") || "1", 10);
-	const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+	const pageSize = parseInt(
+		searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE),
+		10
+	);
 	const offset = (page - 1) * pageSize;
 
 	// Fetch animals with pagination

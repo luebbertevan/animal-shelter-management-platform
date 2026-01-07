@@ -16,6 +16,7 @@ import Pagination from "../../components/shared/Pagination";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroups } from "../../lib/groupQueries";
 import { isOffline } from "../../lib/errorUtils";
+import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 
 // Type for combined items (animals and groups) for sorting
 type CombinedItem =
@@ -34,7 +35,10 @@ export default function FostersNeeded() {
 
 	// Get pagination from URL
 	const page = parseInt(searchParams.get("page") || "1", 10);
-	const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+	const pageSize = parseInt(
+		searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE),
+		10
+	);
 
 	// Single fetch for all animals with all needed fields
 	const {

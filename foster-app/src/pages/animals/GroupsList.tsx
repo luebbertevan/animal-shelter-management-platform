@@ -10,6 +10,7 @@ import Pagination from "../../components/shared/Pagination";
 import { fetchGroups, fetchGroupsCount } from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
+import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 
 type GroupWithAnimalNames = Pick<
 	AnimalGroup,
@@ -25,7 +26,10 @@ export default function GroupsList() {
 
 	// Get pagination from URL
 	const page = parseInt(searchParams.get("page") || "1", 10);
-	const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+	const pageSize = parseInt(
+		searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE),
+		10
+	);
 	const offset = (page - 1) * pageSize;
 
 	const {

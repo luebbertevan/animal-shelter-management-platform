@@ -7,6 +7,7 @@ import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Pagination from "../../components/shared/Pagination";
 import { fetchFosters, fetchFostersCount } from "../../lib/fosterQueries";
 import { isOffline, getErrorMessage } from "../../lib/errorUtils";
+import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 import type { User, Foster } from "../../types";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
@@ -159,7 +160,10 @@ export default function FostersList() {
 
 	// Get pagination from URL
 	const page = parseInt(searchParams.get("page") || "1", 10);
-	const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+	const pageSize = parseInt(
+		searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE),
+		10
+	);
 	const offset = (page - 1) * pageSize;
 
 	const {
