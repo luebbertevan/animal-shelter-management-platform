@@ -6,25 +6,33 @@ import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import AnimalCard from "../../components/animals/AnimalCard";
 import Pagination from "../../components/shared/Pagination";
+import SearchInput from "../../components/shared/SearchInput";
+import AnimalFilters, {
+	type AnimalFilters as AnimalFiltersType,
+} from "../../components/animals/AnimalFilters";
+import { FilterChip } from "../../components/shared/Filters";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
+import {
+	queryParamsToFilters,
+	filtersToQueryParams,
+	countActiveFilters,
+} from "../../lib/filterUtils";
 import { supabase } from "../../lib/supabase";
-import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 
 export default function AnimalsList() {
 	const { user, profile } = useProtectedAuth();
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
 
-	// Get pagination from URL
-	const page = parseInt(searchParams.get("page") || "1", 10);
-	const pageSize = parseInt(
-		searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE),
-		10
-	);
+	// Parse filters, search, and pagination from URL
+	const { filters, searchTerm, page, pageSize } = useMemo(() => {
+		return queryParamsToFilters<AnimalFiltersType>(searchParams, {});
+	}, [searchParams]);
+
 	const offset = (page - 1) * pageSize;
 
-	// Fetch animals with pagination
+	// Fetch animals with pagination, filters, and search
 	const {
 		data = [],
 		isLoading,
@@ -32,7 +40,15 @@ export default function AnimalsList() {
 		error,
 		refetch,
 	} = useQuery({
-		queryKey: ["animals", user.id, profile.organization_id, page, pageSize],
+		queryKey: [
+			"animals",
+			user.id,
+			profile.organization_id,
+			filters,
+			searchTerm,
+			page,
+			pageSize,
+		],
 		queryFn: async () => {
 			const animals = await fetchAnimals(profile.organization_id, {
 				fields: [
@@ -46,10 +62,13 @@ export default function AnimalsList() {
 					"group_id",
 				],
 				orderBy: "created_at",
-				orderDirection: "desc",
+				orderDirection:
+					filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
 				checkOffline: true,
 				limit: pageSize,
 				offset,
+				filters,
+				searchTerm,
 			});
 
 			// Fetch group names for animals that are in groups
@@ -103,25 +122,153 @@ export default function AnimalsList() {
 		},
 	});
 
-	// Fetch total count for pagination
+	// Fetch total count for pagination (with filters and search)
 	const { data: totalCount = 0 } = useQuery({
-		queryKey: ["animals-count", profile.organization_id],
-		queryFn: () => fetchAnimalsCount(profile.organization_id),
+		queryKey: [
+			"animals-count",
+			profile.organization_id,
+			filters,
+			searchTerm,
+		],
+		queryFn: () =>
+			fetchAnimalsCount(profile.organization_id, filters, searchTerm),
 	});
 
 	const animals = useMemo(() => data, [data]);
 	const totalPages = Math.ceil(totalCount / pageSize);
 
-	// Handle page change
-	const handlePageChange = (newPage: number) => {
-		const params = new URLSearchParams(searchParams);
-		if (newPage === 1) {
-			params.delete("page");
-		} else {
-			params.set("page", String(newPage));
-		}
+	// Handle filter changes
+	const handleFiltersChange = (newFilters: AnimalFiltersType) => {
+		const params = filtersToQueryParams(
+			newFilters,
+			searchTerm,
+			1,
+			pageSize
+		);
 		navigate(`/animals?${params.toString()}`, { replace: true });
 	};
+
+	// Handle search
+	const handleSearch = (term: string) => {
+		const params = filtersToQueryParams(filters, term, 1, pageSize);
+		navigate(`/animals?${params.toString()}`, { replace: true });
+	};
+
+	// Handle page change
+	const handlePageChange = (newPage: number) => {
+		const params = filtersToQueryParams(
+			filters,
+			searchTerm,
+			newPage,
+			pageSize
+		);
+		navigate(`/animals?${params.toString()}`, { replace: true });
+	};
+
+	// Generate active filter chips
+	const activeFilterChips = useMemo(() => {
+		const chips: Array<{ label: string; onRemove: () => void }> = [];
+
+		const createRemoveHandler =
+			(key: keyof AnimalFiltersType, value: undefined) => () => {
+				handleFiltersChange({ ...filters, [key]: value });
+			};
+
+		if (filters.priority === true) {
+			chips.push({
+				label: "High Priority",
+				onRemove: createRemoveHandler("priority", undefined),
+			});
+		}
+
+		if (filters.sex) {
+			const sexLabels: Record<string, string> = {
+				male: "Male",
+				female: "Female",
+				spayed_female: "Spayed Female",
+				neutered_male: "Neutered Male",
+			};
+			chips.push({
+				label: `Sex: ${sexLabels[filters.sex] || filters.sex}`,
+				onRemove: createRemoveHandler("sex", undefined),
+			});
+		}
+
+		if (filters.life_stage) {
+			const lifeStageLabels: Record<string, string> = {
+				kitten: "Kitten",
+				adult: "Adult",
+				senior: "Senior",
+				unknown: "Unknown",
+			};
+			chips.push({
+				label: `Life Stage: ${
+					lifeStageLabels[filters.life_stage] || filters.life_stage
+				}`,
+				onRemove: createRemoveHandler("life_stage", undefined),
+			});
+		}
+
+		if (filters.inGroup === true) {
+			chips.push({
+				label: "In Group",
+				onRemove: createRemoveHandler("inGroup", undefined),
+			});
+		} else if (filters.inGroup === false) {
+			chips.push({
+				label: "Not In Group",
+				onRemove: createRemoveHandler("inGroup", undefined),
+			});
+		}
+
+		if (filters.status) {
+			const statusLabels: Record<string, string> = {
+				in_foster: "In Foster",
+				adopted: "Adopted",
+				medical_hold: "Medical Hold",
+				in_shelter: "In Shelter",
+				transferring: "Transferring",
+			};
+			chips.push({
+				label: `Status: ${
+					statusLabels[filters.status] || filters.status
+				}`,
+				onRemove: createRemoveHandler("status", undefined),
+			});
+		}
+
+		if (filters.foster_visibility) {
+			const visibilityLabels: Record<string, string> = {
+				available_now: "Available Now",
+				available_future: "Available Future",
+				foster_pending: "Foster Pending",
+				not_visible: "Not Visible",
+			};
+			chips.push({
+				label: `Visibility: ${
+					visibilityLabels[filters.foster_visibility] ||
+					filters.foster_visibility
+				}`,
+				onRemove: createRemoveHandler("foster_visibility", undefined),
+			});
+		}
+
+		if (filters.sortByCreatedAt) {
+			chips.push({
+				label: `Sort: ${
+					filters.sortByCreatedAt === "oldest"
+						? "Oldest First"
+						: "Newest First"
+				}`,
+				onRemove: createRemoveHandler("sortByCreatedAt", undefined),
+			});
+		}
+
+		return chips;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filters]);
+
+	const activeFilterCount = countActiveFilters(filters);
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
@@ -203,30 +350,76 @@ export default function AnimalsList() {
 									Try Again
 								</button>
 							</div>
-						) : (
+						) : totalCount === 0 &&
+						  !searchTerm &&
+						  activeFilterCount === 0 ? (
 							<div className="text-gray-600">
 								No animals found yet. Once you add animals, they
 								will appear here.
+							</div>
+						) : (
+							<div className="text-gray-600">
+								No animals found matching your search and
+								filters.
 							</div>
 						)}
 					</div>
 				)}
 
-				{animals.length > 0 && (
+				{!isLoading && !isError && (
 					<>
-						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-							{animals.map((animal) => (
-								<AnimalCard key={animal.id} animal={animal} />
-							))}
-						</div>
-						{totalPages > 1 && (
-							<Pagination
-								currentPage={page}
-								totalPages={totalPages}
-								onPageChange={handlePageChange}
-								totalItems={totalCount}
-								itemsPerPage={pageSize}
+						{/* Search Input - Always visible */}
+						<div className="mb-4">
+							<SearchInput
+								value={searchTerm}
+								onSearch={handleSearch}
+								placeholder="Search animals by name..."
+								disabled={isLoading}
 							/>
+						</div>
+
+						{/* Filters */}
+						<div className="mb-4">
+							<AnimalFilters
+								filters={filters}
+								onFiltersChange={handleFiltersChange}
+							/>
+						</div>
+
+						{/* Active Filter Chips */}
+						{activeFilterChips.length > 0 && (
+							<div className="mb-4 flex flex-wrap gap-2">
+								{activeFilterChips.map((chip, index) => (
+									<FilterChip
+										key={index}
+										label={chip.label}
+										onRemove={chip.onRemove}
+									/>
+								))}
+							</div>
+						)}
+
+						{/* Results */}
+						{animals.length > 0 && (
+							<>
+								<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+									{animals.map((animal) => (
+										<AnimalCard
+											key={animal.id}
+											animal={animal}
+										/>
+									))}
+								</div>
+								{totalPages > 1 && (
+									<Pagination
+										currentPage={page}
+										totalPages={totalPages}
+										onPageChange={handlePageChange}
+										totalItems={totalCount}
+										itemsPerPage={pageSize}
+									/>
+								)}
+							</>
 						)}
 					</>
 				)}

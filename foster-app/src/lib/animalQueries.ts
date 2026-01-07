@@ -5,6 +5,8 @@ import {
 	handleSupabaseNotFound,
 } from "./errorUtils";
 import type { Animal } from "../types";
+import type { AnimalFilters } from "../components/animals/AnimalFilters";
+import { applyAnimalFilters, applyNameSearch } from "./filterUtils";
 
 export interface FetchAnimalsOptions {
 	// Fields to select. Default: ["id", "name", "status", "sex_spay_neuter_status", "priority", "foster_visibility"]
@@ -21,6 +23,10 @@ export interface FetchAnimalsOptions {
 	limit?: number;
 	// Pagination: offset (number of records to skip). Default: 0
 	offset?: number;
+	// Filters to apply to the query
+	filters?: AnimalFilters;
+	// Search term to filter by animal name
+	searchTerm?: string;
 }
 
 /**
@@ -44,19 +50,32 @@ export async function fetchAnimals(
 		checkOffline = false,
 		limit,
 		offset = 0,
+		filters = {},
+		searchTerm = "",
 	} = options;
 
 	try {
 		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
-		let query = supabase
-			.from("animals")
-			.select(selectFields)
-			.eq("organization_id", organizationId);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let query: any = supabase.from("animals").select(selectFields);
 
-		// Add ordering if specified
-		if (orderBy) {
-			query = query.order(orderBy, {
-				ascending: orderDirection === "asc",
+		// Apply filters (includes organization_id filter)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyAnimalFilters(query, filters, organizationId) as any;
+
+		// Apply search
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyNameSearch(query, searchTerm, "name") as any;
+
+		// Add ordering if specified (or from filters)
+		const finalOrderBy =
+			filters.sortByCreatedAt === "oldest" ? "created_at" : orderBy;
+		const finalOrderDirection =
+			filters.sortByCreatedAt === "oldest" ? "asc" : orderDirection;
+
+		if (finalOrderBy) {
+			query = query.order(finalOrderBy, {
+				ascending: finalOrderDirection === "asc",
 			});
 		}
 
@@ -408,13 +427,25 @@ export async function fetchPhysicalCharacteristicsSuggestions(
  * This function applies the same filters as fetchAnimals but only returns the count
  */
 export async function fetchAnimalsCount(
-	organizationId: string
+	organizationId: string,
+	filters: AnimalFilters = {},
+	searchTerm: string = ""
 ): Promise<number> {
 	try {
-		const { count, error } = await supabase
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let query: any = supabase
 			.from("animals")
-			.select("*", { count: "exact", head: true })
-			.eq("organization_id", organizationId);
+			.select("*", { count: "exact", head: true });
+
+		// Apply filters (includes organization_id filter)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyAnimalFilters(query, filters, organizationId) as any;
+
+		// Apply search
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyNameSearch(query, searchTerm, "name") as any;
+
+		const { count, error } = await query;
 
 		if (error) {
 			throw new Error(
