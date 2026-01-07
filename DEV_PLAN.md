@@ -3946,76 +3946,253 @@ The preview card should show minimal, scannable information for quick browsing:
 
 ### Reusable Search & Filter Component
 
-**Goal:** Create reusable search and filter components that can be used across the app (animals list, animal selection in groups, tagging, fosters needed page, etc.).
+**Goal:** Create reusable search and filter components that can be used across the app (animals list, groups list, animal selection in groups, fosters needed page, etc.). Search by name only. Filters for animals and groups as specified.
+
+**Design Decisions:**
+
+-   **Search Behavior:** Search triggers on Enter key press or Search button click (no debouncing)
+-   **Search Scope:** Search by name only (for now)
+-   **Animal Filters:** priority, sex, life_stage, if in group (has group_id), status, foster_visibility, created_at (newest/oldest)
+-   **Group Filters:** priority, created_at (newest/oldest)
+-   **Foster Filters:** if currently fostering (has assigned animals/groups)
+-   **DRY Principle:** Reuse components and utilities where possible (shared filter UI components, shared filter logic)
+-   **Default Sort Order:** `created_at` defaults to "Newest First" (most recent items first)
+
+**Mobile Design Decisions:**
+
+-   **Filter UI Layout on Mobile:** Collapsible accordion/section with "Show Filters" / "Hide Filters" toggle button (saves screen space on mobile)
+-   **Active Filter Display:** Show active filters as removable chips/tags above results (allows quick removal of individual filters)
+-   **Search Input Placement:** Search input is always visible above filters (not inside collapsible section) for easy access
+-   **Filter State Persistence:** Filter/search state stored in URL query parameters (enables bookmarkable/shareable filtered views, persists on page refresh)
+-   **Sticky Search/Filter Bar:** Search/filter bar is NOT sticky on scroll (simpler implementation, less UI complexity)
+-   **Filter Section Behavior:** Filter section starts collapsed on mobile, remembers open/closed state during session (using localStorage or component state)
+-   **Mobile Responsive Design:** All filter components use responsive Tailwind classes (stack vertically on mobile, horizontal layout on desktop)
 
 **Tasks:**
 
 1. **Create reusable search component** (`src/components/shared/SearchInput.tsx`):
 
     - Text input with search icon
-    - Debounced search (wait for user to stop typing)
-    - Clear button
-    - Accept props: `value`, `onChange`, `placeholder`, `disabled`
-    - Mobile-friendly styling
+    - Search button (triggers search on click)
+    - Search triggers on Enter key press
+    - Clear button (clears search and triggers search)
+    - Accept props: `value`, `onSearch`, `placeholder`, `disabled`
+    - `onSearch` callback called with search term when Enter pressed or Search button clicked
+    - Mobile-friendly styling (full width on mobile, responsive padding and font sizes)
+    - Always visible (not inside collapsible filter section)
 
-2. **Create reusable filter component** (`src/components/animals/AnimalFilters.tsx`):
+2. **Create shared filter UI components** (`src/components/shared/Filters.tsx`):
 
-    - Filter by status (dropdown/multi-select)
-    - Filter by priority (toggle)
-    - Filter by sex (dropdown)
-    - Filter by group (dropdown - shows all groups)
+    - `PriorityFilter` - Toggle for high priority (reusable for animals and groups)
+    - `SelectFilter` - Generic dropdown filter component (reusable for sex, status, etc.)
+    - `ToggleFilter` - Generic toggle/checkbox filter (reusable for "if in group", "currently fostering")
+    - `SortFilter` - Dropdown for sorting (reusable for created_at sorting - newest/oldest)
+    - `FilterChip` - Removable chip component for displaying active filters (reusable across all filter types)
+    - `FilterSection` - Collapsible wrapper component for filter groups (mobile-friendly with show/hide toggle)
+    - All components accept: `label`, `value`, `onChange`, `options` (for select/sort)
+    - Consistent styling and behavior
+    - Mobile-responsive (stack vertically on mobile, horizontal layout on desktop)
+    - `FilterSection` remembers open/closed state during session (localStorage or component state)
+
+3. **Create animal filter component** (`src/components/animals/AnimalFilters.tsx`):
+
+    - Uses shared filter UI components
+    - Wrapped in `FilterSection` for collapsible mobile behavior
+    - Filter by priority (toggle - uses `PriorityFilter`)
+    - Filter by sex (dropdown - uses `SelectFilter`)
+    - Filter by life_stage (dropdown - uses `SelectFilter`)
+    - Filter by if in group (toggle - uses `ToggleFilter`)
+    - Filter by status (dropdown - uses `SelectFilter`)
+    - Filter by foster_visibility (dropdown - uses `SelectFilter`)
+    - Sort by created_at (dropdown - uses `SortFilter`): "Newest First" or "Oldest First" (default: "Newest First")
     - Clear filters button
     - Show active filter count
-    - Accept props: `filters`, `onFiltersChange`, `availableGroups`
-    - Return filter object that can be applied to Supabase queries
+    - Accept props: `filters`, `onFiltersChange`
+    - Return filter object: `{ priority?, sex?, life_stage?, inGroup?, status?, foster_visibility?, sortByCreatedAt? }`
+    - Mobile-responsive layout (filters stack vertically on mobile)
 
-3. **Create filter utility functions** (`src/lib/filterUtils.ts`):
+4. **Create group filter component** (`src/components/animals/GroupFilters.tsx`):
 
-    - Function to build Supabase query from filter object
-    - Function to check if filters are active
-    - Function to clear all filters
-    - Reusable across different pages
+    - Uses shared filter UI components
+    - Wrapped in `FilterSection` for collapsible mobile behavior
+    - Filter by priority (toggle - uses `PriorityFilter`)
+    - Sort by created_at (dropdown - uses `SortFilter`): "Newest First" or "Oldest First" (default: "Newest First")
+    - Clear filters button
+    - Show active filter count
+    - Accept props: `filters`, `onFiltersChange`
+    - Return filter object: `{ priority?, sortByCreatedAt? }`
+    - Mobile-responsive layout (filters stack vertically on mobile)
 
-4. **Update AnimalsList to use new components**:
+5. **Create foster filter component** (`src/components/fosters/FosterFilters.tsx`):
 
-    - Integrate SearchInput and AnimalFilters
-    - Apply filters to Supabase query
+    - Uses shared filter UI components
+    - Wrapped in `FilterSection` for collapsible mobile behavior
+    - Filter by if currently fostering (toggle - uses `ToggleFilter`)
+    - Clear filters button
+    - Show active filter count
+    - Accept props: `filters`, `onFiltersChange`
+    - Return filter object: `{ currentlyFostering? }`
+    - Mobile-responsive layout (filters stack vertically on mobile)
+
+6. **Create filter utility functions** (`src/lib/filterUtils.ts`):
+
+    - `applyAnimalFilters(query, filters, organizationId)` - Applies animal filters to Supabase query
+    - `applyGroupFilters(query, filters, organizationId)` - Applies group filters to Supabase query
+    - `applyFosterFilters(query, filters, organizationId)` - Applies foster filters to Supabase query
+    - `applyNameSearch(query, searchTerm, fieldName)` - Applies name search to query (case-insensitive, partial match)
+    - `applySortByCreatedAt(query, sortOrder)` - Applies created_at sorting (asc/desc)
+    - `countActiveFilters(filters)` - Counts number of active filters
+    - `hasActiveFilters(filters)` - Returns true if any filters are active
+    - `clearFilters()` - Returns empty filter object
+    - `filtersToQueryParams(filters, searchTerm)` - Converts filter object and search term to URL query parameters
+    - `queryParamsToFilters(searchParams)` - Parses URL query parameters back to filter object and search term
+    - All functions are pure and reusable
+
+7. **Update AnimalsList to use search and filters**:
+
+    - Add SearchInput component (searches by animal name) - always visible above filters
+    - Add AnimalFilters component (wrapped in collapsible FilterSection for mobile)
+    - Add ActiveFilterChips component above results (displays active filters as removable chips)
+    - Sync filter/search state with URL query parameters (use `useSearchParams` from react-router-dom)
+    - Initialize filters from URL on page load
+    - Apply search and filters to `fetchAnimals` query
     - Display filtered results
-    - Show "No results" when filters match nothing
-    - Preserve filter state in URL params (optional, for shareable links)
+    - Show "No results" when filters/search match nothing
+    - Show active filter count
+    - Update query key to include search and filter values for proper caching
+    - Update URL when filters/search change (enables bookmarkable/shareable views)
 
-5. **Update NewGroup animal selection to use SearchInput**:
+8. **Update GroupsList to use search and filters**:
 
-    - Add search input above animal checkboxes
-    - Filter animals by name as user types
+    - Add SearchInput component (searches by group name) - always visible above filters
+    - Add GroupFilters component (wrapped in collapsible FilterSection for mobile)
+    - Add ActiveFilterChips component above results (displays active filters as removable chips)
+    - Sync filter/search state with URL query parameters (use `useSearchParams` from react-router-dom)
+    - Initialize filters from URL on page load
+    - Apply search and filters to `fetchGroups` query
+    - Display filtered results
+    - Show "No results" when filters/search match nothing
+    - Show active filter count
+    - Update query key to include search and filter values for proper caching
+    - Update URL when filters/search change (enables bookmarkable/shareable views)
+
+9. **Update FostersNeeded page to use search and filters** (optional enhancement):
+
+    - Add SearchInput component (searches by animal/group name) - always visible above filters
+    - Add AnimalFilters component (for filtering animals, wrapped in collapsible FilterSection for mobile)
+    - Add ActiveFilterChips component above results (displays active filters as removable chips)
+    - Sync filter/search state with URL query parameters (use `useSearchParams` from react-router-dom)
+    - Initialize filters from URL on page load
+    - Note: Groups in FostersNeeded inherit visibility from animals, so group-specific filters may not be needed
+    - Apply search and filters to both animals and groups queries
+    - Filter combined results appropriately
+    - Update URL when filters/search change (enables bookmarkable/shareable views)
+    - Mobile-responsive layout
+
+10. **Update NewGroup animal selection to use SearchInput**:
+
+    - Add SearchInput above animal checkboxes
+    - Filter animals by name (client-side filtering of already-fetched animals)
+    - Search triggers on Enter or Search button click
     - Improve UX for selecting animals from large lists
 
-6. **Update FostersList to use SearchInput**:
+11. **Update FostersList to use search and filters**:
 
-    - Add search input to foster list page
-    - Filter fosters by name as user types
-    - Improve UX for finding fosters in large lists
+    - Add SearchInput component (searches by foster name) - always visible above filters
+    - Add FosterFilters component (wrapped in collapsible FilterSection for mobile)
+    - Add ActiveFilterChips component above results (displays active filters as removable chips)
+    - Sync filter/search state with URL query parameters (use `useSearchParams` from react-router-dom)
+    - Initialize filters from URL on page load
+    - Apply search and filters to foster query
+    - For "currently fostering" filter: Check if foster has `current_foster_id` set on any animals or groups
+    - Display filtered results
+    - Show "No results" when filters/search match nothing
+    - Show active filter count
+    - Update query key to include search and filter values for proper caching
+    - Update URL when filters/search change (enables bookmarkable/shareable views)
 
-7. **Test:**
-    - Search works correctly in animals list
-    - Filters work correctly and can be combined
-    - Search works in group animal selection
-    - Search works in fosters list
-    - Components are reusable and work in different contexts
+**Implementation Notes:**
+
+-   **Search Implementation:**
+
+    -   Use Supabase `.ilike()` for case-insensitive partial name matching
+    -   Search term: `%${searchTerm}%` for partial matches
+    -   Search triggers only on Enter key or Search button click (not on every keystroke)
+
+-   **Filter Implementation:**
+
+    -   Priority filter: `.eq('priority', true)` or exclude if false
+    -   Sex filter: `.eq('sex_spay_neuter_status', value)`
+    -   Life stage filter: `.eq('life_stage', value)`
+    -   In group filter: `.not('group_id', 'is', null)` or `.is('group_id', null)`
+    -   Status filter: `.eq('status', value)`
+    -   Visibility filter: `.eq('foster_visibility', value)`
+    -   Created_at sort: `.order('created_at', { ascending: true/false })` (true for oldest first, false for newest first)
+    -   Currently fostering filter (fosters): Check if foster has animals or groups with `current_foster_id` matching foster's profile ID
+    -   Multiple filters can be combined (chain Supabase query methods)
+
+-   **Component Reusability:**
+
+    -   `SearchInput` is fully reusable across all pages
+    -   `PriorityFilter` is reusable for animals and groups
+    -   `SelectFilter` and `ToggleFilter` are generic and reusable
+    -   `FilterSection` and `FilterChip` are reusable across all filter components
+    -   Filter utility functions work for both animals and groups
+
+-   **Query Key Management:**
+
+    -   Include search term and filter values in React Query key
+    -   This ensures proper cache invalidation and separate caching for different filter combinations
+
+-   **URL Query Parameter Management:**
+
+    -   Use `useSearchParams` from react-router-dom to sync filter/search state with URL
+    -   Initialize filters from URL on page load (enables bookmarkable/shareable filtered views)
+    -   Update URL when filters/search change (without page reload)
+    -   Use `filtersToQueryParams` and `queryParamsToFilters` utility functions for conversion
+
+-   **Mobile Responsive Design:**
+    -   Filter sections are collapsible on mobile (using `FilterSection` component)
+    -   Filter section starts collapsed on mobile, remembers state during session
+    -   Search input is always visible (not inside collapsible section)
+    -   Active filter chips display above results (removable individual chips)
+    -   All filter components use responsive Tailwind classes (stack vertically on mobile, horizontal on desktop)
+    -   Filter toggle button shows "Show Filters" / "Hide Filters" text on mobile
 
 **Testing:**
 
--   Search component works correctly with debouncing
--   Filter component applies filters correctly
--   Filters can be combined (status + priority + sex, etc.)
--   Search works in animals list
--   Search works in group animal selection
--   Search works in fosters list
+-   Search component works correctly (triggers on Enter and Search button)
+-   Search works in animals list (searches by name)
+-   Search works in groups list (searches by name)
+-   Search works in fosters list (searches by name)
+-   Animal filters work correctly (priority, sex, life_stage, in group, status, visibility, created_at sort)
+-   Group filters work correctly (priority, created_at sort)
+-   Foster filters work correctly (currently fostering)
+-   Created_at sort works correctly (newest first / oldest first, defaults to newest first)
+-   Filters can be combined (multiple filters at once)
+-   Search and filters can be used together
 -   Clear filters button works
 -   Active filter count is accurate
+-   Active filter chips display correctly and can be removed individually
+-   "No results" message displays when appropriate
 -   Components are reusable across different pages
+-   Search works in NewGroup animal selection (client-side filtering)
+-   **Mobile Testing:**
+    -   Filter section is collapsible on mobile (show/hide toggle works)
+    -   Filter section remembers open/closed state during session
+    -   Search input is always visible on mobile (not hidden in collapsible section)
+    -   Active filter chips are touch-friendly (large enough tap targets)
+    -   All filter components stack vertically on mobile
+    -   Filter components display horizontally on desktop
+    -   Filter toggle button text is readable on mobile
+-   **URL Query Parameter Testing:**
+    -   Filters/search state syncs with URL query parameters
+    -   Filters/search initialize correctly from URL on page load
+    -   URL updates when filters/search change (without page reload)
+    -   Bookmarked filtered views work correctly (filters restored from URL)
+    -   Shareable filtered view URLs work correctly
 
-**Deliverable:** Reusable search and filter components working across the app.
+**Deliverable:** Reusable search and filter components working across animals list, groups list, fosters list, and other pages. Search by name with Enter/Search button. Animal filters: priority, sex, life_stage, in group, status, visibility, created_at sort. Group filters: priority, created_at sort. Foster filters: currently fostering. All components follow DRY principles with shared filter UI components. Mobile-friendly with collapsible filter sections, active filter chips, and URL query parameter persistence for bookmarkable/shareable filtered views.
 
 ---
 
