@@ -7,10 +7,19 @@ import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import GroupCard from "../../components/animals/GroupCard";
 import Pagination from "../../components/shared/Pagination";
+import SearchInput from "../../components/shared/SearchInput";
+import GroupFilters, {
+	type GroupFilters as GroupFiltersType,
+} from "../../components/animals/GroupFilters";
+import { FilterChip } from "../../components/shared/Filters";
 import { fetchGroups, fetchGroupsCount } from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
-import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
+import {
+	queryParamsToFilters,
+	filtersToQueryParams,
+	countActiveGroupFilters,
+} from "../../lib/filterUtils";
 
 type GroupWithAnimalNames = Pick<
 	AnimalGroup,
@@ -24,12 +33,11 @@ export default function GroupsList() {
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
 
-	// Get pagination from URL
-	const page = parseInt(searchParams.get("page") || "1", 10);
-	const pageSize = parseInt(
-		searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE),
-		10
-	);
+	// Parse filters, search, and pagination from URL
+	const { filters, searchTerm, page, pageSize } = useMemo(() => {
+		return queryParamsToFilters<GroupFiltersType>(searchParams, {});
+	}, [searchParams]);
+
 	const offset = (page - 1) * pageSize;
 
 	const {
@@ -39,7 +47,15 @@ export default function GroupsList() {
 		error: groupsError,
 		refetch,
 	} = useQuery({
-		queryKey: ["groups", user.id, profile.organization_id, page, pageSize],
+		queryKey: [
+			"groups",
+			user.id,
+			profile.organization_id,
+			filters,
+			searchTerm,
+			page,
+			pageSize,
+		],
 		queryFn: () => {
 			return fetchGroups(profile.organization_id, {
 				fields: [
@@ -51,10 +67,13 @@ export default function GroupsList() {
 					"group_photos",
 				],
 				orderBy: "created_at",
-				orderDirection: "desc",
+				orderDirection:
+					filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
 				checkOffline: true,
 				limit: pageSize,
 				offset,
+				filters,
+				searchTerm,
 			});
 		},
 	});
@@ -106,10 +125,16 @@ export default function GroupsList() {
 		});
 	}, [groupsData, animalMap]);
 
-	// Fetch total count for pagination
+	// Fetch total count for pagination (with filters and search)
 	const { data: totalCount = 0 } = useQuery({
-		queryKey: ["groups-count", profile.organization_id],
-		queryFn: () => fetchGroupsCount(profile.organization_id),
+		queryKey: [
+			"groups-count",
+			profile.organization_id,
+			filters,
+			searchTerm,
+		],
+		queryFn: () =>
+			fetchGroupsCount(profile.organization_id, filters, searchTerm),
 	});
 
 	const isLoading = isLoadingGroups || isLoadingAnimals;
@@ -118,16 +143,66 @@ export default function GroupsList() {
 	const groups = groupsWithAnimalNames;
 	const totalPages = Math.ceil(totalCount / pageSize);
 
-	// Handle page change
-	const handlePageChange = (newPage: number) => {
-		const params = new URLSearchParams(searchParams);
-		if (newPage === 1) {
-			params.delete("page");
-		} else {
-			params.set("page", String(newPage));
-		}
+	// Handle filter changes
+	const handleFiltersChange = (newFilters: GroupFiltersType) => {
+		const params = filtersToQueryParams(
+			newFilters,
+			searchTerm,
+			1,
+			pageSize
+		);
 		navigate(`/groups?${params.toString()}`, { replace: true });
 	};
+
+	// Handle search
+	const handleSearch = (term: string) => {
+		const params = filtersToQueryParams(filters, term, 1, pageSize);
+		navigate(`/groups?${params.toString()}`, { replace: true });
+	};
+
+	// Handle page change
+	const handlePageChange = (newPage: number) => {
+		const params = filtersToQueryParams(
+			filters,
+			searchTerm,
+			newPage,
+			pageSize
+		);
+		navigate(`/groups?${params.toString()}`, { replace: true });
+	};
+
+	// Generate active filter chips
+	const activeFilterChips = useMemo(() => {
+		const chips: Array<{ label: string; onRemove: () => void }> = [];
+
+		const createRemoveHandler =
+			(key: keyof GroupFiltersType, value: undefined) => () => {
+				handleFiltersChange({ ...filters, [key]: value });
+			};
+
+		if (filters.priority === true) {
+			chips.push({
+				label: "High Priority",
+				onRemove: createRemoveHandler("priority", undefined),
+			});
+		}
+
+		if (filters.sortByCreatedAt) {
+			chips.push({
+				label: `Sort: ${
+					filters.sortByCreatedAt === "oldest"
+						? "Oldest First"
+						: "Newest First"
+				}`,
+				onRemove: createRemoveHandler("sortByCreatedAt", undefined),
+			});
+		}
+
+		return chips;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filters]);
+
+	const activeFilterCount = countActiveGroupFilters(filters);
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
@@ -209,34 +284,77 @@ export default function GroupsList() {
 									Try Again
 								</button>
 							</div>
-						) : (
+						) : totalCount === 0 &&
+						  !searchTerm &&
+						  activeFilterCount === 0 ? (
 							<div className="text-gray-600">
 								No groups found yet. Once you add groups, they
 								will appear here.
+							</div>
+						) : (
+							<div className="text-gray-600">
+								No groups found matching your search and
+								filters.
 							</div>
 						)}
 					</div>
 				)}
 
-				{groups.length > 0 && (
+				{!isLoading && !isError && (
 					<>
-						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-							{groups.map((group) => (
-								<GroupCard
-									key={group.id}
-									group={group}
-									animalData={animalDataMap}
-								/>
-							))}
-						</div>
-						{totalPages > 1 && (
-							<Pagination
-								currentPage={page}
-								totalPages={totalPages}
-								onPageChange={handlePageChange}
-								totalItems={totalCount}
-								itemsPerPage={pageSize}
+						{/* Search Input - Always visible */}
+						<div className="mb-4">
+							<SearchInput
+								value={searchTerm}
+								onSearch={handleSearch}
+								placeholder="Search groups by name..."
+								disabled={isLoading}
 							/>
+						</div>
+
+						{/* Filters */}
+						<div className="mb-4">
+							<GroupFilters
+								filters={filters}
+								onFiltersChange={handleFiltersChange}
+							/>
+						</div>
+
+						{/* Active Filter Chips */}
+						{activeFilterChips.length > 0 && (
+							<div className="mb-4 flex flex-wrap gap-2">
+								{activeFilterChips.map((chip, index) => (
+									<FilterChip
+										key={index}
+										label={chip.label}
+										onRemove={chip.onRemove}
+									/>
+								))}
+							</div>
+						)}
+
+						{/* Results */}
+						{groups.length > 0 && (
+							<>
+								<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+									{groups.map((group) => (
+										<GroupCard
+											key={group.id}
+											group={group}
+											animalData={animalDataMap}
+										/>
+									))}
+								</div>
+								{totalPages > 1 && (
+									<Pagination
+										currentPage={page}
+										totalPages={totalPages}
+										onPageChange={handlePageChange}
+										totalItems={totalCount}
+										itemsPerPage={pageSize}
+									/>
+								)}
+							</>
 						)}
 					</>
 				)}
