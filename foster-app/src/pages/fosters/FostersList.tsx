@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import { fetchFosters } from "../../lib/fosterQueries";
+import Pagination from "../../components/shared/Pagination";
+import { fetchFosters, fetchFostersCount } from "../../lib/fosterQueries";
 import { isOffline, getErrorMessage } from "../../lib/errorUtils";
 import type { User, Foster } from "../../types";
 
@@ -153,6 +154,13 @@ function FosterCard({
 
 export default function FostersList() {
 	const { user, profile, isCoordinator } = useProtectedAuth();
+	const [searchParams] = useSearchParams();
+	const navigate = useNavigate();
+
+	// Get pagination from URL
+	const page = parseInt(searchParams.get("page") || "1", 10);
+	const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+	const offset = (page - 1) * pageSize;
 
 	const {
 		data: fosters = [],
@@ -161,7 +169,7 @@ export default function FostersList() {
 		error,
 		refetch,
 	} = useQuery({
-		queryKey: ["fosters", user.id, profile.organization_id],
+		queryKey: ["fosters", user.id, profile.organization_id, page, pageSize],
 		queryFn: () => {
 			return fetchFosters(profile.organization_id, {
 				fields: [
@@ -176,10 +184,32 @@ export default function FostersList() {
 				orderDirection: "asc",
 				checkOffline: true,
 				includeCoordinators: true,
+				limit: pageSize,
+				offset,
 			});
 		},
 		enabled: isCoordinator,
 	});
+
+	// Fetch total count for pagination
+	const { data: totalCount = 0 } = useQuery({
+		queryKey: ["fosters-count", profile.organization_id],
+		queryFn: () => fetchFostersCount(profile.organization_id, true),
+		enabled: isCoordinator,
+	});
+
+	const totalPages = Math.ceil(totalCount / pageSize);
+
+	// Handle page change
+	const handlePageChange = (newPage: number) => {
+		const params = new URLSearchParams(searchParams);
+		if (newPage === 1) {
+			params.delete("page");
+		} else {
+			params.set("page", String(newPage));
+		}
+		navigate(`/fosters?${params.toString()}`, { replace: true });
+	};
 
 	// Redirect non-coordinators (handled by route protection, but double-check)
 	if (!isCoordinator) {
@@ -268,16 +298,27 @@ export default function FostersList() {
 				)}
 
 				{fosters.length > 0 && (
-					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{fosters.map((foster) => (
-							<FosterCard
-								key={foster.id}
-								foster={foster}
-								currentUserId={user.id}
-								organizationId={profile.organization_id}
+					<>
+						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+							{fosters.map((foster) => (
+								<FosterCard
+									key={foster.id}
+									foster={foster}
+									currentUserId={user.id}
+									organizationId={profile.organization_id}
+								/>
+							))}
+						</div>
+						{totalPages > 1 && (
+							<Pagination
+								currentPage={page}
+								totalPages={totalPages}
+								onPageChange={handlePageChange}
+								totalItems={totalCount}
+								itemsPerPage={pageSize}
 							/>
-						))}
-					</div>
+						)}
+					</>
 				)}
 			</div>
 		</div>

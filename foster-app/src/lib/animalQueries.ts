@@ -17,6 +17,10 @@ export interface FetchAnimalsOptions {
 	// Whether to check for offline state and throw error if offline with empty data.
 	// Default: false
 	checkOffline?: boolean;
+	// Pagination: limit (page size). Default: 50
+	limit?: number;
+	// Pagination: offset (number of records to skip). Default: 0
+	offset?: number;
 }
 
 /**
@@ -38,6 +42,8 @@ export async function fetchAnimals(
 		orderBy = "created_at",
 		orderDirection = "desc",
 		checkOffline = false,
+		limit,
+		offset = 0,
 	} = options;
 
 	try {
@@ -52,6 +58,11 @@ export async function fetchAnimals(
 			query = query.order(orderBy, {
 				ascending: orderDirection === "asc",
 			});
+		}
+
+		// Add pagination if specified
+		if (limit !== undefined) {
+			query = query.range(offset, offset + limit - 1);
 		}
 
 		const { data, error } = await query;
@@ -151,7 +162,8 @@ export async function fetchAnimalsByIds(
 	organizationId: string,
 	options: FetchAnimalsByIdsOptions = {}
 ): Promise<Animal[]> {
-	const { fields = ["id", "name", "priority", "foster_visibility"] } = options;
+	const { fields = ["id", "name", "priority", "foster_visibility"] } =
+		options;
 
 	if (animalIds.length === 0) {
 		return [];
@@ -193,7 +205,8 @@ export async function fetchAnimalsByFosterId(
 	organizationId: string,
 	options: FetchAnimalsByFosterIdOptions = {}
 ): Promise<Animal[]> {
-	const { fields = ["id", "name", "priority", "foster_visibility"] } = options;
+	const { fields = ["id", "name", "priority", "foster_visibility"] } =
+		options;
 
 	try {
 		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
@@ -388,4 +401,37 @@ export async function fetchPhysicalCharacteristicsSuggestions(
 		"physical_characteristics",
 		20
 	);
+}
+
+/**
+ * Get total count of animals for an organization (for pagination)
+ * This function applies the same filters as fetchAnimals but only returns the count
+ */
+export async function fetchAnimalsCount(
+	organizationId: string
+): Promise<number> {
+	try {
+		const { count, error } = await supabase
+			.from("animals")
+			.select("*", { count: "exact", head: true })
+			.eq("organization_id", organizationId);
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to fetch animal count. Please try again."
+				)
+			);
+		}
+
+		return count || 0;
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to fetch animal count. Please try again."
+			)
+		);
+	}
 }

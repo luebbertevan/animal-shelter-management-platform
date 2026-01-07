@@ -1,12 +1,13 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { AnimalGroup, LifeStage, PhotoMetadata } from "../../types";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import GroupCard from "../../components/animals/GroupCard";
-import { fetchGroups } from "../../lib/groupQueries";
+import Pagination from "../../components/shared/Pagination";
+import { fetchGroups, fetchGroupsCount } from "../../lib/groupQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
 
@@ -19,6 +20,13 @@ type GroupWithAnimalNames = Pick<
 
 export default function GroupsList() {
 	const { user, profile, isCoordinator } = useProtectedAuth();
+	const [searchParams] = useSearchParams();
+	const navigate = useNavigate();
+
+	// Get pagination from URL
+	const page = parseInt(searchParams.get("page") || "1", 10);
+	const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+	const offset = (page - 1) * pageSize;
 
 	const {
 		data: groupsData = [],
@@ -27,7 +35,7 @@ export default function GroupsList() {
 		error: groupsError,
 		refetch,
 	} = useQuery({
-		queryKey: ["groups", user.id, profile.organization_id],
+		queryKey: ["groups", user.id, profile.organization_id, page, pageSize],
 		queryFn: () => {
 			return fetchGroups(profile.organization_id, {
 				fields: [
@@ -41,6 +49,8 @@ export default function GroupsList() {
 				orderBy: "created_at",
 				orderDirection: "desc",
 				checkOffline: true,
+				limit: pageSize,
+				offset,
 			});
 		},
 	});
@@ -92,10 +102,28 @@ export default function GroupsList() {
 		});
 	}, [groupsData, animalMap]);
 
+	// Fetch total count for pagination
+	const { data: totalCount = 0 } = useQuery({
+		queryKey: ["groups-count", profile.organization_id],
+		queryFn: () => fetchGroupsCount(profile.organization_id),
+	});
+
 	const isLoading = isLoadingGroups || isLoadingAnimals;
 	const isError = isErrorGroups;
 	const error = groupsError;
 	const groups = groupsWithAnimalNames;
+	const totalPages = Math.ceil(totalCount / pageSize);
+
+	// Handle page change
+	const handlePageChange = (newPage: number) => {
+		const params = new URLSearchParams(searchParams);
+		if (newPage === 1) {
+			params.delete("page");
+		} else {
+			params.set("page", String(newPage));
+		}
+		navigate(`/groups?${params.toString()}`, { replace: true });
+	};
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
@@ -187,15 +215,26 @@ export default function GroupsList() {
 				)}
 
 				{groups.length > 0 && (
-					<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-						{groups.map((group) => (
-							<GroupCard
-								key={group.id}
-								group={group}
-								animalData={animalDataMap}
+					<>
+						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+							{groups.map((group) => (
+								<GroupCard
+									key={group.id}
+									group={group}
+									animalData={animalDataMap}
+								/>
+							))}
+						</div>
+						{totalPages > 1 && (
+							<Pagination
+								currentPage={page}
+								totalPages={totalPages}
+								onPageChange={handlePageChange}
+								totalItems={totalCount}
+								itemsPerPage={pageSize}
 							/>
-						))}
-					</div>
+						)}
+					</>
 				)}
 			</div>
 		</div>

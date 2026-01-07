@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type {
 	Animal,
@@ -11,6 +12,7 @@ import type {
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import AnimalCard from "../../components/animals/AnimalCard";
 import GroupCard from "../../components/animals/GroupCard";
+import Pagination from "../../components/shared/Pagination";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroups } from "../../lib/groupQueries";
 import { isOffline } from "../../lib/errorUtils";
@@ -28,6 +30,11 @@ type CombinedItem =
 
 export default function FostersNeeded() {
 	const { user, profile } = useProtectedAuth();
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	// Get pagination from URL
+	const page = parseInt(searchParams.get("page") || "1", 10);
+	const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
 
 	// Single fetch for all animals with all needed fields
 	const {
@@ -206,6 +213,28 @@ export default function FostersNeeded() {
 		return items;
 	}, [animalsData, groupsWithVisibility]);
 
+	// Paginate the combined items
+	const paginatedItems = useMemo(() => {
+		const startIndex = (page - 1) * pageSize;
+		const endIndex = startIndex + pageSize;
+		return combinedItems.slice(startIndex, endIndex);
+	}, [combinedItems, page, pageSize]);
+
+	// Calculate total pages
+	const totalItems = combinedItems.length;
+	const totalPages = Math.ceil(totalItems / pageSize);
+
+	// Handle page change
+	const handlePageChange = (newPage: number) => {
+		const params = new URLSearchParams(searchParams);
+		if (newPage === 1) {
+			params.delete("page");
+		} else {
+			params.set("page", String(newPage));
+		}
+		setSearchParams(params);
+	};
+
 	const isLoading = isLoadingAnimals || isLoadingGroups;
 	const isError = isErrorAnimals || isErrorGroups;
 	const error = animalsError || groupsError;
@@ -293,32 +322,41 @@ export default function FostersNeeded() {
 				)}
 
 				{combinedItems.length > 0 && (
-					<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-						{combinedItems.map((item) => {
-							if (item.type === "animal") {
-								return (
-									<AnimalCard
-										key={`animal-${item.data.id}`}
-										animal={item.data}
-										foster_visibility={
-											item.data.foster_visibility
-										}
-									/>
-								);
-							} else {
-								return (
-									<GroupCard
-										key={`group-${item.data.id}`}
-										group={item.data}
-										animalData={animalDataMap}
-										foster_visibility={
-											item.foster_visibility
-										}
-									/>
-								);
-							}
-						})}
-					</div>
+					<>
+						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+							{paginatedItems.map((item) => {
+								if (item.type === "animal") {
+									return (
+										<AnimalCard
+											key={`animal-${item.data.id}`}
+											animal={item.data}
+											foster_visibility={
+												item.data.foster_visibility
+											}
+										/>
+									);
+								} else {
+									return (
+										<GroupCard
+											key={`group-${item.data.id}`}
+											group={item.data}
+											animalData={animalDataMap}
+											foster_visibility={
+												item.foster_visibility
+											}
+										/>
+									);
+								}
+							})}
+						</div>
+						<Pagination
+							currentPage={page}
+							totalPages={totalPages}
+							onPageChange={handlePageChange}
+							totalItems={totalItems}
+							itemsPerPage={pageSize}
+						/>
+					</>
 				)}
 			</div>
 		</div>

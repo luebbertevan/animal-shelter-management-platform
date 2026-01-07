@@ -18,6 +18,10 @@ export interface FetchGroupsOptions {
 	// Whether to check for offline state and throw error if offline with empty data.
 	// Default: false
 	checkOffline?: boolean;
+	// Pagination: limit (page size). Default: 50
+	limit?: number;
+	// Pagination: offset (number of records to skip). Default: 0
+	offset?: number;
 }
 
 /**
@@ -32,6 +36,8 @@ export async function fetchGroups(
 		orderBy = "created_at",
 		orderDirection = "desc",
 		checkOffline = false,
+		limit,
+		offset = 0,
 	} = options;
 
 	try {
@@ -46,6 +52,11 @@ export async function fetchGroups(
 			query = query.order(orderBy, {
 				ascending: orderDirection === "asc",
 			});
+		}
+
+		// Add pagination if specified
+		if (limit !== undefined) {
+			query = query.range(offset, offset + limit - 1);
 		}
 
 		const { data, error } = await query;
@@ -484,6 +495,38 @@ export async function deleteGroup(
 	} catch (err) {
 		throw new Error(
 			getErrorMessage(err, "Failed to delete group. Please try again.")
+		);
+	}
+}
+
+/**
+ * Get total count of groups for an organization (for pagination)
+ */
+export async function fetchGroupsCount(
+	organizationId: string
+): Promise<number> {
+	try {
+		const { count, error } = await supabase
+			.from("animal_groups")
+			.select("*", { count: "exact", head: true })
+			.eq("organization_id", organizationId);
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to fetch group count. Please try again."
+				)
+			);
+		}
+
+		return count || 0;
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to fetch group count. Please try again."
+			)
 		);
 	}
 }

@@ -1,17 +1,26 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import Button from "../../components/ui/Button";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import AnimalCard from "../../components/animals/AnimalCard";
-import { fetchAnimals } from "../../lib/animalQueries";
+import Pagination from "../../components/shared/Pagination";
+import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import { isOffline } from "../../lib/errorUtils";
 import { supabase } from "../../lib/supabase";
 
 export default function AnimalsList() {
 	const { user, profile } = useProtectedAuth();
+	const [searchParams] = useSearchParams();
+	const navigate = useNavigate();
 
+	// Get pagination from URL
+	const page = parseInt(searchParams.get("page") || "1", 10);
+	const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+	const offset = (page - 1) * pageSize;
+
+	// Fetch animals with pagination
 	const {
 		data = [],
 		isLoading,
@@ -19,7 +28,7 @@ export default function AnimalsList() {
 		error,
 		refetch,
 	} = useQuery({
-		queryKey: ["animals", user.id, profile.organization_id],
+		queryKey: ["animals", user.id, profile.organization_id, page, pageSize],
 		queryFn: async () => {
 			const animals = await fetchAnimals(profile.organization_id, {
 				fields: [
@@ -35,6 +44,8 @@ export default function AnimalsList() {
 				orderBy: "created_at",
 				orderDirection: "desc",
 				checkOffline: true,
+				limit: pageSize,
+				offset,
 			});
 
 			// Fetch group names for animals that are in groups
@@ -88,7 +99,25 @@ export default function AnimalsList() {
 		},
 	});
 
+	// Fetch total count for pagination
+	const { data: totalCount = 0 } = useQuery({
+		queryKey: ["animals-count", profile.organization_id],
+		queryFn: () => fetchAnimalsCount(profile.organization_id),
+	});
+
 	const animals = useMemo(() => data, [data]);
+	const totalPages = Math.ceil(totalCount / pageSize);
+
+	// Handle page change
+	const handlePageChange = (newPage: number) => {
+		const params = new URLSearchParams(searchParams);
+		if (newPage === 1) {
+			params.delete("page");
+		} else {
+			params.set("page", String(newPage));
+		}
+		navigate(`/animals?${params.toString()}`, { replace: true });
+	};
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
@@ -180,11 +209,22 @@ export default function AnimalsList() {
 				)}
 
 				{animals.length > 0 && (
-					<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-						{animals.map((animal) => (
-							<AnimalCard key={animal.id} animal={animal} />
-						))}
-					</div>
+					<>
+						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+							{animals.map((animal) => (
+								<AnimalCard key={animal.id} animal={animal} />
+							))}
+						</div>
+						{totalPages > 1 && (
+							<Pagination
+								currentPage={page}
+								totalPages={totalPages}
+								onPageChange={handlePageChange}
+								totalItems={totalCount}
+								itemsPerPage={pageSize}
+							/>
+						)}
+					</>
 				)}
 			</div>
 		</div>
