@@ -196,10 +196,11 @@ export default function FostersNeeded() {
 	const combinedItems = useMemo<CombinedItem[]>(() => {
 		const items: CombinedItem[] = [];
 
-		// If sex or life_stage filters are active, hide groups (these filters don't apply to groups)
-		const shouldHideGroups = !!(filters.sex || filters.life_stage);
+		// If sex filter is active, hide groups (sex filter doesn't apply to groups)
+		// life_stage filter will show groups where at least one animal matches
+		const shouldHideGroups = !!filters.sex;
 
-		// Determine type filter, but override to hide groups if sex/life_stage filter is active
+		// Determine type filter, but override to hide groups if sex filter is active
 		let typeFilter = filters.type || "both";
 		if (shouldHideGroups) {
 			typeFilter = "singles"; // Force to singles only when groups should be hidden
@@ -244,7 +245,7 @@ export default function FostersNeeded() {
 			});
 		}
 
-		// Add groups (only if not hidden by sex/life_stage filters)
+		// Add groups (only if not hidden by sex filter)
 		if (
 			!shouldHideGroups &&
 			(typeFilter === "both" || typeFilter === "groups")
@@ -254,6 +255,22 @@ export default function FostersNeeded() {
 
 				// Apply priority filter to groups
 				if (filters.priority === true && !group.priority) return;
+
+				// Apply life_stage filter: show group if at least one animal matches
+				if (filters.life_stage) {
+					const groupAnimals: Animal[] =
+						group.animal_ids
+							?.map((id) => animalMapById.get(id))
+							.filter((animal): animal is Animal => !!animal) ||
+						[];
+
+					// Check if at least one animal matches the life_stage filter
+					const hasMatchingLifeStage = groupAnimals.some(
+						(animal) => animal.life_stage === filters.life_stage
+					);
+
+					if (!hasMatchingLifeStage) return;
+				}
 
 				// Apply search to groups
 				if (searchTerm) {
@@ -295,7 +312,7 @@ export default function FostersNeeded() {
 		});
 
 		return items;
-	}, [animalsData, groupsWithVisibility, filters, searchTerm]);
+	}, [animalsData, groupsWithVisibility, filters, searchTerm, animalMapById]);
 
 	// Paginate the combined items
 	const paginatedItems = useMemo(() => {
