@@ -16,8 +16,9 @@ import {
 	findGroupContainingAnimal,
 	deleteGroup,
 } from "../../lib/groupQueries";
-import { fetchAnimals } from "../../lib/animalQueries";
+import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
+import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 import type { Animal, TimestampedPhoto } from "../../types";
 import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
 
@@ -44,13 +45,26 @@ export default function EditGroup() {
 		enabled: !!id && isCoordinator,
 	});
 
-	// Fetch all animals for selection
+	// Pagination state for animal selection
+	const [animalPage, setAnimalPage] = useState(1);
+	const [animalPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+	// Calculate offset for pagination
+	const animalOffset = (animalPage - 1) * animalPageSize;
+
+	// Fetch all animals for selection with pagination
 	const {
 		data: animals = [],
 		isLoading: isLoadingAnimals,
 		isError: isErrorAnimals,
 	} = useQuery<Animal[], Error>({
-		queryKey: ["animals", user.id, profile.organization_id],
+		queryKey: [
+			"animals",
+			user.id,
+			profile.organization_id,
+			animalPage,
+			animalPageSize,
+		],
 		queryFn: async () => {
 			const animalsData = await fetchAnimals(profile.organization_id, {
 				fields: [
@@ -66,6 +80,8 @@ export default function EditGroup() {
 				],
 				orderBy: "created_at",
 				orderDirection: "desc",
+				limit: animalPageSize,
+				offset: animalOffset,
 			});
 
 			// Fetch group names for animals that are in groups
@@ -115,6 +131,20 @@ export default function EditGroup() {
 		},
 		enabled: !!group && isCoordinator,
 	});
+
+	// Fetch total count of animals for pagination
+	const { data: totalAnimalCount = 0 } = useQuery({
+		queryKey: ["animals-count", profile.organization_id],
+		queryFn: () => fetchAnimalsCount(profile.organization_id, {}, ""),
+		enabled: !!group && isCoordinator,
+	});
+
+	const totalAnimalPages = Math.ceil(totalAnimalCount / animalPageSize);
+
+	// Handle page change for animal selection
+	const handleAnimalPageChange = (newPage: number) => {
+		setAnimalPage(newPage);
+	};
 
 	// Use the form hook with existing group data (must be before early return)
 	const {
@@ -749,6 +779,12 @@ export default function EditGroup() {
 						}}
 						onDeleteConfirm={handleDelete}
 						deleting={deleting}
+						// Pagination props
+						animalCurrentPage={animalPage}
+						animalTotalPages={totalAnimalPages}
+						animalTotalItems={totalAnimalCount}
+						animalItemsPerPage={animalPageSize}
+						onAnimalPageChange={handleAnimalPageChange}
 					/>
 				</div>
 

@@ -9,8 +9,9 @@ import type { Animal } from "../../types";
 import GroupForm from "../../components/animals/GroupForm";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
-import { fetchAnimals } from "../../lib/animalQueries";
+import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import { createGroup, findGroupContainingAnimal } from "../../lib/groupQueries";
+import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 import { uploadGroupPhoto } from "../../lib/photoUtils";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import type { TimestampedPhoto } from "../../types";
@@ -43,6 +44,10 @@ export default function NewGroup() {
 		null
 	);
 
+	// Pagination state for animal selection
+	const [animalPage, setAnimalPage] = useState(1);
+	const [animalPageSize] = useState(DEFAULT_PAGE_SIZE);
+
 	// Empty group confirmation modal state
 	const [showEmptyGroupConfirm, setShowEmptyGroupConfirm] = useState(false);
 
@@ -61,13 +66,22 @@ export default function NewGroup() {
 		existingGroupName: "",
 	});
 
-	// Fetch available animals
+	// Calculate offset for pagination
+	const animalOffset = (animalPage - 1) * animalPageSize;
+
+	// Fetch available animals with pagination
 	const {
 		data: animals = [],
 		isLoading: isLoadingAnimals,
 		isError: isErrorAnimals,
 	} = useQuery<Animal[], Error>({
-		queryKey: ["animals", user.id, profile.organization_id],
+		queryKey: [
+			"animals",
+			user.id,
+			profile.organization_id,
+			animalPage,
+			animalPageSize,
+		],
 		queryFn: async () => {
 			const animalsData = await fetchAnimals(profile.organization_id, {
 				fields: [
@@ -83,6 +97,8 @@ export default function NewGroup() {
 				],
 				orderBy: "created_at",
 				orderDirection: "desc",
+				limit: animalPageSize,
+				offset: animalOffset,
 			});
 
 			// Fetch group names for animals that are in groups
@@ -131,6 +147,19 @@ export default function NewGroup() {
 			});
 		},
 	});
+
+	// Fetch total count of animals for pagination
+	const { data: totalAnimalCount = 0 } = useQuery({
+		queryKey: ["animals-count", profile.organization_id],
+		queryFn: () => fetchAnimalsCount(profile.organization_id, {}, ""),
+	});
+
+	const totalAnimalPages = Math.ceil(totalAnimalCount / animalPageSize);
+
+	// Handle page change for animal selection
+	const handleAnimalPageChange = (newPage: number) => {
+		setAnimalPage(newPage);
+	};
 
 	// Get selected animals for conflict detection (after animals are fetched)
 	const selectedAnimals = useMemo(() => {
@@ -603,6 +632,12 @@ export default function NewGroup() {
 						submitError={submitError}
 						successMessage={successMessage}
 						submitButtonText="Create Group"
+						// Pagination props
+						animalCurrentPage={animalPage}
+						animalTotalPages={totalAnimalPages}
+						animalTotalItems={totalAnimalCount}
+						animalItemsPerPage={animalPageSize}
+						onAnimalPageChange={handleAnimalPageChange}
 					/>
 				</div>
 

@@ -14,6 +14,7 @@ import ErrorMessage from "../ui/ErrorMessage";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import AnimalCard from "./AnimalCard";
 import PhotoUpload from "./PhotoUpload";
+import Pagination from "../shared/Pagination";
 
 interface GroupFormProps {
 	// Form state and handlers from useGroupForm
@@ -65,6 +66,13 @@ interface GroupFormProps {
 	onDeleteCancel?: () => void;
 	onDeleteConfirm?: () => void;
 	deleting?: boolean;
+
+	// Pagination for animal selection (optional)
+	animalCurrentPage?: number;
+	animalTotalPages?: number;
+	animalTotalItems?: number;
+	animalItemsPerPage?: number;
+	onAnimalPageChange?: (page: number) => void;
 }
 
 export default function GroupForm({
@@ -99,6 +107,12 @@ export default function GroupForm({
 	onDeleteCancel,
 	onDeleteConfirm,
 	deleting = false,
+	// Pagination props
+	animalCurrentPage,
+	animalTotalPages,
+	animalTotalItems,
+	animalItemsPerPage,
+	onAnimalPageChange,
 }: GroupFormProps) {
 	// Stable sort: selected animals first, then unselected (maintain order within each group)
 	const sortedAnimals = [...animals].sort((a, b) => {
@@ -282,42 +296,64 @@ export default function GroupForm({
 						</p>
 					)}
 				{!isLoadingAnimals && !isErrorAnimals && animals.length > 0 && (
-					<div className="max-h-[520px] overflow-y-auto pt-6 pb-6 pl-2 pr-2 -mx-6">
-						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-							{sortedAnimals.map((animal) => {
-								const isSelected = selectedAnimalIds.includes(
-									animal.id
-								);
-								return (
-									<div
-										key={animal.id}
-										onClick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											if (!loading) {
-												toggleAnimalSelection(
-													animal.id
-												);
-											}
-										}}
-										onMouseDown={(e) => {
-											// Prevent link navigation
-											e.preventDefault();
-										}}
-										className={`cursor-pointer transition-all relative rounded-lg ${
-											isSelected
-												? "ring-4 ring-pink-500 ring-offset-2"
-												: ""
-										}`}
-									>
-										<div style={{ pointerEvents: "none" }}>
-											<AnimalCard animal={animal} />
+					<>
+						<div className="max-h-[520px] overflow-y-auto pt-6 pb-6 pl-2 pr-2 -mx-6">
+							<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+								{sortedAnimals.map((animal) => {
+									const isSelected =
+										selectedAnimalIds.includes(animal.id);
+									return (
+										<div
+											key={animal.id}
+											onClick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												if (!loading) {
+													toggleAnimalSelection(
+														animal.id
+													);
+												}
+											}}
+											onMouseDown={(e) => {
+												// Prevent link navigation
+												e.preventDefault();
+											}}
+											className={`cursor-pointer transition-all relative rounded-lg ${
+												isSelected
+													? "ring-4 ring-pink-500 ring-offset-2"
+													: ""
+											}`}
+										>
+											<div
+												style={{
+													pointerEvents: "none",
+												}}
+											>
+												<AnimalCard animal={animal} />
+											</div>
 										</div>
-									</div>
-								);
-							})}
+									);
+								})}
+							</div>
 						</div>
-					</div>
+						{/* Pagination for animal selection */}
+						{animalCurrentPage &&
+							animalTotalPages !== undefined &&
+							animalTotalItems !== undefined &&
+							animalItemsPerPage !== undefined &&
+							onAnimalPageChange &&
+							animalTotalPages > 1 && (
+								<div className="mt-4">
+									<Pagination
+										currentPage={animalCurrentPage}
+										totalPages={animalTotalPages}
+										onPageChange={onAnimalPageChange}
+										totalItems={animalTotalItems}
+										itemsPerPage={animalItemsPerPage}
+									/>
+								</div>
+							)}
+					</>
 				)}
 				{selectedAnimalIds.length > 0 && (
 					<p className="mt-2 text-sm text-gray-500">
