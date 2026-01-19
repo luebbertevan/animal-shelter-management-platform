@@ -1,4 +1,4 @@
-import { PriorityFilter, SortFilter, FilterSection } from "../shared/Filters";
+import { PriorityFilter, SortFilter, FilterButton } from "../shared/Filters";
 import Button from "../ui/Button";
 
 export interface GroupFilters extends Record<string, unknown> {
@@ -68,18 +68,18 @@ export default function GroupFilters({
 	};
 
 	return (
-		<FilterSection
-			title={`Filters${
-				hasActiveFilters ? ` (${activeFilterCount})` : ""
-			}`}
+		<FilterButton
+			title="Filters"
+			activeCount={activeFilterCount}
 			defaultOpen={false}
 			storageKey="group-filters-open"
 		>
-			<div className="space-y-4">
+			<div className="space-y-3">
 				{/* Priority Filter */}
 				<PriorityFilter
 					value={filters.priority ?? false}
 					onChange={(value) => handleFilterChange("priority", value)}
+					compact={true}
 				/>
 
 				{/* Sort by Created At */}
@@ -93,6 +93,7 @@ export default function GroupFilters({
 						)
 					}
 					options={sortOptions}
+					compact={true}
 				/>
 
 				{/* Clear Filters Button */}
@@ -102,13 +103,13 @@ export default function GroupFilters({
 							type="button"
 							variant="outline"
 							onClick={handleClearFilters}
-							className="w-full"
+							className="w-full text-sm py-1.5"
 						>
 							Clear All Filters
 						</Button>
 					</div>
 				)}
 			</div>
-		</FilterSection>
+		</FilterButton>
 	);
 }

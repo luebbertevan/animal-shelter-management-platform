@@ -1,4 +1,4 @@
-import { ToggleFilter, FilterSection } from "../shared/Filters";
+import { ToggleFilter, FilterButton } from "../shared/Filters";
 import Button from "../ui/Button";
 
 export interface FosterFilters extends Record<string, unknown> {
@@ -48,14 +48,13 @@ export default function FosterFilters({
 	};
 
 	return (
-		<FilterSection
-			title={`Filters${
-				hasActiveFilters ? ` (${activeFilterCount})` : ""
-			}`}
+		<FilterButton
+			title="Filters"
+			activeCount={activeFilterCount}
 			defaultOpen={false}
 			storageKey="foster-filters-open"
 		>
-			<div className="space-y-4">
+			<div className="space-y-3">
 				{/* Currently Fostering Filter */}
 				<ToggleFilter
 					label="Currently Fostering"
@@ -63,6 +62,7 @@ export default function FosterFilters({
 					onChange={(value) =>
 						handleFilterChange("currentlyFostering", value)
 					}
+					compact={true}
 				/>
 
 				{/* Clear Filters Button */}
@@ -72,13 +72,13 @@ export default function FosterFilters({
 							type="button"
 							variant="outline"
 							onClick={handleClearFilters}
-							className="w-full"
+							className="w-full text-sm py-1.5"
 						>
 							Clear All Filters
 						</Button>
 					</div>
 				)}
 			</div>
-		</FilterSection>
+		</FilterButton>
 	);
 }

@@ -302,22 +302,20 @@ export default function GroupsList() {
 
 				{!isLoading && !isError && (
 					<>
-						{/* Search Input - Always visible */}
+						{/* Search Input and Filters - Inline Layout */}
 						<div className="mb-4">
-							<SearchInput
-								value={searchTerm}
-								onSearch={handleSearch}
-								placeholder="Search groups by name..."
-								disabled={isLoading}
-							/>
-						</div>
-
-						{/* Filters */}
-						<div className="mb-4">
-							<GroupFilters
-								filters={filters}
-								onFiltersChange={handleFiltersChange}
-							/>
+							<div className="flex items-center gap-2">
+								<SearchInput
+									value={searchTerm}
+									onSearch={handleSearch}
+									placeholder="Search groups by name..."
+									disabled={isLoading}
+								/>
+								<GroupFilters
+									filters={filters}
+									onFiltersChange={handleFiltersChange}
+								/>
+							</div>
 						</div>
 
 						{/* Active Filter Chips */}

@@ -7,7 +7,7 @@ import {
 	PriorityFilter,
 	SelectFilter,
 	SortFilter,
-	FilterSection,
+	FilterButton,
 } from "../shared/Filters";
 import Button from "../ui/Button";
 
@@ -117,94 +117,105 @@ export default function FostersNeededFilters({
 	};
 
 	return (
-		<FilterSection
-			title={`Filters${
-				hasActiveFilters ? ` (${activeFilterCount})` : ""
-			}`}
+		<FilterButton
+			title="Filters"
+			activeCount={activeFilterCount}
 			defaultOpen={false}
 			storageKey="fosters-needed-filters-open"
 		>
-			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+			<div className="space-y-3">
 				{/* Priority Filter */}
 				<PriorityFilter
 					value={filters.priority || false}
 					onChange={(value) => handleFilterChange("priority", value)}
+					compact={true}
 				/>
 
-				{/* Type Filter - Groups/Singles/Both */}
-				<SelectFilter
-					label="Type"
-					value={filters.type || "both"}
-					onChange={(value) =>
-						handleFilterChange(
-							"type",
-							value as "groups" | "singles" | "both"
-						)
-					}
-					options={typeOptions}
-					placeholder="All Types"
-				/>
+				{/* Select filters - aligned */}
+				<div className="space-y-2.5">
+					{/* Type Filter - Groups/Singles/Both */}
+					<SelectFilter
+						label="Type"
+						value={filters.type || "both"}
+						onChange={(value) =>
+							handleFilterChange(
+								"type",
+								value as "groups" | "singles" | "both"
+							)
+						}
+						options={typeOptions}
+						placeholder="All Types"
+						compact={true}
+					/>
 
-				{/* Sex Filter */}
-				<SelectFilter
-					label="Sex"
-					value={filters.sex || ""}
-					onChange={(value) =>
-						handleFilterChange("sex", value as SexSpayNeuterStatus)
-					}
-					options={sexOptions}
-					placeholder="All Sexes"
-				/>
+					{/* Sex Filter */}
+					<SelectFilter
+						label="Sex"
+						value={filters.sex || ""}
+						onChange={(value) =>
+							handleFilterChange("sex", value as SexSpayNeuterStatus)
+						}
+						options={sexOptions}
+						placeholder="All Sexes"
+						compact={true}
+					/>
 
-				{/* Life Stage Filter */}
-				<SelectFilter
-					label="Life Stage"
-					value={filters.life_stage || ""}
-					onChange={(value) =>
-						handleFilterChange("life_stage", value as LifeStage)
-					}
-					options={lifeStageOptions}
-					placeholder="All Life Stages"
-				/>
+					{/* Life Stage Filter */}
+					<SelectFilter
+						label="Life Stage"
+						value={filters.life_stage || ""}
+						onChange={(value) =>
+							handleFilterChange("life_stage", value as LifeStage)
+						}
+						options={lifeStageOptions}
+						placeholder="All Life Stages"
+						compact={true}
+					/>
 
-				{/* Availability Filter (foster_visibility without not_visible) */}
-				<SelectFilter
-					label="Availability"
-					value={filters.availability || ""}
-					onChange={(value) =>
-						handleFilterChange(
-							"availability",
-							value as FosterVisibility
-						)
-					}
-					options={availabilityOptions}
-					placeholder="All Availability"
-				/>
+					{/* Availability Filter (foster_visibility without not_visible) */}
+					<SelectFilter
+						label="Availability"
+						value={filters.availability || ""}
+						onChange={(value) =>
+							handleFilterChange(
+								"availability",
+								value as FosterVisibility
+							)
+						}
+						options={availabilityOptions}
+						placeholder="All Availability"
+						compact={true}
+					/>
 
-				{/* Sort by Created At */}
-				<SortFilter
-					label="Sort by Date"
-					value={filters.sortByCreatedAt || "newest"}
-					options={sortOptions}
-					onChange={(value) =>
-						handleFilterChange(
-							"sortByCreatedAt",
-							value as "newest" | "oldest"
-						)
-					}
-				/>
-			</div>
-			{hasActiveFilters && (
-				<div className="mt-4">
-					<Button
-						variant="secondary"
-						onClick={handleClearFilters}
-						className="w-full"
-					>
-						Clear All Filters
-					</Button>
+					{/* Sort by Created At */}
+					<SortFilter
+						label="Sort by Date"
+						value={filters.sortByCreatedAt || "newest"}
+						options={sortOptions}
+						onChange={(value) =>
+							handleFilterChange(
+								"sortByCreatedAt",
+								value as "newest" | "oldest"
+							)
+						}
+						compact={true}
+					/>
 				</div>
-			)}
-		</FilterSection>
+
+				{/* Clear Filters Button */}
+				{hasActiveFilters && (
+					<div className="pt-2 border-t border-gray-200">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={handleClearFilters}
+							className="w-full text-sm py-1.5"
+						>
+							Clear All Filters
+						</Button>
+					</div>
+				)}
+			</div>
+		</FilterButton>
 	);
 }

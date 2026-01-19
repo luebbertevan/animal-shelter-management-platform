@@ -9,7 +9,7 @@ import {
 	SelectFilter,
 	ToggleFilter,
 	SortFilter,
-	FilterSection,
+	FilterButton,
 } from "../shared/Filters";
 import Button from "../ui/Button";
 
@@ -122,86 +122,93 @@ export default function AnimalFilters({
 	};
 
 	return (
-		<FilterSection
-			title={`Filters${
-				hasActiveFilters ? ` (${activeFilterCount})` : ""
-			}`}
+		<FilterButton
+			title="Filters"
+			activeCount={activeFilterCount}
 			defaultOpen={false}
 			storageKey="animal-filters-open"
 		>
-			<div className="space-y-4">
-				{/* Priority Filter */}
-				<PriorityFilter
-					value={filters.priority ?? false}
-					onChange={(value) => handleFilterChange("priority", value)}
-				/>
+			<div className="space-y-3">
+				{/* Toggles row - grouped together */}
+				<div className="flex items-center gap-4">
+					<PriorityFilter
+						value={filters.priority ?? false}
+						onChange={(value) =>
+							handleFilterChange("priority", value)
+						}
+						compact={true}
+					/>
+					<ToggleFilter
+						label="In Group"
+						value={filters.inGroup ?? false}
+						onChange={(value) =>
+							handleFilterChange("inGroup", value)
+						}
+						compact={true}
+					/>
+				</div>
 
-				{/* Sex Filter */}
-				<SelectFilter
-					label="Sex"
-					value={filters.sex ?? ""}
-					onChange={(value) =>
-						handleFilterChange("sex", value as SexSpayNeuterStatus)
-					}
-					options={sexOptions}
-					placeholder="All Sexes"
-				/>
-
-				{/* Life Stage Filter */}
-				<SelectFilter
-					label="Life Stage"
-					value={filters.life_stage ?? ""}
-					onChange={(value) =>
-						handleFilterChange("life_stage", value as LifeStage)
-					}
-					options={lifeStageOptions}
-					placeholder="All Life Stages"
-				/>
-
-				{/* In Group Filter */}
-				<ToggleFilter
-					label="In Group"
-					value={filters.inGroup ?? false}
-					onChange={(value) => handleFilterChange("inGroup", value)}
-				/>
-
-				{/* Status Filter */}
-				<SelectFilter
-					label="Status"
-					value={filters.status ?? ""}
-					onChange={(value) =>
-						handleFilterChange("status", value as AnimalStatus)
-					}
-					options={statusOptions}
-					placeholder="All Statuses"
-				/>
-
-				{/* Foster Visibility Filter */}
-				<SelectFilter
-					label="Foster Visibility"
-					value={filters.foster_visibility ?? ""}
-					onChange={(value) =>
-						handleFilterChange(
-							"foster_visibility",
-							value as FosterVisibility
-						)
-					}
-					options={fosterVisibilityOptions}
-					placeholder="All Visibility"
-				/>
-
-				{/* Sort by Created At */}
-				<SortFilter
-					label="Sort by Date"
-					value={filters.sortByCreatedAt ?? "newest"}
-					onChange={(value) =>
-						handleFilterChange(
-							"sortByCreatedAt",
-							value as "newest" | "oldest"
-						)
-					}
-					options={sortOptions}
-				/>
+				{/* Select filters - aligned */}
+				<div className="space-y-2.5">
+					<SelectFilter
+						label="Sex"
+						value={filters.sex ?? ""}
+						onChange={(value) =>
+							handleFilterChange(
+								"sex",
+								value as SexSpayNeuterStatus
+							)
+						}
+						options={sexOptions}
+						placeholder="All Sexes"
+						compact={true}
+					/>
+					<SelectFilter
+						label="Life Stage"
+						value={filters.life_stage ?? ""}
+						onChange={(value) =>
+							handleFilterChange("life_stage", value as LifeStage)
+						}
+						options={lifeStageOptions}
+						placeholder="All Life Stages"
+						compact={true}
+					/>
+					<SelectFilter
+						label="Status"
+						value={filters.status ?? ""}
+						onChange={(value) =>
+							handleFilterChange("status", value as AnimalStatus)
+						}
+						options={statusOptions}
+						placeholder="All Statuses"
+						compact={true}
+					/>
+					<SelectFilter
+						label="Foster Visibility"
+						value={filters.foster_visibility ?? ""}
+						onChange={(value) =>
+							handleFilterChange(
+								"foster_visibility",
+								value as FosterVisibility
+							)
+						}
+						options={fosterVisibilityOptions}
+						placeholder="All Visibility"
+						compact={true}
+					/>
+					<SortFilter
+						label="Sort by Date"
+						value={filters.sortByCreatedAt ?? "newest"}
+						onChange={(value) =>
+							handleFilterChange(
+								"sortByCreatedAt",
+								value as "newest" | "oldest"
+							)
+						}
+						options={sortOptions}
+						compact={true}
+					/>
+				</div>
 
 				{/* Clear Filters Button */}
 				{hasActiveFilters && (
@@ -210,13 +217,13 @@ export default function AnimalFilters({
 							type="button"
 							variant="outline"
 							onClick={handleClearFilters}
-							className="w-full"
+							className="w-full text-sm py-1.5"
 						>
 							Clear All Filters
 						</Button>
 					</div>
 				)}
 			</div>
-		</FilterSection>
+		</FilterButton>
 	);
 }
