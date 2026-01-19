@@ -20,6 +20,8 @@ import {
 	filtersToQueryParams,
 	countActiveGroupFilters,
 } from "../../lib/filterUtils";
+import { getGroupFosterVisibility } from "../../lib/groupUtils";
+import type { Animal } from "../../types";
 
 type GroupWithAnimalNames = Pick<
 	AnimalGroup,
@@ -38,6 +40,9 @@ export default function GroupsList() {
 		return queryParamsToFilters<GroupFiltersType>(searchParams, {});
 	}, [searchParams]);
 
+	// If foster_visibility filter is active, we need all groups for client-side filtering
+	// Otherwise, we can use server-side pagination
+	const needsAllGroups = !!filters.foster_visibility;
 	const offset = (page - 1) * pageSize;
 
 	const {
@@ -53,28 +58,49 @@ export default function GroupsList() {
 			profile.organization_id,
 			filters,
 			searchTerm,
-			page,
-			pageSize,
+			needsAllGroups ? "all" : page,
+			needsAllGroups ? "all" : pageSize,
 		],
 		queryFn: () => {
-			return fetchGroups(profile.organization_id, {
-				fields: [
-					"id",
-					"name",
-					"description",
-					"animal_ids",
-					"priority",
-					"group_photos",
-				],
-				orderBy: "created_at",
-				orderDirection:
-					filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
-				checkOffline: true,
-				limit: pageSize,
-				offset,
-				filters,
-				searchTerm,
-			});
+			// When foster_visibility filter is active, fetch all groups for client-side filtering
+			// Otherwise, use server-side pagination
+			if (needsAllGroups) {
+				return fetchGroups(profile.organization_id, {
+					fields: [
+						"id",
+						"name",
+						"description",
+						"animal_ids",
+						"priority",
+						"group_photos",
+					],
+					orderBy: "created_at",
+					orderDirection:
+						filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
+					checkOffline: true,
+					// Don't pass limit/offset to fetch all groups
+				});
+			} else {
+				// Server-side pagination when foster_visibility filter is not active
+				return fetchGroups(profile.organization_id, {
+					fields: [
+						"id",
+						"name",
+						"description",
+						"animal_ids",
+						"priority",
+						"group_photos",
+					],
+					orderBy: "created_at",
+					orderDirection:
+						filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
+					checkOffline: true,
+					limit: pageSize,
+					offset,
+					filters: { priority: filters.priority },
+					searchTerm,
+				});
+			}
 		},
 	});
 
@@ -82,7 +108,14 @@ export default function GroupsList() {
 		queryKey: ["animals", user.id, profile.organization_id],
 		queryFn: () => {
 			return fetchAnimals(profile.organization_id, {
-				fields: ["id", "name", "photos", "life_stage"],
+				fields: [
+					"id",
+					"name",
+					"photos",
+					"life_stage",
+					"foster_visibility",
+					"group_id",
+				],
 			});
 		},
 	});
@@ -111,37 +144,124 @@ export default function GroupsList() {
 		return map;
 	}, [animalsData]);
 
-	// Get animal names for each group
-	const groupsWithAnimalNames = useMemo(() => {
-		return groupsData.map((group): GroupWithAnimalNames => {
-			const animalNames =
+	// Compute group foster visibility using the utility function (reusing existing logic)
+	const groupsWithVisibility = useMemo(() => {
+		// Create a map of animal ID to animal for quick lookup
+		const animalMapById = new Map<string, Animal>();
+		animalsData.forEach((animal) => {
+			if (animal.id) {
+				animalMapById.set(animal.id, animal);
+			}
+		});
+
+		return groupsData.map((group) => {
+			// Get animals in this group
+			const groupAnimals: Animal[] =
 				group.animal_ids
-					?.map((id) => animalMap.get(id))
-					.filter((name): name is string => name !== undefined) || [];
+					?.map((id) => animalMapById.get(id))
+					.filter((animal): animal is Animal => !!animal) || [];
+
+			// Compute foster visibility using the utility function
+			const { sharedValue: fosterVisibility } =
+				getGroupFosterVisibility(groupAnimals);
+
 			return {
-				...group,
-				animalNames,
+				group,
+				fosterVisibility,
 			};
 		});
-	}, [groupsData, animalMap]);
+	}, [groupsData, animalsData]);
 
-	// Fetch total count for pagination (with filters and search)
-	const { data: totalCount = 0 } = useQuery({
-		queryKey: [
-			"groups-count",
-			profile.organization_id,
-			filters,
-			searchTerm,
-		],
-		queryFn: () =>
-			fetchGroupsCount(profile.organization_id, filters, searchTerm),
-	});
+	// Get animal names for each group and apply foster_visibility filter
+	const groupsWithAnimalNames = useMemo(() => {
+		return groupsWithVisibility
+			.filter(({ fosterVisibility }) => {
+				// Apply foster_visibility filter if set
+				if (filters.foster_visibility) {
+					return fosterVisibility === filters.foster_visibility;
+				}
+				return true;
+			})
+			.map(({ group }): GroupWithAnimalNames => {
+				const animalNames =
+					group.animal_ids
+						?.map((id) => animalMap.get(id))
+						.filter((name): name is string => name !== undefined) ||
+					[];
+				return {
+					...group,
+					animalNames,
+				};
+			});
+	}, [groupsWithVisibility, animalMap, filters.foster_visibility]);
+
+	// Apply search filter client-side (needed when foster_visibility filter is active)
+	// Also apply priority filter client-side when foster_visibility is active
+	const filteredGroups = useMemo(() => {
+		let filtered = groupsWithAnimalNames;
+
+		// Apply priority filter client-side if foster_visibility filter is active
+		// (because we fetched all groups in that case)
+		if (needsAllGroups && filters.priority === true) {
+			filtered = filtered.filter((group) => group.priority === true);
+		}
+
+		// Apply search filter (client-side when all groups are fetched)
+		if (needsAllGroups && searchTerm) {
+			const searchLower = searchTerm.toLowerCase();
+			filtered = filtered.filter((group) => {
+				const groupName = group.name?.toLowerCase() || "";
+				return groupName.includes(searchLower);
+			});
+		}
+
+		return filtered;
+	}, [groupsWithAnimalNames, needsAllGroups, filters.priority, searchTerm]);
 
 	const isLoading = isLoadingGroups || isLoadingAnimals;
 	const isError = isErrorGroups;
 	const error = groupsError;
-	const groups = groupsWithAnimalNames;
-	const totalPages = Math.ceil(totalCount / pageSize);
+
+	// Paginate after filtering when foster_visibility filter is active
+	// Otherwise, groupsData is already paginated from server
+	const paginatedGroups = useMemo(() => {
+		if (needsAllGroups) {
+			const startIndex = (page - 1) * pageSize;
+			const endIndex = startIndex + pageSize;
+			return filteredGroups.slice(startIndex, endIndex);
+		}
+		return filteredGroups;
+	}, [filteredGroups, needsAllGroups, page, pageSize]);
+
+	// Calculate total count based on whether we're using client-side or server-side filtering
+	const totalCount = useMemo(() => {
+		if (needsAllGroups) {
+			return filteredGroups.length;
+		}
+		// When using server-side pagination, we need to fetch total count
+		// But we need to exclude foster_visibility from the filter for the count query
+		return 0; // Will be handled by separate query below
+	}, [filteredGroups.length, needsAllGroups]);
+
+	// Fetch total count for server-side pagination (when foster_visibility filter is not active)
+	const { data: serverTotalCount = 0 } = useQuery({
+		queryKey: [
+			"groups-count",
+			profile.organization_id,
+			{ priority: filters.priority },
+			searchTerm,
+		],
+		queryFn: () =>
+			fetchGroupsCount(
+				profile.organization_id,
+				{ priority: filters.priority },
+				searchTerm
+			),
+		enabled: !needsAllGroups, // Only fetch when using server-side pagination
+	});
+
+	const finalTotalCount = needsAllGroups ? totalCount : serverTotalCount;
+	const totalPages = Math.ceil(finalTotalCount / pageSize);
 
 	// Handle filter changes
 	const handleFiltersChange = (newFilters: GroupFiltersType) => {
@@ -184,6 +304,22 @@ export default function GroupsList() {
 			chips.push({
 				label: "High Priority",
 				onRemove: createRemoveHandler("priority", undefined),
+			});
+		}
+
+		if (filters.foster_visibility) {
+			const visibilityLabels: Record<string, string> = {
+				available_now: "Available Now",
+				available_future: "Available Future",
+				foster_pending: "Foster Pending",
+				not_visible: "Not Visible",
+			};
+			chips.push({
+				label: `Foster Visibility: ${
+					visibilityLabels[filters.foster_visibility] ||
+					filters.foster_visibility
+				}`,
+				onRemove: createRemoveHandler("foster_visibility", undefined),
 			});
 		}
 
@@ -264,41 +400,44 @@ export default function GroupsList() {
 					</div>
 				)}
 
-				{!isLoading && !isError && groups.length === 0 && (
-					<div className="bg-white rounded-lg shadow-sm p-6">
-						{isOffline() ? (
-							<div className="text-red-700">
-								<p className="font-medium mb-2">
-									Unable to load groups right now.
-								</p>
-								<p className="text-sm mb-4">
-									Unable to connect to the server. Please
-									check your internet connection and try
-									again.
-								</p>
-								<button
-									type="button"
-									onClick={() => refetch()}
-									className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
-								>
-									Try Again
-								</button>
-							</div>
-						) : totalCount === 0 &&
-						  !searchTerm &&
-						  activeFilterCount === 0 ? (
-							<div className="text-gray-600">
-								No groups found yet. Once you add groups, they
-								will appear here.
-							</div>
-						) : (
-							<div className="text-gray-600">
-								No groups found matching your search and
-								filters.
-							</div>
-						)}
-					</div>
-				)}
+				{!isLoading &&
+					!isError &&
+					paginatedGroups.length === 0 &&
+					filteredGroups.length === 0 && (
+						<div className="bg-white rounded-lg shadow-sm p-6">
+							{isOffline() ? (
+								<div className="text-red-700">
+									<p className="font-medium mb-2">
+										Unable to load groups right now.
+									</p>
+									<p className="text-sm mb-4">
+										Unable to connect to the server. Please
+										check your internet connection and try
+										again.
+									</p>
+									<button
+										type="button"
+										onClick={() => refetch()}
+										className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+									>
+										Try Again
+									</button>
+								</div>
+							) : finalTotalCount === 0 &&
+							  !searchTerm &&
+							  activeFilterCount === 0 ? (
+								<div className="text-gray-600">
+									No groups found yet. Once you add groups,
+									they will appear here.
+								</div>
+							) : (
+								<div className="text-gray-600">
+									No groups found matching your search and
+									filters.
+								</div>
+							)}
+						</div>
+					)}
 
 				{!isLoading && !isError && (
 					<>
@@ -332,10 +471,10 @@ export default function GroupsList() {
 						)}
 
 						{/* Results */}
-						{groups.length > 0 && (
+						{paginatedGroups.length > 0 && (
 							<>
 								<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-									{groups.map((group) => (
+									{paginatedGroups.map((group) => (
 										<GroupCard
 											key={group.id}
 											group={group}
@@ -348,7 +487,7 @@ export default function GroupsList() {
 										currentPage={page}
 										totalPages={totalPages}
 										onPageChange={handlePageChange}
-										totalItems={totalCount}
+										totalItems={finalTotalCount}
 										itemsPerPage={pageSize}
 									/>
 								)}

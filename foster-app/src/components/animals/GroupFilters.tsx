@@ -1,8 +1,15 @@
-import { PriorityFilter, SortFilter, FilterButton } from "../shared/Filters";
+import type { FosterVisibility } from "../../types";
+import {
+	PriorityFilter,
+	SelectFilter,
+	SortFilter,
+	FilterButton,
+} from "../shared/Filters";
 import Button from "../ui/Button";
 
 export interface GroupFilters extends Record<string, unknown> {
 	priority?: boolean;
+	foster_visibility?: FosterVisibility;
 	sortByCreatedAt?: "newest" | "oldest";
 }
 
@@ -10,6 +17,14 @@ interface GroupFiltersProps {
 	filters: GroupFilters;
 	onFiltersChange: (filters: GroupFilters) => void;
 }
+
+// Foster visibility options
+const fosterVisibilityOptions: { value: FosterVisibility; label: string }[] = [
+	{ value: "available_now", label: "Available Now" },
+	{ value: "available_future", label: "Available Future" },
+	{ value: "foster_pending", label: "Foster Pending" },
+	{ value: "not_visible", label: "Not Visible" },
+];
 
 // Sort options
 const sortOptions: { value: "newest" | "oldest"; label: string }[] = [
@@ -21,6 +36,7 @@ const sortOptions: { value: "newest" | "oldest"; label: string }[] = [
 function countActiveFilters(filters: GroupFilters): number {
 	let count = 0;
 	if (filters.priority === true) count++;
+	if (filters.foster_visibility) count++;
 	if (filters.sortByCreatedAt) count++;
 	return count;
 }
@@ -79,6 +95,21 @@ export default function GroupFilters({
 				<PriorityFilter
 					value={filters.priority ?? false}
 					onChange={(value) => handleFilterChange("priority", value)}
+					compact={true}
+				/>
+
+				{/* Foster Visibility Filter */}
+				<SelectFilter
+					label="Foster Visibility"
+					value={filters.foster_visibility || ""}
+					onChange={(value) =>
+						handleFilterChange(
+							"foster_visibility",
+							value as FosterVisibility
+						)
+					}
+					options={fosterVisibilityOptions}
+					placeholder="All Visibility"
 					compact={true}
 				/>
 

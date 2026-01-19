@@ -181,6 +181,7 @@ export function countActiveFilters(filters: AnimalFilters): number {
 export function countActiveGroupFilters(filters: GroupFilters): number {
 	let count = 0;
 	if (filters.priority === true) count++;
+	if (filters.foster_visibility) count++;
 	if (filters.sortByCreatedAt) count++;
 	return count;
 }

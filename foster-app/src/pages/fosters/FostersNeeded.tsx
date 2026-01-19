@@ -21,6 +21,7 @@ import { FilterChip } from "../../components/shared/Filters";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroups } from "../../lib/groupQueries";
 import { isOffline } from "../../lib/errorUtils";
+import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import {
 	queryParamsToFilters,
 	filtersToQueryParams,
@@ -131,52 +132,47 @@ export default function FostersNeeded() {
 		);
 	}, [allAnimals]);
 
-	// Create a map of animal ID to foster_visibility for quick lookup (only for animals in groups)
-	const animalVisibilityMap = useMemo(() => {
-		const map = new Map<string, FosterVisibility>();
+	// Create a map of animal ID to animal for quick lookup (only for animals in groups)
+	const animalMapById = useMemo(() => {
+		const map = new Map<string, Animal>();
 		allAnimals.forEach((animal) => {
-			if (animal.id && animal.foster_visibility && animal.group_id) {
+			if (animal.id && animal.group_id) {
 				// Only map animals that are in groups
-				map.set(animal.id, animal.foster_visibility);
+				map.set(animal.id, animal);
 			}
 		});
 		return map;
 	}, [allAnimals]);
 
+	// Compute group foster visibility using the utility function (reusing existing logic)
 	// Filter groups: only show groups where all animals have foster_visibility != 'not_visible'
-	const visibleGroups = useMemo(() => {
-		return groupsData.filter((group) => {
-			if (!group.animal_ids || group.animal_ids.length === 0) {
-				return false; // Skip empty groups
-			}
-
-			// Check if all animals in the group are visible
-			const allVisible = group.animal_ids.every((animalId) => {
-				const visibility = animalVisibilityMap.get(animalId);
-				return visibility && visibility !== "not_visible";
-			});
-
-			return allVisible;
-		});
-	}, [groupsData, animalVisibilityMap]);
-
-	// Get foster_visibility for each group (all animals in a group have the same value)
 	const groupsWithVisibility = useMemo(() => {
-		return visibleGroups.map((group) => {
-			if (!group.animal_ids || group.animal_ids.length === 0) {
-				return { group, foster_visibility: null };
-			}
+		return groupsData
+			.map((group) => {
+				if (!group.animal_ids || group.animal_ids.length === 0) {
+					return { group, foster_visibility: null };
+				}
 
-			// Get visibility from first animal (all should be the same)
-			const firstAnimalId = group.animal_ids[0];
-			const visibility = animalVisibilityMap.get(firstAnimalId);
+				// Get animals in this group
+				const groupAnimals: Animal[] =
+					group.animal_ids
+						?.map((id) => animalMapById.get(id))
+						.filter((animal): animal is Animal => !!animal) || [];
 
-			return {
-				group,
-				foster_visibility: visibility || null,
-			};
-		});
-	}, [visibleGroups, animalVisibilityMap]);
+				// Compute foster visibility using the utility function
+				const { sharedValue: fosterVisibility } =
+					getGroupFosterVisibility(groupAnimals);
+
+				return {
+					group,
+					foster_visibility: fosterVisibility,
+				};
+			})
+			.filter(({ foster_visibility }) => {
+				// Only show groups where visibility is not 'not_visible'
+				return foster_visibility && foster_visibility !== "not_visible";
+			});
+	}, [groupsData, animalMapById]);
 
 	// Create a map of animal data for GroupCard (only for animals in groups)
 	const animalDataMap = useMemo(() => {
@@ -199,7 +195,15 @@ export default function FostersNeeded() {
 	// Combine animals and groups into a single list for sorting and filtering
 	const combinedItems = useMemo<CombinedItem[]>(() => {
 		const items: CombinedItem[] = [];
-		const typeFilter = filters.type || "both";
+
+		// If sex or life_stage filters are active, hide groups (these filters don't apply to groups)
+		const shouldHideGroups = !!(filters.sex || filters.life_stage);
+
+		// Determine type filter, but override to hide groups if sex/life_stage filter is active
+		let typeFilter = filters.type || "both";
+		if (shouldHideGroups) {
+			typeFilter = "singles"; // Force to singles only when groups should be hidden
+		}
 
 		// Add animals (singles only - not in groups)
 		if (typeFilter === "both" || typeFilter === "singles") {
@@ -240,8 +244,11 @@ export default function FostersNeeded() {
 			});
 		}
 
-		// Add groups
-		if (typeFilter === "both" || typeFilter === "groups") {
+		// Add groups (only if not hidden by sex/life_stage filters)
+		if (
+			!shouldHideGroups &&
+			(typeFilter === "both" || typeFilter === "groups")
+		) {
 			groupsWithVisibility.forEach(({ group, foster_visibility }) => {
 				if (!foster_visibility) return;
 
