@@ -1,7 +1,7 @@
 import { ToggleFilter, FilterSection } from "../shared/Filters";
 import Button from "../ui/Button";
 
-export interface FosterFilters {
+export interface FosterFilters extends Record<string, unknown> {
 	currentlyFostering?: boolean;
 }
 

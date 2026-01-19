@@ -4095,6 +4095,7 @@ The preview card should show minimal, scannable information for quick browsing:
     - Filter animals by name (client-side filtering of already-fetched animals)
     - Search triggers on Enter or Search button click
     - Improve UX for selecting animals from large lists
+    - **Note:** Pagination should also be added to NewGroup animal selection to handle large lists efficiently
 
 11. **Update FostersList to use search and filters**:
 
@@ -4138,6 +4139,13 @@ The preview card should show minimal, scannable information for quick browsing:
     -   `SelectFilter` and `ToggleFilter` are generic and reusable
     -   `FilterSection` and `FilterChip` are reusable across all filter components
     -   Filter utility functions work for both animals and groups
+
+-   **Filter Layout Updates:**
+
+    -   Filter forms should use more compact spacing (reduce gap from `gap-4` to `gap-2` or `gap-3`)
+    -   Consider using more columns on larger screens (e.g., `grid-cols-2 sm:grid-cols-3 md:grid-cols-4`)
+    -   Reduce padding/spacing in FilterSection for a more compact appearance
+    -   Ensure mobile layout remains usable and not too cramped
 
 -   **Query Key Management:**
 

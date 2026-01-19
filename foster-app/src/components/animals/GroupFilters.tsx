@@ -1,7 +1,7 @@
 import { PriorityFilter, SortFilter, FilterSection } from "../shared/Filters";
 import Button from "../ui/Button";
 
-export interface GroupFilters {
+export interface GroupFilters extends Record<string, unknown> {
 	priority?: boolean;
 	sortByCreatedAt?: "newest" | "oldest";
 }

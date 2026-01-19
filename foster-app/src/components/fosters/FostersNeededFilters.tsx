@@ -1,5 +1,4 @@
 import type {
-	AnimalStatus,
 	SexSpayNeuterStatus,
 	LifeStage,
 	FosterVisibility,
@@ -7,35 +6,24 @@ import type {
 import {
 	PriorityFilter,
 	SelectFilter,
-	ToggleFilter,
 	SortFilter,
 	FilterSection,
 } from "../shared/Filters";
 import Button from "../ui/Button";
 
-export interface AnimalFilters extends Record<string, unknown> {
+export interface FostersNeededFilters extends Record<string, unknown> {
 	priority?: boolean;
 	sex?: SexSpayNeuterStatus;
 	life_stage?: LifeStage;
-	inGroup?: boolean;
-	status?: AnimalStatus;
-	foster_visibility?: FosterVisibility;
+	availability?: FosterVisibility; // Renamed from foster_visibility for UI clarity
 	sortByCreatedAt?: "newest" | "oldest";
+	type?: "groups" | "singles" | "both"; // New filter: groups only, singles only, or both
 }
 
-interface AnimalFiltersProps {
-	filters: AnimalFilters;
-	onFiltersChange: (filters: AnimalFilters) => void;
+interface FostersNeededFiltersProps {
+	filters: FostersNeededFilters;
+	onFiltersChange: (filters: FostersNeededFilters) => void;
 }
-
-// Status options
-const statusOptions: { value: AnimalStatus; label: string }[] = [
-	{ value: "in_foster", label: "In Foster" },
-	{ value: "adopted", label: "Adopted" },
-	{ value: "medical_hold", label: "Medical Hold" },
-	{ value: "in_shelter", label: "In Shelter" },
-	{ value: "transferring", label: "Transferring" },
-];
 
 // Sex/Spay Neuter options
 const sexOptions: { value: SexSpayNeuterStatus; label: string }[] = [
@@ -52,12 +40,18 @@ const lifeStageOptions: { value: LifeStage; label: string }[] = [
 	{ value: "senior", label: "Senior" },
 ];
 
-// Foster visibility options
-const fosterVisibilityOptions: { value: FosterVisibility; label: string }[] = [
+// Availability options (foster_visibility without "not_visible")
+const availabilityOptions: { value: FosterVisibility; label: string }[] = [
 	{ value: "available_now", label: "Available Now" },
 	{ value: "available_future", label: "Available Future" },
 	{ value: "foster_pending", label: "Foster Pending" },
-	{ value: "not_visible", label: "Not Visible" },
+];
+
+// Type options (groups/singles/both)
+const typeOptions: { value: "groups" | "singles" | "both"; label: string }[] = [
+	{ value: "both", label: "Both" },
+	{ value: "groups", label: "Groups Only" },
+	{ value: "singles", label: "Singles Only" },
 ];
 
 // Sort options
@@ -67,54 +61,55 @@ const sortOptions: { value: "newest" | "oldest"; label: string }[] = [
 ];
 
 // Helper function to count active filters
-function countActiveFilters(filters: AnimalFilters): number {
+function countActiveFilters(filters: FostersNeededFilters): number {
 	let count = 0;
 	if (filters.priority === true) count++;
 	if (filters.sex) count++;
 	if (filters.life_stage) count++;
-	if (filters.inGroup === true) count++;
-	if (filters.status) count++;
-	if (filters.foster_visibility) count++;
+	if (filters.availability) count++;
+	if (filters.type && filters.type !== "both") count++; // Only count if not default
 	if (filters.sortByCreatedAt) count++;
 	return count;
 }
 
 // Helper function to clear all filters
-function clearFilters(): AnimalFilters {
-	return {};
+function clearFilters(): FostersNeededFilters {
+	return { type: "both" }; // Default type is "both"
 }
 
-export default function AnimalFilters({
+export default function FostersNeededFilters({
 	filters,
 	onFiltersChange,
-}: AnimalFiltersProps) {
+}: FostersNeededFiltersProps) {
 	const activeFilterCount = countActiveFilters(filters);
 	const hasActiveFilters = activeFilterCount > 0;
 
-	const handleFilterChange = <K extends keyof AnimalFilters>(
+	const handleFilterChange = <K extends keyof FostersNeededFilters>(
 		key: K,
-		value: AnimalFilters[K]
+		value: FostersNeededFilters[K]
 	) => {
 		// Convert empty/falsy values to undefined to clear the filter
-		// Handle different types separately to avoid TypeScript errors
-		let normalizedValue: AnimalFilters[K] | undefined;
+		let normalizedValue: FostersNeededFilters[K] | undefined;
 
 		if (value === false || value === undefined) {
 			normalizedValue = undefined;
+		} else if (typeof value === "string" && value === "") {
+			normalizedValue = undefined;
 		} else {
-			// For string values, check if empty
-			const stringValue = value as string | boolean | "newest" | "oldest";
-			if (typeof stringValue === "string" && stringValue === "") {
-				normalizedValue = undefined;
-			} else {
-				normalizedValue = value;
-			}
+			normalizedValue = value;
 		}
 
-		onFiltersChange({
+		const updatedFilters = {
 			...filters,
 			[key]: normalizedValue,
-		});
+		};
+
+		// Ensure type defaults to "both" if undefined
+		if (updatedFilters.type === undefined) {
+			updatedFilters.type = "both";
+		}
+
+		onFiltersChange(updatedFilters);
 	};
 
 	const handleClearFilters = () => {
@@ -127,19 +122,33 @@ export default function AnimalFilters({
 				hasActiveFilters ? ` (${activeFilterCount})` : ""
 			}`}
 			defaultOpen={false}
-			storageKey="animal-filters-open"
+			storageKey="fosters-needed-filters-open"
 		>
-			<div className="space-y-4">
+			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				{/* Priority Filter */}
 				<PriorityFilter
-					value={filters.priority ?? false}
+					value={filters.priority || false}
 					onChange={(value) => handleFilterChange("priority", value)}
+				/>
+
+				{/* Type Filter - Groups/Singles/Both */}
+				<SelectFilter
+					label="Type"
+					value={filters.type || "both"}
+					onChange={(value) =>
+						handleFilterChange(
+							"type",
+							value as "groups" | "singles" | "both"
+						)
+					}
+					options={typeOptions}
+					placeholder="All Types"
 				/>
 
 				{/* Sex Filter */}
 				<SelectFilter
 					label="Sex"
-					value={filters.sex ?? ""}
+					value={filters.sex || ""}
 					onChange={(value) =>
 						handleFilterChange("sex", value as SexSpayNeuterStatus)
 					}
@@ -150,7 +159,7 @@ export default function AnimalFilters({
 				{/* Life Stage Filter */}
 				<SelectFilter
 					label="Life Stage"
-					value={filters.life_stage ?? ""}
+					value={filters.life_stage || ""}
 					onChange={(value) =>
 						handleFilterChange("life_stage", value as LifeStage)
 					}
@@ -158,65 +167,44 @@ export default function AnimalFilters({
 					placeholder="All Life Stages"
 				/>
 
-				{/* In Group Filter */}
-				<ToggleFilter
-					label="In Group"
-					value={filters.inGroup ?? false}
-					onChange={(value) => handleFilterChange("inGroup", value)}
-				/>
-
-				{/* Status Filter */}
+				{/* Availability Filter (foster_visibility without not_visible) */}
 				<SelectFilter
-					label="Status"
-					value={filters.status ?? ""}
-					onChange={(value) =>
-						handleFilterChange("status", value as AnimalStatus)
-					}
-					options={statusOptions}
-					placeholder="All Statuses"
-				/>
-
-				{/* Foster Visibility Filter */}
-				<SelectFilter
-					label="Foster Visibility"
-					value={filters.foster_visibility ?? ""}
+					label="Availability"
+					value={filters.availability || ""}
 					onChange={(value) =>
 						handleFilterChange(
-							"foster_visibility",
+							"availability",
 							value as FosterVisibility
 						)
 					}
-					options={fosterVisibilityOptions}
-					placeholder="All Visibility"
+					options={availabilityOptions}
+					placeholder="All Availability"
 				/>
 
 				{/* Sort by Created At */}
 				<SortFilter
 					label="Sort by Date"
-					value={filters.sortByCreatedAt ?? "newest"}
+					value={filters.sortByCreatedAt || "newest"}
+					options={sortOptions}
 					onChange={(value) =>
 						handleFilterChange(
 							"sortByCreatedAt",
 							value as "newest" | "oldest"
 						)
 					}
-					options={sortOptions}
 				/>
-
-				{/* Clear Filters Button */}
-				{hasActiveFilters && (
-					<div className="pt-2 border-t border-gray-200">
-						<Button
-							type="button"
-							variant="outline"
-							onClick={handleClearFilters}
-							className="w-full"
-						>
-							Clear All Filters
-						</Button>
-					</div>
-				)}
 			</div>
+			{hasActiveFilters && (
+				<div className="mt-4">
+					<Button
+						variant="secondary"
+						onClick={handleClearFilters}
+						className="w-full"
+					>
+						Clear All Filters
+					</Button>
+				</div>
+			)}
 		</FilterSection>
 	);
 }

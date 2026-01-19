@@ -240,7 +240,11 @@ export function clearFosterFilters(): FosterFilters {
  * Convert filter object and search term to URL query parameters
  */
 export function filtersToQueryParams(
-	filters: AnimalFilters | GroupFilters | FosterFilters,
+	filters:
+		| AnimalFilters
+		| GroupFilters
+		| FosterFilters
+		| Record<string, unknown>,
 	searchTerm: string = "",
 	page: number = 1,
 	pageSize: number = DEFAULT_PAGE_SIZE
@@ -278,9 +282,7 @@ export function filtersToQueryParams(
 /**
  * Parse URL query parameters back to filter object, search term, and pagination
  */
-export function queryParamsToFilters<
-	T extends AnimalFilters | GroupFilters | FosterFilters
->(
+export function queryParamsToFilters<T extends Record<string, unknown>>(
 	searchParams: URLSearchParams,
 	defaultFilters: T
 ): {
