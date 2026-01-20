@@ -16,10 +16,12 @@ import {
 	findGroupContainingAnimal,
 	deleteGroup,
 } from "../../lib/groupQueries";
-import { fetchAnimals } from "../../lib/animalQueries";
+import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
+import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 import type { Animal, TimestampedPhoto } from "../../types";
 import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
+import type { AnimalFilters } from "../../components/animals/AnimalFilters";
 
 export default function EditGroup() {
 	const { id } = useParams<{ id: string }>();
@@ -44,13 +46,44 @@ export default function EditGroup() {
 		enabled: !!id && isCoordinator,
 	});
 
-	// Fetch all animals for selection
+	// Search and filter state for animal selection
+	const [animalSearchTerm, setAnimalSearchTerm] = useState("");
+	const [animalFilters, setAnimalFilters] = useState<AnimalFilters>({});
+
+	// Pagination state for animal selection
+	const [animalPage, setAnimalPage] = useState(1);
+	const [animalPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+	// If filters or search are active, we need all animals for client-side filtering
+	// Otherwise, use server-side pagination
+	const needsAllAnimals = !!(
+		animalSearchTerm ||
+		Object.keys(animalFilters).some((key) => {
+			const value = animalFilters[key as keyof AnimalFilters];
+			return value !== undefined && value !== "" && value !== false;
+		})
+	);
+
+	const animalOffset = needsAllAnimals
+		? 0
+		: (animalPage - 1) * animalPageSize;
+	const animalLimit = needsAllAnimals ? undefined : animalPageSize;
+
+	// Fetch all animals for selection with pagination, filters, and search
 	const {
 		data: animals = [],
 		isLoading: isLoadingAnimals,
 		isError: isErrorAnimals,
 	} = useQuery<Animal[], Error>({
-		queryKey: ["animals", user.id, profile.organization_id],
+		queryKey: [
+			"animals",
+			user.id,
+			profile.organization_id,
+			needsAllAnimals ? "all" : animalPage,
+			needsAllAnimals ? "all" : animalPageSize,
+			animalFilters,
+			animalSearchTerm,
+		],
 		queryFn: async () => {
 			const animalsData = await fetchAnimals(profile.organization_id, {
 				fields: [
@@ -63,9 +96,14 @@ export default function EditGroup() {
 					"date_of_birth",
 					"group_id",
 					"foster_visibility",
+					"life_stage",
 				],
 				orderBy: "created_at",
 				orderDirection: "desc",
+				limit: animalLimit,
+				offset: animalOffset,
+				filters: animalFilters,
+				searchTerm: animalSearchTerm,
 			});
 
 			// Fetch group names for animals that are in groups
@@ -115,6 +153,100 @@ export default function EditGroup() {
 		},
 		enabled: !!group && isCoordinator,
 	});
+
+	// Filter animals client-side when filters/search are active
+	// Exclude animals already in groups (unless they're in the selected list)
+	const filteredAnimals = useMemo(() => {
+		let filtered = animals;
+
+		// Filter out animals already in groups (unless we're allowing selection of grouped animals)
+		// For now, we only show animals not in groups
+		filtered = filtered.filter((animal) => !animal.group_id);
+
+		// Apply search filter if active (already applied server-side, but apply again for consistency)
+		if (animalSearchTerm) {
+			const searchLower = animalSearchTerm.toLowerCase();
+			filtered = filtered.filter((animal) => {
+				const animalName = animal.name?.toLowerCase() || "";
+				return animalName.includes(searchLower);
+			});
+		}
+
+		// Apply filters client-side if needed (already applied server-side, but apply again for consistency)
+		// This ensures consistency when we switch between server-side and client-side filtering
+		if (animalFilters.priority === true) {
+			filtered = filtered.filter((animal) => animal.priority === true);
+		}
+		if (animalFilters.sex) {
+			filtered = filtered.filter(
+				(animal) => animal.sex_spay_neuter_status === animalFilters.sex
+			);
+		}
+		if (animalFilters.life_stage) {
+			filtered = filtered.filter(
+				(animal) => animal.life_stage === animalFilters.life_stage
+			);
+		}
+		if (animalFilters.status) {
+			filtered = filtered.filter(
+				(animal) => animal.status === animalFilters.status
+			);
+		}
+		if (animalFilters.inGroup === false) {
+			filtered = filtered.filter((animal) => !animal.group_id);
+		}
+
+		return filtered;
+	}, [animals, animalSearchTerm, animalFilters]);
+
+	// Paginate filtered animals client-side when filters/search are active
+	const paginatedAnimals = useMemo(() => {
+		if (needsAllAnimals) {
+			const startIndex = (animalPage - 1) * animalPageSize;
+			const endIndex = startIndex + animalPageSize;
+			return filteredAnimals.slice(startIndex, endIndex);
+		}
+		return filteredAnimals;
+	}, [filteredAnimals, needsAllAnimals, animalPage, animalPageSize]);
+
+	// Fetch total count of animals for pagination (when using server-side pagination)
+	const { data: totalAnimalCount = 0 } = useQuery({
+		queryKey: [
+			"animals-count",
+			profile.organization_id,
+			animalFilters,
+			animalSearchTerm,
+		],
+		queryFn: () =>
+			fetchAnimalsCount(
+				profile.organization_id,
+				animalFilters,
+				animalSearchTerm
+			),
+		enabled: !!group && isCoordinator && !needsAllAnimals,
+	});
+
+	const finalAnimalCount = needsAllAnimals
+		? filteredAnimals.length
+		: totalAnimalCount;
+	const totalAnimalPages = Math.ceil(finalAnimalCount / animalPageSize);
+
+	// Handle page change for animal selection
+	const handleAnimalPageChange = (newPage: number) => {
+		setAnimalPage(newPage);
+	};
+
+	// Handle search for animal selection
+	const handleAnimalSearch = (term: string) => {
+		setAnimalSearchTerm(term);
+		setAnimalPage(1); // Reset to first page on search
+	};
+
+	// Handle filter change for animal selection
+	const handleAnimalFiltersChange = (newFilters: AnimalFilters) => {
+		setAnimalFilters(newFilters);
+		setAnimalPage(1); // Reset to first page on filter change
+	};
 
 	// Use the form hook with existing group data (must be before early return)
 	const {
@@ -711,7 +843,7 @@ export default function EditGroup() {
 						setDescription={setDescription}
 						setPriority={setPriority}
 						errors={errors}
-						animals={animals}
+						animals={paginatedAnimals}
 						isLoadingAnimals={isLoadingAnimals}
 						isErrorAnimals={isErrorAnimals}
 						selectedAnimalIds={selectedAnimalIds}
@@ -749,6 +881,17 @@ export default function EditGroup() {
 						}}
 						onDeleteConfirm={handleDelete}
 						deleting={deleting}
+						// Search and filter props
+						animalSearchTerm={animalSearchTerm}
+						onAnimalSearch={handleAnimalSearch}
+						animalFilters={animalFilters}
+						onAnimalFiltersChange={handleAnimalFiltersChange}
+						// Pagination props
+						animalCurrentPage={animalPage}
+						animalTotalPages={totalAnimalPages}
+						animalTotalItems={finalAnimalCount}
+						animalItemsPerPage={animalPageSize}
+						onAnimalPageChange={handleAnimalPageChange}
 					/>
 				</div>
 

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { FormEvent } from "react";
 import type {
 	Animal,
@@ -14,6 +15,12 @@ import ErrorMessage from "../ui/ErrorMessage";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import AnimalCard from "./AnimalCard";
 import PhotoUpload from "./PhotoUpload";
+import Pagination from "../shared/Pagination";
+import SearchInput from "../shared/SearchInput";
+import AnimalFilters, {
+	type AnimalFilters as AnimalFiltersType,
+} from "./AnimalFilters";
+import { FilterChip } from "../shared/Filters";
 
 interface GroupFormProps {
 	// Form state and handlers from useGroupForm
@@ -65,6 +72,19 @@ interface GroupFormProps {
 	onDeleteCancel?: () => void;
 	onDeleteConfirm?: () => void;
 	deleting?: boolean;
+
+	// Search and filters for animal selection (optional)
+	animalSearchTerm?: string;
+	onAnimalSearch?: (term: string) => void;
+	animalFilters?: AnimalFiltersType;
+	onAnimalFiltersChange?: (filters: AnimalFiltersType) => void;
+
+	// Pagination for animal selection (optional)
+	animalCurrentPage?: number;
+	animalTotalPages?: number;
+	animalTotalItems?: number;
+	animalItemsPerPage?: number;
+	onAnimalPageChange?: (page: number) => void;
 }
 
 export default function GroupForm({
@@ -99,7 +119,127 @@ export default function GroupForm({
 	onDeleteCancel,
 	onDeleteConfirm,
 	deleting = false,
+	// Search and filter props
+	animalSearchTerm,
+	onAnimalSearch,
+	animalFilters,
+	onAnimalFiltersChange,
+	// Pagination props
+	animalCurrentPage,
+	animalTotalPages,
+	animalTotalItems,
+	animalItemsPerPage,
+	onAnimalPageChange,
 }: GroupFormProps) {
+	// Generate active filter chips
+	const activeFilterChips = useMemo(() => {
+		if (!animalFilters || !onAnimalFiltersChange) return [];
+
+		const chips: Array<{ label: string; onRemove: () => void }> = [];
+
+		const createRemoveHandler =
+			(key: keyof AnimalFiltersType, value: undefined) => () => {
+				onAnimalFiltersChange({
+					...animalFilters,
+					[key]: value,
+				});
+			};
+
+		if (animalFilters.priority === true) {
+			chips.push({
+				label: "High Priority",
+				onRemove: createRemoveHandler("priority", undefined),
+			});
+		}
+
+		if (animalFilters.sex) {
+			const sexLabels: Record<string, string> = {
+				male: "Male",
+				female: "Female",
+				spayed_female: "Spayed Female",
+				neutered_male: "Neutered Male",
+			};
+			chips.push({
+				label: `Sex: ${
+					sexLabels[animalFilters.sex] || animalFilters.sex
+				}`,
+				onRemove: createRemoveHandler("sex", undefined),
+			});
+		}
+
+		if (animalFilters.life_stage) {
+			const lifeStageLabels: Record<string, string> = {
+				kitten: "Kitten",
+				adult: "Adult",
+				senior: "Senior",
+			};
+			chips.push({
+				label: `Life Stage: ${
+					lifeStageLabels[animalFilters.life_stage] ||
+					animalFilters.life_stage
+				}`,
+				onRemove: createRemoveHandler("life_stage", undefined),
+			});
+		}
+
+		if (animalFilters.inGroup === true) {
+			chips.push({
+				label: "In Group",
+				onRemove: createRemoveHandler("inGroup", undefined),
+			});
+		} else if (animalFilters.inGroup === false) {
+			chips.push({
+				label: "Not In Group",
+				onRemove: createRemoveHandler("inGroup", undefined),
+			});
+		}
+
+		if (animalFilters.status) {
+			const statusLabels: Record<string, string> = {
+				in_foster: "In Foster",
+				adopted: "Adopted",
+				medical_hold: "Medical Hold",
+				in_shelter: "In Shelter",
+				transferring: "Transferring",
+			};
+			chips.push({
+				label: `Status: ${
+					statusLabels[animalFilters.status] || animalFilters.status
+				}`,
+				onRemove: createRemoveHandler("status", undefined),
+			});
+		}
+
+		if (animalFilters.foster_visibility) {
+			const visibilityLabels: Record<string, string> = {
+				available_now: "Available Now",
+				available_future: "Available Future",
+				foster_pending: "Foster Pending",
+				not_visible: "Not Visible",
+			};
+			chips.push({
+				label: `Visibility: ${
+					visibilityLabels[animalFilters.foster_visibility] ||
+					animalFilters.foster_visibility
+				}`,
+				onRemove: createRemoveHandler("foster_visibility", undefined),
+			});
+		}
+
+		if (animalFilters.sortByCreatedAt) {
+			chips.push({
+				label: `Sort: ${
+					animalFilters.sortByCreatedAt === "oldest"
+						? "Oldest First"
+						: "Newest First"
+				}`,
+				onRemove: createRemoveHandler("sortByCreatedAt", undefined),
+			});
+		}
+
+		return chips;
+	}, [animalFilters, onAnimalFiltersChange]);
+
 	// Stable sort: selected animals first, then unselected (maintain order within each group)
 	const sortedAnimals = [...animals].sort((a, b) => {
 		const aSelected = selectedAnimalIds.includes(a.id);
@@ -260,6 +400,58 @@ export default function GroupForm({
 				<label className="block text-sm font-medium text-gray-700 mb-2">
 					Select Animals
 				</label>
+
+				{/* Search and Filters for Animal Selection */}
+				{!isLoadingAnimals && !isErrorAnimals && animals.length > 0 && (
+					<div className="mb-4">
+						<div className="flex items-center gap-2">
+							{/* Search Input */}
+							{onAnimalSearch && (
+								<SearchInput
+									value={animalSearchTerm || ""}
+									onSearch={onAnimalSearch}
+									disabled={loading || isLoadingAnimals}
+								/>
+							)}
+							{/* Filters */}
+							{onAnimalFiltersChange &&
+								animalFilters !== undefined && (
+									<AnimalFilters
+										filters={animalFilters}
+										onFiltersChange={onAnimalFiltersChange}
+									/>
+								)}
+						</div>
+
+						{/* Active Filter Chips */}
+						{activeFilterChips.length > 0 && (
+							<div className="mt-3 flex flex-wrap gap-2">
+								{activeFilterChips.map(
+									(
+										chip: {
+											label: string;
+											onRemove: () => void;
+										},
+										index: number
+									) => (
+										<FilterChip
+											key={index}
+											label={chip.label}
+											onRemove={chip.onRemove}
+										/>
+									)
+								)}
+								{animalSearchTerm && onAnimalSearch && (
+									<FilterChip
+										label={`Search: "${animalSearchTerm}"`}
+										onRemove={() => onAnimalSearch("")}
+									/>
+								)}
+							</div>
+						)}
+					</div>
+				)}
+
 				{isLoadingAnimals && (
 					<div className="p-4">
 						<LoadingSpinner message="Loading animals..." />
@@ -282,42 +474,64 @@ export default function GroupForm({
 						</p>
 					)}
 				{!isLoadingAnimals && !isErrorAnimals && animals.length > 0 && (
-					<div className="max-h-[520px] overflow-y-auto pt-6 pb-6 pl-2 pr-2 -mx-6">
-						<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-							{sortedAnimals.map((animal) => {
-								const isSelected = selectedAnimalIds.includes(
-									animal.id
-								);
-								return (
-									<div
-										key={animal.id}
-										onClick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											if (!loading) {
-												toggleAnimalSelection(
-													animal.id
-												);
-											}
-										}}
-										onMouseDown={(e) => {
-											// Prevent link navigation
-											e.preventDefault();
-										}}
-										className={`cursor-pointer transition-all relative rounded-lg ${
-											isSelected
-												? "ring-4 ring-pink-500 ring-offset-2"
-												: ""
-										}`}
-									>
-										<div style={{ pointerEvents: "none" }}>
-											<AnimalCard animal={animal} />
+					<>
+						<div className="max-h-[520px] overflow-y-auto pt-6 pb-6 pl-2 pr-2 -mx-6">
+							<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+								{sortedAnimals.map((animal) => {
+									const isSelected =
+										selectedAnimalIds.includes(animal.id);
+									return (
+										<div
+											key={animal.id}
+											onClick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												if (!loading) {
+													toggleAnimalSelection(
+														animal.id
+													);
+												}
+											}}
+											onMouseDown={(e) => {
+												// Prevent link navigation
+												e.preventDefault();
+											}}
+											className={`cursor-pointer transition-all relative rounded-lg ${
+												isSelected
+													? "ring-4 ring-pink-500 ring-offset-2"
+													: ""
+											}`}
+										>
+											<div
+												style={{
+													pointerEvents: "none",
+												}}
+											>
+												<AnimalCard animal={animal} />
+											</div>
 										</div>
-									</div>
-								);
-							})}
+									);
+								})}
+							</div>
 						</div>
-					</div>
+						{/* Pagination for animal selection */}
+						{animalCurrentPage &&
+							animalTotalPages !== undefined &&
+							animalTotalItems !== undefined &&
+							animalItemsPerPage !== undefined &&
+							onAnimalPageChange &&
+							animalTotalPages > 1 && (
+								<div className="mt-4">
+									<Pagination
+										currentPage={animalCurrentPage}
+										totalPages={animalTotalPages}
+										onPageChange={onAnimalPageChange}
+										totalItems={animalTotalItems}
+										itemsPerPage={animalItemsPerPage}
+									/>
+								</div>
+							)}
+					</>
 				)}
 				{selectedAnimalIds.length > 0 && (
 					<p className="mt-2 text-sm text-gray-500">

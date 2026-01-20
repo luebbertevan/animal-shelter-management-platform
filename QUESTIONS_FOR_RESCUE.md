@@ -645,6 +645,8 @@ coordinators on mobile: weird spacing for teh headers. (fosters needed header is
 
 refresh button is kinda confusing tbh
 
+we should probably do search and filter for animals/groups/fosters before assignment
+
 
 color palette 
 

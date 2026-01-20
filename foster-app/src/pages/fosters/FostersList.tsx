@@ -1,11 +1,13 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
+import { ChatBubbleLeftIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
-import { fetchFosters } from "../../lib/fosterQueries";
+import Pagination from "../../components/shared/Pagination";
+import { fetchFosters, fetchFostersCount } from "../../lib/fosterQueries";
 import { isOffline, getErrorMessage } from "../../lib/errorUtils";
+import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 import type { User, Foster } from "../../types";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
@@ -153,6 +155,16 @@ function FosterCard({
 
 export default function FostersList() {
 	const { user, profile, isCoordinator } = useProtectedAuth();
+	const [searchParams] = useSearchParams();
+	const navigate = useNavigate();
+
+	// Get pagination from URL
+	const page = parseInt(searchParams.get("page") || "1", 10);
+	const pageSize = parseInt(
+		searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE),
+		10
+	);
+	const offset = (page - 1) * pageSize;
 
 	const {
 		data: fosters = [],
@@ -160,8 +172,9 @@ export default function FostersList() {
 		isError,
 		error,
 		refetch,
+		isRefetching,
 	} = useQuery({
-		queryKey: ["fosters", user.id, profile.organization_id],
+		queryKey: ["fosters", user.id, profile.organization_id, page, pageSize],
 		queryFn: () => {
 			return fetchFosters(profile.organization_id, {
 				fields: [
@@ -176,10 +189,32 @@ export default function FostersList() {
 				orderDirection: "asc",
 				checkOffline: true,
 				includeCoordinators: true,
+				limit: pageSize,
+				offset,
 			});
 		},
 		enabled: isCoordinator,
 	});
+
+	// Fetch total count for pagination
+	const { data: totalCount = 0 } = useQuery({
+		queryKey: ["fosters-count", profile.organization_id],
+		queryFn: () => fetchFostersCount(profile.organization_id, true),
+		enabled: isCoordinator,
+	});
+
+	const totalPages = Math.ceil(totalCount / pageSize);
+
+	// Handle page change
+	const handlePageChange = (newPage: number) => {
+		const params = new URLSearchParams(searchParams);
+		if (newPage === 1) {
+			params.delete("page");
+		} else {
+			params.set("page", String(newPage));
+		}
+		navigate(`/fosters?${params.toString()}`, { replace: true });
+	};
 
 	// Redirect non-coordinators (handled by route protection, but double-check)
 	if (!isCoordinator) {
@@ -202,10 +237,16 @@ export default function FostersList() {
 						<button
 							type="button"
 							onClick={() => refetch()}
-							className="text-sm text-pink-600 hover:text-pink-700 font-medium"
-							disabled={isLoading}
+							disabled={isLoading || isRefetching}
+							className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
+							aria-label="Refresh fosters"
 						>
-							Refresh
+							<ArrowPathIcon
+								className={`h-4 w-4 sm:h-5 sm:w-5 ${
+									isRefetching ? "animate-spin" : ""
+								}`}
+							/>
+							<span className="hidden sm:inline">Refresh</span>
 						</button>
 					</div>
 				</div>
@@ -230,7 +271,8 @@ export default function FostersList() {
 							<button
 								type="button"
 								onClick={() => refetch()}
-								className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								disabled={isLoading || isRefetching}
+								className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								Try Again
 							</button>
@@ -268,16 +310,27 @@ export default function FostersList() {
 				)}
 
 				{fosters.length > 0 && (
-					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{fosters.map((foster) => (
-							<FosterCard
-								key={foster.id}
-								foster={foster}
-								currentUserId={user.id}
-								organizationId={profile.organization_id}
+					<>
+						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+							{fosters.map((foster) => (
+								<FosterCard
+									key={foster.id}
+									foster={foster}
+									currentUserId={user.id}
+									organizationId={profile.organization_id}
+								/>
+							))}
+						</div>
+						{totalPages > 1 && (
+							<Pagination
+								currentPage={page}
+								totalPages={totalPages}
+								onPageChange={handlePageChange}
+								totalItems={totalCount}
+								itemsPerPage={pageSize}
 							/>
-						))}
-					</div>
+						)}
+					</>
 				)}
 			</div>
 		</div>

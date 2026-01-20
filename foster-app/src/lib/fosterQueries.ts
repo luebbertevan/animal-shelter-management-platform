@@ -35,6 +35,10 @@ export interface FetchFostersOptions {
 	checkOffline?: boolean;
 	// Whether to include coordinators in the results. Default: false
 	includeCoordinators?: boolean;
+	// Pagination: limit (page size). Default: 50
+	limit?: number;
+	// Pagination: offset (number of records to skip). Default: 0
+	offset?: number;
 }
 
 // Fetch all fosters for an organization
@@ -48,6 +52,8 @@ export async function fetchFosters(
 		orderDirection = "asc",
 		checkOffline = false,
 		includeCoordinators = false,
+		limit,
+		offset = 0,
 	} = options;
 
 	try {
@@ -70,6 +76,11 @@ export async function fetchFosters(
 				ascending: orderDirection === "asc",
 				nullsFirst: false,
 			});
+		}
+
+		// Add pagination if specified
+		if (limit !== undefined) {
+			query = query.range(offset, offset + limit - 1);
 		}
 
 		const { data, error } = await query;
@@ -148,6 +159,48 @@ export async function fetchFosterById(
 			getErrorMessage(
 				err,
 				"Failed to load foster details. Please try again."
+			)
+		);
+	}
+}
+
+/**
+ * Get total count of fosters for an organization (for pagination)
+ */
+export async function fetchFostersCount(
+	organizationId: string,
+	includeCoordinators: boolean = false
+): Promise<number> {
+	try {
+		let query = supabase
+			.from("profiles")
+			.select("*", { count: "exact", head: true })
+			.eq("organization_id", organizationId);
+
+		// Filter by role
+		if (includeCoordinators) {
+			query = query.in("role", ["foster", "coordinator"]);
+		} else {
+			query = query.eq("role", "foster");
+		}
+
+		const { count, error } = await query;
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to fetch foster count. Please try again."
+				)
+			);
+		}
+
+		return count || 0;
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to fetch foster count. Please try again."
 			)
 		);
 	}

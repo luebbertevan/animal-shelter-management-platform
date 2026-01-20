@@ -6,6 +6,8 @@ import {
 } from "./errorUtils";
 import { deleteGroupFolder, deleteGroupPhoto } from "./photoUtils";
 import type { AnimalGroup } from "../types";
+import type { GroupFilters } from "../components/animals/GroupFilters";
+import { applyGroupFilters, applyNameSearch } from "./filterUtils";
 
 export interface FetchGroupsOptions {
 	// Fields to select. Default: ["id", "name", "description", "animal_ids", "priority"]
@@ -18,6 +20,14 @@ export interface FetchGroupsOptions {
 	// Whether to check for offline state and throw error if offline with empty data.
 	// Default: false
 	checkOffline?: boolean;
+	// Pagination: limit (page size). Default: 50
+	limit?: number;
+	// Pagination: offset (number of records to skip). Default: 0
+	offset?: number;
+	// Filters to apply to the query
+	filters?: GroupFilters;
+	// Search term to filter by group name
+	searchTerm?: string;
 }
 
 /**
@@ -32,20 +42,40 @@ export async function fetchGroups(
 		orderBy = "created_at",
 		orderDirection = "desc",
 		checkOffline = false,
+		limit,
+		offset = 0,
+		filters = {},
+		searchTerm = "",
 	} = options;
 
 	try {
 		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
-		let query = supabase
-			.from("animal_groups")
-			.select(selectFields)
-			.eq("organization_id", organizationId);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let query: any = supabase.from("animal_groups").select(selectFields);
 
-		// Add ordering if specified
-		if (orderBy) {
-			query = query.order(orderBy, {
-				ascending: orderDirection === "asc",
+		// Apply filters (includes organization_id filter)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyGroupFilters(query, filters, organizationId) as any;
+
+		// Apply search
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyNameSearch(query, searchTerm, "name") as any;
+
+		// Add ordering if specified (or from filters)
+		const finalOrderBy =
+			filters.sortByCreatedAt === "oldest" ? "created_at" : orderBy;
+		const finalOrderDirection =
+			filters.sortByCreatedAt === "oldest" ? "asc" : orderDirection;
+
+		if (finalOrderBy) {
+			query = query.order(finalOrderBy, {
+				ascending: finalOrderDirection === "asc",
 			});
+		}
+
+		// Add pagination if specified
+		if (limit !== undefined) {
+			query = query.range(offset, offset + limit - 1);
 		}
 
 		const { data, error } = await query;
@@ -484,6 +514,51 @@ export async function deleteGroup(
 	} catch (err) {
 		throw new Error(
 			getErrorMessage(err, "Failed to delete group. Please try again.")
+		);
+	}
+}
+
+/**
+ * Get total count of groups for an organization (for pagination)
+ * This function applies the same filters as fetchGroups but only returns the count
+ */
+export async function fetchGroupsCount(
+	organizationId: string,
+	filters: GroupFilters = {},
+	searchTerm: string = ""
+): Promise<number> {
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let query: any = supabase
+			.from("animal_groups")
+			.select("*", { count: "exact", head: true });
+
+		// Apply filters (includes organization_id filter)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyGroupFilters(query, filters, organizationId) as any;
+
+		// Apply search
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyNameSearch(query, searchTerm, "name") as any;
+
+		const { count, error } = await query;
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to fetch group count. Please try again."
+				)
+			);
+		}
+
+		return count || 0;
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to fetch group count. Please try again."
+			)
 		);
 	}
 }

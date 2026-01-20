@@ -5,6 +5,8 @@ import {
 	handleSupabaseNotFound,
 } from "./errorUtils";
 import type { Animal } from "../types";
+import type { AnimalFilters } from "../components/animals/AnimalFilters";
+import { applyAnimalFilters, applyNameSearch } from "./filterUtils";
 
 export interface FetchAnimalsOptions {
 	// Fields to select. Default: ["id", "name", "status", "sex_spay_neuter_status", "priority", "foster_visibility"]
@@ -17,6 +19,14 @@ export interface FetchAnimalsOptions {
 	// Whether to check for offline state and throw error if offline with empty data.
 	// Default: false
 	checkOffline?: boolean;
+	// Pagination: limit (page size). Default: 50
+	limit?: number;
+	// Pagination: offset (number of records to skip). Default: 0
+	offset?: number;
+	// Filters to apply to the query
+	filters?: AnimalFilters;
+	// Search term to filter by animal name
+	searchTerm?: string;
 }
 
 /**
@@ -38,20 +48,40 @@ export async function fetchAnimals(
 		orderBy = "created_at",
 		orderDirection = "desc",
 		checkOffline = false,
+		limit,
+		offset = 0,
+		filters = {},
+		searchTerm = "",
 	} = options;
 
 	try {
 		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
-		let query = supabase
-			.from("animals")
-			.select(selectFields)
-			.eq("organization_id", organizationId);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let query: any = supabase.from("animals").select(selectFields);
 
-		// Add ordering if specified
-		if (orderBy) {
-			query = query.order(orderBy, {
-				ascending: orderDirection === "asc",
+		// Apply filters (includes organization_id filter)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyAnimalFilters(query, filters, organizationId) as any;
+
+		// Apply search
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyNameSearch(query, searchTerm, "name") as any;
+
+		// Add ordering if specified (or from filters)
+		const finalOrderBy =
+			filters.sortByCreatedAt === "oldest" ? "created_at" : orderBy;
+		const finalOrderDirection =
+			filters.sortByCreatedAt === "oldest" ? "asc" : orderDirection;
+
+		if (finalOrderBy) {
+			query = query.order(finalOrderBy, {
+				ascending: finalOrderDirection === "asc",
 			});
+		}
+
+		// Add pagination if specified
+		if (limit !== undefined) {
+			query = query.range(offset, offset + limit - 1);
 		}
 
 		const { data, error } = await query;
@@ -151,7 +181,8 @@ export async function fetchAnimalsByIds(
 	organizationId: string,
 	options: FetchAnimalsByIdsOptions = {}
 ): Promise<Animal[]> {
-	const { fields = ["id", "name", "priority", "foster_visibility"] } = options;
+	const { fields = ["id", "name", "priority", "foster_visibility"] } =
+		options;
 
 	if (animalIds.length === 0) {
 		return [];
@@ -193,7 +224,8 @@ export async function fetchAnimalsByFosterId(
 	organizationId: string,
 	options: FetchAnimalsByFosterIdOptions = {}
 ): Promise<Animal[]> {
-	const { fields = ["id", "name", "priority", "foster_visibility"] } = options;
+	const { fields = ["id", "name", "priority", "foster_visibility"] } =
+		options;
 
 	try {
 		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
@@ -388,4 +420,49 @@ export async function fetchPhysicalCharacteristicsSuggestions(
 		"physical_characteristics",
 		20
 	);
+}
+
+/**
+ * Get total count of animals for an organization (for pagination)
+ * This function applies the same filters as fetchAnimals but only returns the count
+ */
+export async function fetchAnimalsCount(
+	organizationId: string,
+	filters: AnimalFilters = {},
+	searchTerm: string = ""
+): Promise<number> {
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let query: any = supabase
+			.from("animals")
+			.select("*", { count: "exact", head: true });
+
+		// Apply filters (includes organization_id filter)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyAnimalFilters(query, filters, organizationId) as any;
+
+		// Apply search
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		query = applyNameSearch(query, searchTerm, "name") as any;
+
+		const { count, error } = await query;
+
+		if (error) {
+			throw new Error(
+				getErrorMessage(
+					error,
+					"Failed to fetch animal count. Please try again."
+				)
+			);
+		}
+
+		return count || 0;
+	} catch (err) {
+		throw new Error(
+			getErrorMessage(
+				err,
+				"Failed to fetch animal count. Please try again."
+			)
+		);
+	}
 }

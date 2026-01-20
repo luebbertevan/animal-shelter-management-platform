@@ -3940,306 +3940,271 @@ The preview card should show minimal, scannable information for quick browsing:
 
 ---
 
-### Foster Assignment for Animals and Groups
-
-**Goal:** Enable coordinators to assign animals and groups to fosters during creation and editing, with automatic consistency enforcement between individual animal assignments and group assignments.
-
-**Design Decisions:**
-
--   **Data Model:** Both `animals.current_foster_id` and `animal_groups.current_foster_id` exist. This is intentional redundancy for query performance:
-    -   Querying "all animals assigned to a foster" is fast (direct filter on `animals.current_foster_id`)
-    -   Querying "all groups assigned to a foster" is fast (direct filter on `animal_groups.current_foster_id`)
-    -   We maintain consistency through application logic, not database constraints
--   **Consistency Rules:**
-    1. When assigning a **group** to a foster, automatically assign all animals in that group to the same foster
-    2. When assigning an **individual animal** to a foster:
-        - If animal is in a group that's assigned to a different foster → show warning/error, require resolution
-        - If animal is in a group that's not assigned → allow individual assignment
-        - If animal is in a group assigned to the same foster → allow (already consistent)
-    3. When removing an animal from a group, preserve its individual foster assignment
-    4. When removing a group assignment, preserve individual animal assignments (animals may be assigned individually)
--   **Resolution Strategy:** When conflicts are detected, offer coordinator options:
-    -   Assign the whole group to the foster (recommended if most animals should be together)
-    -   Remove animal from group and assign individually
-    -   Cancel the assignment
--   **Status Change Handling:** (See Questions 19.5 in QUESTIONS_FOR_RESCUE.md - implementation depends on rescue's workflow)
-    -   When status changes FROM "in_foster" to another status, handle foster assignment based on rescue's preference:
-        -   Option A: Automatically clear foster assignment (if status change means animal is no longer with foster)
-        -   Option B: Preserve foster assignment for historical tracking
-        -   Option C: Conditional based on target status (e.g., clear for "adopted", preserve for "medical_hold")
-    -   When status changes TO "in_foster", may require foster assignment (or allow without assignment)
-    -   Implementation will be determined after reviewing answers to Question 19.5
--   **Adoption Status Handling:** (See Questions 34.5 in QUESTIONS_FOR_RESCUE.md - implementation depends on rescue's workflow)
-    -   When status changes to "adopted", may require adopter information entry
-    -   May automatically clear foster assignment when adopted
-    -   Adopter information fields and requirements will be determined after reviewing answers to Question 34.5
-
-**Tasks:**
-
-1. **Create foster assignment utilities** (`src/lib/assignmentUtils.ts`):
-
-    - `assignGroupToFoster(groupId, fosterId, organizationId)` - Assigns group and all its animals
-    - `assignAnimalToFoster(animalId, fosterId, organizationId)` - Assigns individual animal with conflict checking
-    - `checkAssignmentConflict(animalId, fosterId, organizationId)` - Checks if assignment would create conflict
-    - `removeGroupAssignment(groupId, organizationId)` - Removes group assignment (preserves individual animal assignments)
-    - `removeAnimalAssignment(animalId, organizationId)` - Removes individual animal assignment
-    - All functions handle database transactions/consistency
-
-2. **Update `NewAnimal.tsx`**:
-
-    - Add foster assignment field (dropdown/autocomplete of fosters)
-    - When foster is selected, check if animal will be added to a group
-    - If group assignment exists and conflicts, show warning before save
-    - Save `current_foster_id` on animal creation
-
-3. **Update `EditAnimal.tsx`**:
-
-    - Add foster assignment field (dropdown/autocomplete, with "None" option)
-    - Display current foster assignment
-    - When changing assignment:
-        - Check for conflicts with group assignment
-        - Show resolution dialog if conflict detected
-        - Update `current_foster_id` on save
-    - Handle removing assignment (set to null)
-    - **Status change handling:** (Implementation depends on answers to Question 19.5)
-        - When status changes FROM "in_foster" to another status, handle foster assignment per rescue's workflow
-        - When status changes TO "adopted", handle adopter information entry and foster assignment per Question 34.5
-        - Show confirmation dialogs for status changes that affect assignments
-
-4. **Update `NewGroup.tsx`**:
-
-    - Add foster assignment field (dropdown/autocomplete of fosters)
-    - When foster is selected and group is saved:
-        - Assign group to foster
-        - Automatically assign all selected animals in group to same foster
-        - Show confirmation: "Group and [X] animals will be assigned to [Foster Name]"
-
-5. **Update `EditGroup.tsx`**:
-
-    - Add foster assignment field (dropdown/autocomplete, with "None" option)
-    - Display current foster assignment
-    - When changing group assignment:
-        - Automatically update all animals in group to match
-        - Show confirmation: "Group and [X] animals will be assigned to [Foster Name]"
-    - When removing group assignment:
-        - Preserve individual animal assignments (don't clear them)
-        - Show confirmation: "Group assignment removed. Individual animal assignments preserved."
-    - When adding animals to a group that's assigned to a foster:
-        - Automatically assign new animals to the same foster
-        - Show notification: "[X] animals added to group and assigned to [Foster Name]"
-    - When removing animals from a group:
-        - Preserve their individual foster assignments
-
-6. **Create conflict resolution UI component** (`src/components/animals/AssignmentConflictDialog.tsx`):
-
-    - Shows when assignment conflict is detected
-    - Displays: "Animal [name] is in group [group name] assigned to [foster A], but you're trying to assign to [foster B]"
-    - Options:
-        - "Assign whole group to [foster B]" (recommended)
-        - "Remove from group and assign individually"
-        - "Cancel"
-    - Handles the selected resolution
-
-7. **Update `AnimalDetail.tsx`**:
-
-    - Display current foster assignment (if assigned)
-    - Show group assignment if animal is in an assigned group
-    - If individual and group assignments differ, show warning badge
-    - Link to foster detail page
-
-8. **Update `GroupDetail.tsx`**:
-
-    - Display current foster assignment (if assigned)
-    - Show count of animals in group assigned to foster
-    - If any animals have different assignments, show warning
-
-9. **Add validation and error handling**:
-    - Validate foster exists and is in same organization
-    - Handle database errors gracefully
-    - Show success/error notifications
-    - Update React Query cache after assignments
-
-**Testing:**
-
--   Can assign individual animal to foster during creation
--   Can assign individual animal to foster during editing
--   Can assign group to foster during creation (all animals auto-assigned)
--   Can assign group to foster during editing (all animals auto-assigned)
--   Conflict detection works when assigning animal to different foster than its group
--   Conflict resolution dialog appears and handles all options correctly
--   Removing group assignment preserves individual animal assignments
--   Removing animal from group preserves its foster assignment
--   Adding animals to assigned group auto-assigns them to group's foster
--   Database consistency maintained (no orphaned assignments)
--   UI updates correctly after assignments
--   Error handling works for invalid fosters, network errors, etc.
-
-**Deliverable:** Foster assignment working for animals and groups with automatic consistency enforcement and conflict resolution.
+**Note:** The "Foster Assignment for Animals and Groups" milestone has been moved to a comprehensive feature specification document: `FOSTER_REQUESTS_AND_ASSIGNMENTS.md`. This document includes foster requests, assignments, unassignments, and UI improvements, all organized into phases with proper dependencies.
 
 ---
 
 ### Reusable Search & Filter Component
 
-**Goal:** Create reusable search and filter components that can be used across the app (animals list, animal selection in groups, tagging, fosters needed page, etc.).
+**Goal:** Create reusable search and filter components that can be used across the app (animals list, groups list, animal selection in groups, fosters needed page, etc.). Search by name only. Filters for animals and groups as specified.
+
+**Design Decisions:**
+
+-   **Search Behavior:** Search triggers on Enter key press or Search button click (no debouncing)
+-   **Search Scope:** Search by name only (for now)
+-   **Animal Filters:** priority, sex, life_stage, if in group (has group_id), status, foster_visibility, created_at (newest/oldest)
+-   **Group Filters:** priority, created_at (newest/oldest)
+-   **Foster Filters:** if currently fostering (has assigned animals/groups)
+-   **DRY Principle:** Reuse components and utilities where possible (shared filter UI components, shared filter logic)
+-   **Default Sort Order:** `created_at` defaults to "Newest First" (most recent items first)
+
+**Mobile Design Decisions:**
+
+-   **Filter UI Layout on Mobile:** Collapsible accordion/section with "Show Filters" / "Hide Filters" toggle button (saves screen space on mobile)
+-   **Active Filter Display:** Show active filters as removable chips/tags above results (allows quick removal of individual filters)
+-   **Search Input Placement:** Search input is always visible above filters (not inside collapsible section) for easy access
+-   **Filter State Persistence:** Filter/search state stored in URL query parameters (enables bookmarkable/shareable filtered views, persists on page refresh)
+-   **Sticky Search/Filter Bar:** Search/filter bar is NOT sticky on scroll (simpler implementation, less UI complexity)
+-   **Filter Section Behavior:** Filter section starts collapsed on mobile, remembers open/closed state during session (using localStorage or component state)
+-   **Mobile Responsive Design:** All filter components use responsive Tailwind classes (stack vertically on mobile, horizontal layout on desktop)
 
 **Tasks:**
 
 1. **Create reusable search component** (`src/components/shared/SearchInput.tsx`):
 
     - Text input with search icon
-    - Debounced search (wait for user to stop typing)
-    - Clear button
-    - Accept props: `value`, `onChange`, `placeholder`, `disabled`
-    - Mobile-friendly styling
+    - Search button (triggers search on click)
+    - Search triggers on Enter key press
+    - Clear button (clears search and triggers search)
+    - Accept props: `value`, `onSearch`, `placeholder`, `disabled`
+    - `onSearch` callback called with search term when Enter pressed or Search button clicked
+    - Mobile-friendly styling (full width on mobile, responsive padding and font sizes)
+    - Always visible (not inside collapsible filter section)
 
-2. **Create reusable filter component** (`src/components/animals/AnimalFilters.tsx`):
+2. **Create shared filter UI components** (`src/components/shared/Filters.tsx`):
 
-    - Filter by status (dropdown/multi-select)
-    - Filter by priority (toggle)
-    - Filter by sex (dropdown)
-    - Filter by group (dropdown - shows all groups)
+    - `PriorityFilter` - Toggle for high priority (reusable for animals and groups)
+    - `SelectFilter` - Generic dropdown filter component (reusable for sex, status, etc.)
+    - `ToggleFilter` - Generic toggle/checkbox filter (reusable for "if in group", "currently fostering")
+    - `SortFilter` - Dropdown for sorting (reusable for created_at sorting - newest/oldest)
+    - `FilterChip` - Removable chip component for displaying active filters (reusable across all filter types)
+    - `FilterSection` - Collapsible wrapper component for filter groups (mobile-friendly with show/hide toggle)
+    - All components accept: `label`, `value`, `onChange`, `options` (for select/sort)
+    - Consistent styling and behavior
+    - Mobile-responsive (stack vertically on mobile, horizontal layout on desktop)
+    - `FilterSection` remembers open/closed state during session (localStorage or component state)
+
+3. **Create animal filter component** (`src/components/animals/AnimalFilters.tsx`):
+
+    - Uses shared filter UI components
+    - Wrapped in `FilterSection` for collapsible mobile behavior
+    - Filter by priority (toggle - uses `PriorityFilter`)
+    - Filter by sex (dropdown - uses `SelectFilter`)
+    - Filter by life_stage (dropdown - uses `SelectFilter`)
+    - Filter by if in group (toggle - uses `ToggleFilter`)
+    - Filter by status (dropdown - uses `SelectFilter`)
+    - Filter by foster_visibility (dropdown - uses `SelectFilter`)
+    - Sort by created_at (dropdown - uses `SortFilter`): "Newest First" or "Oldest First" (default: "Newest First")
     - Clear filters button
     - Show active filter count
-    - Accept props: `filters`, `onFiltersChange`, `availableGroups`
-    - Return filter object that can be applied to Supabase queries
+    - Accept props: `filters`, `onFiltersChange`
+    - Return filter object: `{ priority?, sex?, life_stage?, inGroup?, status?, foster_visibility?, sortByCreatedAt? }`
+    - Mobile-responsive layout (filters stack vertically on mobile)
 
-3. **Create filter utility functions** (`src/lib/filterUtils.ts`):
+4. **Create group filter component** (`src/components/animals/GroupFilters.tsx`):
 
-    - Function to build Supabase query from filter object
-    - Function to check if filters are active
-    - Function to clear all filters
-    - Reusable across different pages
+    - Uses shared filter UI components
+    - Wrapped in `FilterSection` for collapsible mobile behavior
+    - Filter by priority (toggle - uses `PriorityFilter`)
+    - Sort by created_at (dropdown - uses `SortFilter`): "Newest First" or "Oldest First" (default: "Newest First")
+    - Clear filters button
+    - Show active filter count
+    - Accept props: `filters`, `onFiltersChange`
+    - Return filter object: `{ priority?, sortByCreatedAt? }`
+    - Mobile-responsive layout (filters stack vertically on mobile)
 
-4. **Update AnimalsList to use new components**:
+5. **Create foster filter component** (`src/components/fosters/FosterFilters.tsx`):
 
-    - Integrate SearchInput and AnimalFilters
-    - Apply filters to Supabase query
+    - Uses shared filter UI components
+    - Wrapped in `FilterSection` for collapsible mobile behavior
+    - Filter by if currently fostering (toggle - uses `ToggleFilter`)
+    - Clear filters button
+    - Show active filter count
+    - Accept props: `filters`, `onFiltersChange`
+    - Return filter object: `{ currentlyFostering? }`
+    - Mobile-responsive layout (filters stack vertically on mobile)
+
+6. **Create filter utility functions** (`src/lib/filterUtils.ts`):
+
+    - `applyAnimalFilters(query, filters, organizationId)` - Applies animal filters to Supabase query
+    - `applyGroupFilters(query, filters, organizationId)` - Applies group filters to Supabase query
+    - `applyFosterFilters(query, filters, organizationId)` - Applies foster filters to Supabase query
+    - `applyNameSearch(query, searchTerm, fieldName)` - Applies name search to query (case-insensitive, partial match)
+    - `applySortByCreatedAt(query, sortOrder)` - Applies created_at sorting (asc/desc)
+    - `countActiveFilters(filters)` - Counts number of active filters
+    - `hasActiveFilters(filters)` - Returns true if any filters are active
+    - `clearFilters()` - Returns empty filter object
+    - `filtersToQueryParams(filters, searchTerm)` - Converts filter object and search term to URL query parameters
+    - `queryParamsToFilters(searchParams)` - Parses URL query parameters back to filter object and search term
+    - All functions are pure and reusable
+
+7. **Update AnimalsList to use search and filters**:
+
+    - Add SearchInput component (searches by animal name) - always visible above filters
+    - Add AnimalFilters component (wrapped in collapsible FilterSection for mobile)
+    - Add ActiveFilterChips component above results (displays active filters as removable chips)
+    - Sync filter/search state with URL query parameters (use `useSearchParams` from react-router-dom)
+    - Initialize filters from URL on page load
+    - Apply search and filters to `fetchAnimals` query
     - Display filtered results
-    - Show "No results" when filters match nothing
-    - Preserve filter state in URL params (optional, for shareable links)
+    - Show "No results" when filters/search match nothing
+    - Show active filter count
+    - Update query key to include search and filter values for proper caching
+    - Update URL when filters/search change (enables bookmarkable/shareable views)
 
-5. **Update NewGroup animal selection to use SearchInput**:
+8. **Update GroupsList to use search and filters**:
 
-    - Add search input above animal checkboxes
-    - Filter animals by name as user types
+    - Add SearchInput component (searches by group name) - always visible above filters
+    - Add GroupFilters component (wrapped in collapsible FilterSection for mobile)
+    - Add ActiveFilterChips component above results (displays active filters as removable chips)
+    - Sync filter/search state with URL query parameters (use `useSearchParams` from react-router-dom)
+    - Initialize filters from URL on page load
+    - Apply search and filters to `fetchGroups` query
+    - Display filtered results
+    - Show "No results" when filters/search match nothing
+    - Show active filter count
+    - Update query key to include search and filter values for proper caching
+    - Update URL when filters/search change (enables bookmarkable/shareable views)
+
+9. **Update FostersNeeded page to use search and filters** (optional enhancement):
+
+    - Add SearchInput component (searches by animal/group name) - always visible above filters
+    - Add AnimalFilters component (for filtering animals, wrapped in collapsible FilterSection for mobile)
+    - Add ActiveFilterChips component above results (displays active filters as removable chips)
+    - Sync filter/search state with URL query parameters (use `useSearchParams` from react-router-dom)
+    - Initialize filters from URL on page load
+    - Note: Groups in FostersNeeded inherit visibility from animals, so group-specific filters may not be needed
+    - Apply search and filters to both animals and groups queries
+    - Filter combined results appropriately
+    - Update URL when filters/search change (enables bookmarkable/shareable views)
+    - Mobile-responsive layout
+
+10. **Update NewGroup animal selection to use SearchInput**:
+
+    - Add SearchInput above animal checkboxes
+    - Filter animals by name (client-side filtering of already-fetched animals)
+    - Search triggers on Enter or Search button click
     - Improve UX for selecting animals from large lists
+    - **Note:** Pagination should also be added to NewGroup animal selection to handle large lists efficiently
 
-6. **Update FostersList to use SearchInput**:
+11. **Update FostersList to use search and filters**:
 
-    - Add search input to foster list page
-    - Filter fosters by name as user types
-    - Improve UX for finding fosters in large lists
+    - Add SearchInput component (searches by foster name) - always visible above filters
+    - Add FosterFilters component (wrapped in collapsible FilterSection for mobile)
+    - Add ActiveFilterChips component above results (displays active filters as removable chips)
+    - Sync filter/search state with URL query parameters (use `useSearchParams` from react-router-dom)
+    - Initialize filters from URL on page load
+    - Apply search and filters to foster query
+    - For "currently fostering" filter: Check if foster has `current_foster_id` set on any animals or groups
+    - Display filtered results
+    - Show "No results" when filters/search match nothing
+    - Show active filter count
+    - Update query key to include search and filter values for proper caching
+    - Update URL when filters/search change (enables bookmarkable/shareable views)
 
-7. **Test:**
-    - Search works correctly in animals list
-    - Filters work correctly and can be combined
-    - Search works in group animal selection
-    - Search works in fosters list
-    - Components are reusable and work in different contexts
+**Implementation Notes:**
+
+-   **Search Implementation:**
+
+    -   Use Supabase `.ilike()` for case-insensitive partial name matching
+    -   Search term: `%${searchTerm}%` for partial matches
+    -   Search triggers only on Enter key or Search button click (not on every keystroke)
+
+-   **Filter Implementation:**
+
+    -   Priority filter: `.eq('priority', true)` or exclude if false
+    -   Sex filter: `.eq('sex_spay_neuter_status', value)`
+    -   Life stage filter: `.eq('life_stage', value)`
+    -   In group filter: `.not('group_id', 'is', null)` or `.is('group_id', null)`
+    -   Status filter: `.eq('status', value)`
+    -   Visibility filter: `.eq('foster_visibility', value)`
+    -   Created_at sort: `.order('created_at', { ascending: true/false })` (true for oldest first, false for newest first)
+    -   Currently fostering filter (fosters): Check if foster has animals or groups with `current_foster_id` matching foster's profile ID
+    -   Multiple filters can be combined (chain Supabase query methods)
+
+-   **Component Reusability:**
+
+    -   `SearchInput` is fully reusable across all pages
+    -   `PriorityFilter` is reusable for animals and groups
+    -   `SelectFilter` and `ToggleFilter` are generic and reusable
+    -   `FilterSection` and `FilterChip` are reusable across all filter components
+    -   Filter utility functions work for both animals and groups
+
+-   **Filter Layout Updates:**
+
+    -   Filter forms should use more compact spacing (reduce gap from `gap-4` to `gap-2` or `gap-3`)
+    -   Consider using more columns on larger screens (e.g., `grid-cols-2 sm:grid-cols-3 md:grid-cols-4`)
+    -   Reduce padding/spacing in FilterSection for a more compact appearance
+    -   Ensure mobile layout remains usable and not too cramped
+
+-   **Query Key Management:**
+
+    -   Include search term and filter values in React Query key
+    -   This ensures proper cache invalidation and separate caching for different filter combinations
+
+-   **URL Query Parameter Management:**
+
+    -   Use `useSearchParams` from react-router-dom to sync filter/search state with URL
+    -   Initialize filters from URL on page load (enables bookmarkable/shareable filtered views)
+    -   Update URL when filters/search change (without page reload)
+    -   Use `filtersToQueryParams` and `queryParamsToFilters` utility functions for conversion
+
+-   **Mobile Responsive Design:**
+    -   Filter sections are collapsible on mobile (using `FilterSection` component)
+    -   Filter section starts collapsed on mobile, remembers state during session
+    -   Search input is always visible (not inside collapsible section)
+    -   Active filter chips display above results (removable individual chips)
+    -   All filter components use responsive Tailwind classes (stack vertically on mobile, horizontal on desktop)
+    -   Filter toggle button shows "Show Filters" / "Hide Filters" text on mobile
 
 **Testing:**
 
--   Search component works correctly with debouncing
--   Filter component applies filters correctly
--   Filters can be combined (status + priority + sex, etc.)
--   Search works in animals list
--   Search works in group animal selection
--   Search works in fosters list
+-   Search component works correctly (triggers on Enter and Search button)
+-   Search works in animals list (searches by name)
+-   Search works in groups list (searches by name)
+-   Search works in fosters list (searches by name)
+-   Animal filters work correctly (priority, sex, life_stage, in group, status, visibility, created_at sort)
+-   Group filters work correctly (priority, created_at sort)
+-   Foster filters work correctly (currently fostering)
+-   Created_at sort works correctly (newest first / oldest first, defaults to newest first)
+-   Filters can be combined (multiple filters at once)
+-   Search and filters can be used together
 -   Clear filters button works
 -   Active filter count is accurate
+-   Active filter chips display correctly and can be removed individually
+-   "No results" message displays when appropriate
 -   Components are reusable across different pages
+-   Search works in NewGroup animal selection (client-side filtering)
+-   **Mobile Testing:**
+    -   Filter section is collapsible on mobile (show/hide toggle works)
+    -   Filter section remembers open/closed state during session
+    -   Search input is always visible on mobile (not hidden in collapsible section)
+    -   Active filter chips are touch-friendly (large enough tap targets)
+    -   All filter components stack vertically on mobile
+    -   Filter components display horizontally on desktop
+    -   Filter toggle button text is readable on mobile
+-   **URL Query Parameter Testing:**
+    -   Filters/search state syncs with URL query parameters
+    -   Filters/search initialize correctly from URL on page load
+    -   URL updates when filters/search change (without page reload)
+    -   Bookmarked filtered views work correctly (filters restored from URL)
+    -   Shareable filtered view URLs work correctly
 
-**Deliverable:** Reusable search and filter components working across the app.
+**Deliverable:** Reusable search and filter components working across animals list, groups list, fosters list, and other pages. Search by name with Enter/Search button. Animal filters: priority, sex, life_stage, in group, status, visibility, created_at sort. Group filters: priority, created_at sort. Foster filters: currently fostering. All components follow DRY principles with shared filter UI components. Mobile-friendly with collapsible filter sections, active filter chips, and URL query parameter persistence for bookmarkable/shareable filtered views.
 
 ---
 
-### Coordinator Request Handling & Assignment
-
-**Goal:** Enable coordinators to view, approve, and handle foster requests, assigning animals/groups to fosters and updating relevant information.
-
-**Tasks:**
-
-1. **Create coordinator request management UI:**
-
-    - Display foster requests in coordinator dashboard or dedicated requests page
-    - Show requests with:
-        - Foster name and contact info
-        - Requested animal/group information
-        - Request message content
-        - Request timestamp
-        - Request status (pending, approved, rejected)
-    - Filter requests by status, priority, or foster
-    - Link to full conversation where request was made
-
-2. **Implement request approval workflow:**
-
-    - "Approve Request" button/action for coordinators
-    - When approved:
-        - Assign animal/group to foster (update `current_foster_id` on animal/group)
-        - Update animal/group status (e.g., change from `in_shelter` to `in_foster`)
-        - Update foster's assigned animals/groups list
-        - Send confirmation message to foster (auto-generated or coordinator can customize)
-        - Tag animal/group in confirmation message
-    - Handle group assignments:
-        - If approving group request, assign entire group to foster
-        - Update all animals in group to show foster assignment
-        - Ensure group status reflects assignment
-
-3. **Create assignment UI/flow:**
-
-    - Assignment confirmation dialog/page
-    - Show what will be assigned (animal/group details)
-    - Optional: Add pickup/transfer event:
-        - Date/time for pickup
-        - Location for pickup
-        - Special instructions
-        - Store as event or note (design decision needed)
-    - Allow coordinator to add notes or instructions during assignment
-    - Send assignment notification to foster
-
-4. **Update animal/group data on assignment:**
-
-    - Set `current_foster_id` on animal or group record
-    - Update status field appropriately
-    - Record assignment timestamp
-    - Link assignment to requesting message (optional - for audit trail)
-
-5. **Handle request rejection:**
-
-    - "Reject Request" action (optional - coordinator can just not respond)
-    - If implemented: Send polite rejection message to foster
-    - Mark request as rejected (for coordinator tracking)
-
-6. **Request status tracking:**
-    - Track request status in database (design decision needed):
-        - Option 1: Use message metadata or tags
-        - Option 2: Create simple `foster_requests` table
-        - Option 3: Track through message content and assignment status
-    - Display request history for coordinators
-    - Show which requests have been fulfilled
-
-**Design Decisions Needed (To be made during implementation):**
-
--   **Request tracking:** How to track request status (database table vs. message-based)
--   **Pickup/Transfer events:** Whether to create dedicated event system or use notes/messages
--   **Assignment workflow:** Single-step approval vs. multi-step (approve → schedule pickup → confirm)
--   **Notification preferences:** How fosters want to be notified of approvals
--   **Multiple requests:** Handling when multiple fosters request same animal/group
--   **Assignment history:** Whether to track assignment history or just current assignment
-
-**Testing:**
-
--   Coordinators can view all foster requests
--   Can approve requests and assign animals/groups to fosters
--   Animal/group status updates correctly on assignment
--   Foster receives assignment notification
--   Assignment information is stored correctly
--   Group assignments work correctly (all animals in group assigned)
--   Request status is tracked appropriately
-
-**Deliverable:** Coordinator request handling and assignment workflow working. Coordinators can approve requests and assign animals/groups to fosters with proper data updates.
-
-**Note:** Specific implementation details (pickup events, request tracking method, etc.) will be finalized based on rescue organization feedback and testing during development.
+**Note:** The "Coordinator Request Handling & Assignment" milestone has been moved to a comprehensive feature specification document: `FOSTER_REQUESTS_AND_ASSIGNMENTS.md`. This document includes foster requests, assignments, unassignments, and UI improvements, all organized into phases with proper dependencies.
 
 ---
 
