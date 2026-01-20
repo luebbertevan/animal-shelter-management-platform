@@ -1,6 +1,6 @@
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
+import { ChatBubbleLeftIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
@@ -172,6 +172,7 @@ export default function FostersList() {
 		isError,
 		error,
 		refetch,
+		isRefetching,
 	} = useQuery({
 		queryKey: ["fosters", user.id, profile.organization_id, page, pageSize],
 		queryFn: () => {
@@ -236,10 +237,16 @@ export default function FostersList() {
 						<button
 							type="button"
 							onClick={() => refetch()}
-							className="text-sm text-pink-600 hover:text-pink-700 font-medium"
-							disabled={isLoading}
+							disabled={isLoading || isRefetching}
+							className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
+							aria-label="Refresh fosters"
 						>
-							Refresh
+							<ArrowPathIcon
+								className={`h-4 w-4 sm:h-5 sm:w-5 ${
+									isRefetching ? "animate-spin" : ""
+								}`}
+							/>
+							<span className="hidden sm:inline">Refresh</span>
 						</button>
 					</div>
 				</div>
@@ -264,7 +271,8 @@ export default function FostersList() {
 							<button
 								type="button"
 								onClick={() => refetch()}
-								className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								disabled={isLoading || isRefetching}
+								className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								Try Again
 							</button>

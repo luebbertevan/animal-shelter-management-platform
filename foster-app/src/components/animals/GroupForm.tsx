@@ -410,7 +410,6 @@ export default function GroupForm({
 								<SearchInput
 									value={animalSearchTerm || ""}
 									onSearch={onAnimalSearch}
-									placeholder="Search animals by name..."
 									disabled={loading || isLoadingAnimals}
 								/>
 							)}
