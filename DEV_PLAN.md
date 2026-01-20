@@ -2017,34 +2017,22 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Fetch Tags in MessageList
 
-**Status:** [PARTIALLY COMPLETED] - Helper functions exist, but MessageList doesn't fetch tags yet
+**Status:** [COMPLETED]
 
 **Goal:** Update message fetching to include tags with proper joins and transformations.
 
-**Remaining Tasks:**
+**Completed Tasks:**
 
-1. **Update `fetchMessages` function in `MessageList.tsx`:**
+-   Updated `fetchMessages` function in `MessageList.tsx` to include `message_links` with nested select
+-   Added joins with `animals` table to get animal name when `animal_id` is set
+-   Added joins with `animal_groups` table to get group name when `group_id` is set
+-   Added joins with `profiles` table to get foster name when `foster_profile_id` is set
+-   Using existing `transformMessageWithLinks()` helper to transform messages
+-   Messages now return with tags array attached
+-   Updated real-time subscription in `MessageList.tsx` to include `message_links` with all entity joins
+-   Real-time messages are transformed using `transformMessageWithLinks()` helper
 
-    - Include `message_links` in message query with nested select
-    - Join with `animals` table to get animal name when `animal_id` is set
-    - Join with `animal_groups` table to get group name when `group_id` is set
-    - Join with `profiles` table to get foster name when `foster_profile_id` is set
-    - Use existing `transformMessageWithLinks()` helper to transform messages
-    - Return messages with tags array attached
-
-2. **Update real-time subscription in `MessageList.tsx`:**
-    - Include `message_links` in real-time message fetch
-    - Join with all three entity tables (animals, animal_groups, profiles)
-    - Transform new messages using `transformMessageWithLinks()` helper
-
-**Testing:**
-
--   Can fetch message links with animal names
--   Can fetch message links with group names
--   Can fetch message links with foster names
--   Tags are correctly transformed and attached to messages
--   Real-time messages include tags
--   Multiple tags per message work correctly
+**File:** `src/components/messaging/MessageList.tsx`
 
 **Deliverable:** MessageList fetches and includes tags for all messages. Tags are available for display in MessageBubble.
 
@@ -2054,56 +2042,128 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Status:** [NOT STARTED]
 
-**Goal:** Add UI to select and display tags (animals, groups, fosters) before sending a message.
+**Goal:** Add UI to select and display tags (animals, groups) for coordinators. Fosters do not have access to tagging UI (may be added later).
+
+**Design Decisions:**
+
+-   **Access Control:** Only coordinators can access tagging UI. Fosters do not see the @ button or tagging feature
+-   **UI Container:** Modal (not dropdown) for all screen sizes - provides more space for search and entity lists
+-   **Trigger Button:** "@" icon button next to photo upload button in `MessageInput.tsx`
+    -   Compact spacing between buttons to avoid overcrowding
+    -   Buttons should stack vertically if textarea expands
+    -   **No keyboard shortcut:** @ key does NOT open the tagging menu (only button click)
+-   **Modal Content:** Two tabs - "Animals" and "Groups" (no Fosters tab - see separate Foster Tagging milestone)
+-   **Search/Filter:** Each tab has its own search and filter functionality following the same pattern as animals/groups list pages
+    -   Use `SearchInput` component (not real-time filtering - search on Enter/button click)
+    -   Reuse existing search and filter code from animals/groups list pages
+    -   Each tab maintains its own search term and filters independently
+-   **Entity List Display:** Show AnimalCard/GroupCard components (same cards as in list pages) depending on active tab
+    -   Grid layout similar to animals/groups list pages
+    -   Click card to select entity
+-   **Pagination:** Follow same pagination pattern as animals/groups list pages
+    -   Use `Pagination` component
+    -   Server-side pagination with page size
+-   **Selection Behavior:**
+    -   Select one animal or group at a time from modal
+    -   When selected, `@animalname` or `@groupname` appears in message text
+    -   `@name` text in message is styled pink and is clickable (links to animal/group detail page)
+    -   Keep `@name` text in message AND add chip below message on send
+    -   Maximum tags per message: configurable variable (default 10, can be changed in one place)
+    -   If attempting to add tag when at max, show popup message (not hardcoded limit)
+-   **Tag Display:** Tags appear as chips below the message (not above input field)
+    -   Chips styled similar to AnimalCard/GroupCard from animal list
+    -   Chips are clickable links to animal/group detail pages
+    -   Same type colors as used in animal/group cards
 
 **Tasks:**
 
-1. **Create tag selector component/modal:**
+1. **Add @ button to `MessageInput.tsx`:**
 
-    - Add button/icon to `MessageInput.tsx` to open tag selector (e.g., "@" button or "Tag" button)
-    - Create tag selector modal/dropdown component:
-        - Search/autocomplete input
-        - Tabs or filter buttons for entity types (Animals, Groups, Fosters)
-        - **Fosters tab should only be visible in coordinator chat** (hide for foster conversations)
-        - List of selectable entities with names
-        - Allow selecting multiple entities
+    - Add "@" icon button next to photo upload button
+    - Compact spacing between buttons (reduce gap)
+    - Buttons stack vertically when textarea expands
+    - Button only visible for coordinators (check user role)
+    - Open modal on click
 
-2. **Fetch entities from organization:**
+2. **Create Tag Selection Modal component:**
+
+    - Modal component (similar to `ConfirmModal` pattern)
+    - Responsive: full-screen on mobile, centered on desktop
+    - Two tabs: "Animals" and "Groups"
+    - Loading states:
+        - Show `LoadingSpinner` while fetching entities
+        - Show loading state in each tab independently
+    - Each tab has independent search and filter functionality:
+        - Use `SearchInput` component (same as animals/groups list pages)
+        - Reuse filter components from animals/groups list pages
+        - Search/filter works on Enter/button click (not real-time)
+    - Entity list displays AnimalCard/GroupCard components (same as list pages):
+        - Grid layout matching animals/groups list pages
+        - Click card to select entity
+    - Pagination using `Pagination` component:
+        - Follow same pagination pattern as animals/groups list
+        - Server-side pagination with page size
+    - Click entity card to select (adds `@name` to message text)
+    - Close modal after selection
+
+3. **Create max tags configuration:**
+
+    - Create configurable constant for max tags per message (e.g., `MAX_MESSAGE_TAGS = 10`)
+    - Place in shared constants file (e.g., `src/lib/constants.ts` or similar)
+    - Use this constant in validation logic
+    - Show popup message when attempting to add tag at max limit
+
+4. **Fetch entities from organization:**
 
     - Animals: fetch from `animals` table (filtered by organization)
     - Groups: fetch from `animal_groups` table (filtered by organization)
-    - Fosters: fetch from `profiles` table (filtered by organization, role='foster') - **only in coordinator chat**
+    - Reuse existing query functions from animals/groups list pages
+    - Support search, filters, and pagination (same as list pages)
 
-3. **Display selected tags as chips:**
+5. **Handle @ mentions in message text:**
 
-    - Show selected tags as chips above input field in `MessageInput.tsx`
-    - Show entity name and type indicator (e.g., "Fluffy (Animal)", "John (Foster)", "Litter of 4 (Group)")
-    - Allow removing tags (X button on chip)
-    - Style chips distinctively
+    - When entity selected, insert `@animalname` or `@groupname` into message text at cursor position
+    - Style `@name` text as pink and make clickable links
+    - Track which entities are mentioned in message (for tag creation on send)
+    - Check max tags limit before adding (show popup if at limit)
 
-4. **Restrict foster tagging to coordinator chat:**
+6. **Update message sending:**
 
-    - Check if current conversation is coordinator chat (check conversation type or user role)
-    - Hide "Fosters" tab in tag selector for foster conversations
-    - Only show "Fosters" tab when coordinators are messaging in coordinator chat
-
-5. **Update message sending:**
-    - Collect selected tags from UI state before sending
+    - Parse `@name` mentions from message text
+    - Match mentions to selected entities
+    - Validate max tags limit (use configurable constant)
     - Pass tags to `sendMessage()` function (already supports tags)
-    - Clear selected tags after successful send
+    - Keep `@name` text in message AND create tag chips below message
+    - Clear tags after successful send (keep @name text in message)
+
+7. **Display tags as chips below message:**
+    - Update `MessageBubble.tsx` to display tags (see Display Tags milestone)
+    - Style chips similar to AnimalCard/GroupCard
+    - Make chips clickable links to detail pages
 
 **Testing:**
 
--   Tag selector opens and closes correctly
--   Can search/filter animals, groups, and fosters (in coordinator chat)
--   Fosters tab is hidden in foster conversations
--   Fosters tab is visible in coordinator chat
--   Can select multiple entities of different types
--   Selected tags appear as chips with type indicators
--   Can remove tags before sending
+-   @ button only visible to coordinators
+-   Fosters do not see @ button or tagging feature
+-   Modal opens and closes correctly
+-   Modal is responsive (full-screen mobile, centered desktop)
+-   Loading spinner shows while fetching entities
+-   @ key does NOT open tagging menu (only button click works)
+-   Can search/filter animals and groups within tabs (using SearchInput, not real-time)
+-   Search/filter works independently in each tab
+-   Entity list shows AnimalCard/GroupCard components (same as list pages)
+-   Pagination works correctly in modal
+-   Selecting entity adds `@name` to message text
+-   `@name` text is pink and clickable
+-   Max tags popup appears when attempting to add tag at limit
+-   Max tags constant is configurable (not hardcoded)
+-   Tags appear as chips below message after sending
+-   `@name` text remains in message AND chips appear below
+-   Chips are styled similar to animal/group cards
+-   Chips link to detail pages
 -   Tags are passed to send function correctly
 
-**Deliverable:** Tag selection UI working in MessageInput. Coordinators can select animals, groups, and fosters to tag in coordinator chat. Fosters can only tag animals and groups in their conversations.
+**Deliverable:** Tag selection UI working in MessageInput for coordinators only. Coordinators can tag animals and groups. `@name` appears in message text (pink, clickable). Tags appear as chips below messages after sending.
 
 ---
 
@@ -2111,34 +2171,161 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 **Status:** [NOT STARTED]
 
-**Goal:** Display tags as clickable chips in message bubbles with proper navigation.
+**Goal:** Display tags as clickable chips below message content with styling similar to animal/group cards.
+
+**Design Decisions:**
+
+-   **Chip Placement:** Tags appear as chips below message content (not above)
+-   **Chip Styling:** Similar to AnimalCard/GroupCard styling from animal list
+-   **Type Colors:** Use same type colors as animal/group cards
+-   **Clickable:** Chips are clickable links to detail pages
 
 **Tasks:**
 
 1. **Update `MessageBubble.tsx` to display tags:**
 
-    - Accept `tags` array as prop (from MessageList - after MessageList fetches tags)
-    - Display tags as clickable chips/badges below message content
-    - Show entity type indicator on each tag (e.g., "Animal", "Group", "Foster")
-    - Style tags distinctively from message content
-    - Use different colors/styles for different entity types (optional enhancement)
+    - Accept `tags` array as prop (from MessageList - tags are already fetched)
+    - Display tags as clickable chips/badges below message content (after photos if present)
+    - Style chips similar to AnimalCard/GroupCard components
+    - Use same type colors as animal/group cards
+    - Show entity name on chip (type indicator optional or subtle)
 
 2. **Add navigation for tags:**
+
     - Animals → link to `/animals/:id` (animal detail page)
     - Groups → link to `/groups/:id` (group detail page)
-    - Fosters → link to `/fosters/:id` (foster detail page)
+    - Fosters → link to `/fosters/:id` (foster detail page - if foster tagging added later)
+
+3. **Style @ mentions in message text:**
+    - Parse and style `@name` text in message content as pink
+    - Make `@name` text clickable links to detail pages
+    - Handle both @ mentions in text and tag chips below
 
 **Testing:**
 
--   Tags appear in message bubbles for all entity types
--   Tags show correct names and type indicators
+-   Tags appear in message bubbles below message content
+-   Tags show correct names
 -   Animal tags link to animal detail pages
 -   Group tags link to group detail pages
--   Foster tags link to foster detail pages
--   Tags are visually distinct from message content
--   Works for messages with multiple tags of different types
+-   Tags are styled similar to animal/group cards
+-   `@name` text in message is pink and clickable
+-   Works for messages with multiple tags
+-   Tags appear correctly with photos
 
-**Deliverable:** Tags display correctly in message bubbles with proper styling and navigation. Complete tagging feature working end-to-end.
+**Deliverable:** Tags display correctly in message bubbles with proper styling and navigation. `@name` mentions in message text are pink and clickable. Complete tagging feature working end-to-end.
+
+---
+
+### Search and Pagination for Fosters List
+
+**Status:** [NOT STARTED]
+
+**Goal:** Add search and filter functionality to Fosters List page, following the same conventions as animals/groups list pages.
+
+**Design Decisions:**
+
+-   **Search:** Use `SearchInput` component (same as animals/groups list pages)
+-   **Filters:** Add filter components following same pattern as animals/groups
+-   **Pagination:** Fosters list already has pagination, ensure it works with search/filters
+-   **Consistency:** Follow exact same patterns and conventions as animals/groups list pages
+
+**Tasks:**
+
+1. **Add search functionality:**
+
+    - Add `SearchInput` component to Fosters List page
+    - Update `fetchFosters` query to support search term
+    - Search by foster name, email, or other relevant fields
+    - Update URL query parameters to include search term
+
+2. **Add filter functionality:**
+
+    - Create `FosterFilters` component (if not exists) following same pattern as `AnimalFilters`
+    - Add filters relevant to fosters (e.g., availability, role, etc.)
+    - Update `fetchFosters` query to support filters
+    - Update URL query parameters to include filters
+    - Show active filter chips (reuse `FilterChip` component)
+
+3. **Update pagination:**
+
+    - Ensure pagination works correctly with search and filters
+    - Update total count query to include search/filter parameters
+    - Reset to page 1 when search/filters change
+
+4. **Update URL query parameter handling:**
+
+    - Use `queryParamsToFilters` and `filtersToQueryParams` utilities (same as animals/groups)
+    - Support bookmarkable/shareable filtered views
+
+**Testing:**
+
+-   Search works correctly (Enter/button click, not real-time)
+-   Filters work correctly
+-   Active filters show as chips
+-   Pagination works with search and filters
+-   URL query parameters persist correctly
+-   Filtered views are bookmarkable/shareable
+-   Follows same conventions as animals/groups list pages
+
+**Deliverable:** Fosters List page has search and filter functionality matching animals/groups list pages. Pagination works correctly with search/filters.
+
+---
+
+### Foster Tagging in Messages
+
+**Status:** [NOT STARTED]
+
+**Goal:** Add foster tagging capability to message tagging UI. Allows coordinators to tag fosters in messages (in addition to animals and groups).
+
+**Prerequisites:** Tag Selection UI milestone must be completed first.
+
+**Design Decisions:**
+
+-   **Access Control:** Only coordinators can tag fosters (same as animal/group tagging)
+-   **UI Addition:** Add "Fosters" tab to existing tag selection modal
+-   **Foster List:** Use same search, filter, and pagination patterns as Fosters List page
+-   **Display:** Foster tags appear as chips below messages (same as animal/group tags)
+
+**Tasks:**
+
+1. **Add Fosters tab to Tag Selection Modal:**
+
+    - Add third tab "Fosters" to existing tag selection modal
+    - Tab only visible to coordinators
+    - Reuse search, filter, and pagination from Fosters List page
+
+2. **Fetch fosters for tagging:**
+
+    - Reuse `fetchFosters` query function from Fosters List page
+    - Support search, filters, and pagination (same as Fosters List)
+    - Display fosters in selectable list (similar to animal/group cards)
+
+3. **Handle foster tag selection:**
+
+    - When foster selected, insert `@fostername` into message text
+    - Style `@name` text as pink and make clickable (links to foster detail page)
+    - Create foster tag on message send (backend already supports this)
+
+4. **Display foster tags:**
+
+    - Foster tags appear as chips below messages (same styling as animal/group tags)
+    - Chips link to foster detail pages
+    - Update `MessageBubble.tsx` to handle foster tags (if not already handled)
+
+**Note:** Backend infrastructure already exists for foster tagging (database schema, helper functions, validation). This milestone only adds the UI.
+
+**Testing:**
+
+-   Fosters tab appears in tag selection modal (coordinators only)
+-   Can search/filter fosters in Fosters tab
+-   Pagination works correctly in Fosters tab
+-   Selecting foster adds `@fostername` to message text
+-   `@fostername` text is pink and clickable
+-   Foster tags appear as chips below messages after sending
+-   Foster tag chips link to foster detail pages
+-   Max tags limit includes foster tags (total across all types)
+
+**Deliverable:** Coordinators can tag fosters in messages. Fosters tab added to tag selection modal with search, filter, and pagination. Foster tags display correctly below messages.
 
 ---
 

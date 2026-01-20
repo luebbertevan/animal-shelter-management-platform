@@ -33,7 +33,16 @@ async function fetchMessages(
 			created_at,
 			edited_at,
 			photo_urls,
-			profiles!messages_sender_id_fkey(full_name)
+			profiles!messages_sender_id_fkey(full_name),
+			message_links(
+				id,
+				animal_id,
+				group_id,
+				foster_profile_id,
+				animals(name),
+				animal_groups(name),
+				profiles(full_name)
+			)
 		`
 		)
 		.eq("conversation_id", conversationId)
@@ -58,7 +67,7 @@ async function fetchMessages(
 
 	// Transform data to include sender name and tags
 	// The JOIN returns profiles as a nested object: { profiles: { full_name: "..." } }
-	// Note: message_links are not fetched here (tagging deferred to later)
+	// message_links includes joined data from animals, animal_groups, and profiles
 	// Cast the data to our known type since Supabase doesn't infer JOIN types
 	const messagesWithProfile = (data || []) as unknown as MessageWithLinks[];
 
@@ -288,7 +297,7 @@ export default function MessageList({
 						photo_urls: string[] | null;
 					};
 
-					// Fetch message with profile join (message_links not fetched - tagging deferred)
+					// Fetch message with profile join and message_links with all entity joins
 					const { data: messageData, error: fetchError } =
 						await supabase
 							.from("messages")
@@ -301,7 +310,16 @@ export default function MessageList({
 							created_at,
 							edited_at,
 							photo_urls,
-							profiles!messages_sender_id_fkey(full_name)
+							profiles!messages_sender_id_fkey(full_name),
+							message_links(
+								id,
+								animal_id,
+								group_id,
+								foster_profile_id,
+								animals(name),
+								animal_groups(name),
+								profiles(full_name)
+							)
 						`
 							)
 							.eq("id", newMessage.id)
