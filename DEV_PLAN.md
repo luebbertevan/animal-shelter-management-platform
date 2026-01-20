@@ -1949,150 +1949,148 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Update Database Schema for Foster Tagging
+## Message Tagging for Animals, Groups, and Fosters
 
-**Goal:** Extend `message_links` table to support tagging fosters in addition to animals and groups, and rename table to reflect its broader purpose.
+### Update Database Schema for Message Tagging
 
-**Tasks:**
+**Status:** [COMPLETED]
 
-1. Create migration to rename and update table:
-    - Rename `message_animal_links` to `message_links` (more accurate name since it supports multiple entity types)
-    - Add `foster_profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE` column (nullable)
-    - Update constraint `exactly_one_link` to allow exactly one of:
-        - `animal_id` (not null, others null)
-        - `group_id` (not null, others null)
-        - `foster_profile_id` (not null, others null)
-    - Add index on `foster_profile_id` for query performance
-    - Rename indexes to match new table name:
-        - `idx_message_animal_links_message_id` → `idx_message_links_message_id`
-        - `idx_message_animal_links_animal_id` → `idx_message_links_animal_id`
-        - `idx_message_animal_links_group_id` → `idx_message_links_group_id`
-        - Add new: `idx_message_links_foster_profile_id`
-2. Update RLS policies for `message_links`:
-    - Ensure users can view/create links for fosters in their organization
-    - Policy should allow tagging any foster profile in user's organization
-3. Test schema changes:
-    - Can insert link with `animal_id` only
-    - Can insert link with `group_id` only
-    - Can insert link with `foster_profile_id` only
-    - Cannot insert link with multiple IDs set
-    - Cannot insert link with no IDs set
-    - RLS policies prevent unauthorized access
+**Goal:** Extend `message_links` table to support tagging animals, groups, and fosters in messages.
 
-**Testing:**
+**Completed Tasks:**
 
--   Migration runs successfully
--   Can create message-animal links (existing functionality still works)
--   Can create message-group links (existing functionality still works)
--   Can create message-foster links (new functionality)
--   Constraint prevents invalid combinations
--   RLS policies work correctly
+-   Created migration to rename `message_animal_links` to `message_links`
+-   Added `foster_profile_id` column to support foster tagging
+-   Updated constraint to allow exactly one of `animal_id`, `group_id`, or `foster_profile_id`
+-   Added index on `foster_profile_id` for query performance
+-   Renamed all indexes to match new table name
+-   Updated RLS policies to allow tagging fosters in user's organization
 
 **Deliverable:** Database schema updated to support tagging animals, groups, and fosters. All three entity types can be linked to messages.
 
 ---
 
-### Backend Support for Foster Tagging
+### Backend Helper Functions and Types
 
-**Goal:** Create backend queries and functions to fetch and create message tags for animals, groups, and fosters.
+**Status:** [COMPLETED]
 
-**Tasks:**
+**Goal:** Create helper functions and types for transforming and validating message tags.
 
-1. **Create message link fetching queries:**
+**Completed Tasks:**
 
-    - Create query function to fetch `message_links` for a given message ID
+-   Created TypeScript types for message tags (`MessageTag`, `MessageLinkRaw`, `MessageWithLinks`, `MessageWithMetadata`)
+-   Created helper function `getEntityTypeFromLink()` to determine entity type from link
+-   Created helper function `getDisplayNameFromLink()` to get display name for each entity type
+-   Created helper function `getEntityIdFromLink()` to get entity ID from link
+-   Created helper function `transformLinkToTag()` to transform raw link data into tag format
+-   Created helper function `transformLinksToTags()` to transform array of links to tags
+-   Created helper function `transformTagsToLinks()` to transform tags into database format
+-   Created helper function `normalizeSupabaseLinks()` to handle Supabase response inconsistencies
+-   Created helper function `transformMessageWithLinks()` to transform messages with links for UI
+-   Created helper function `validateTagIds()` to validate tag IDs exist and are accessible
+
+**File:** `src/lib/messageLinkUtils.ts`
+
+**Deliverable:** All helper functions and types created for message tagging. Functions handle transformation between database format and UI format for all three entity types.
+
+---
+
+### Message Link Insertion and Sending
+
+**Status:** [COMPLETED]
+
+**Goal:** Enable message sending with tag insertion support.
+
+**Completed Tasks:**
+
+-   Created `insertMessageLinks()` function to insert tags into `message_links` table
+-   Updated `sendMessage()` function in `MessageInput.tsx` to accept optional `tags` parameter
+-   Implemented tag insertion after message creation
+-   Added error handling for tag insertion failures (message sent but tags failed)
+-   Added tag validation before sending
+
+**File:** `src/components/messaging/MessageInput.tsx`
+
+**Deliverable:** Message sending function supports tags. Tags can be inserted for animals, groups, and fosters when sending messages.
+
+---
+
+### Fetch Tags in MessageList
+
+**Status:** [PARTIALLY COMPLETED] - Helper functions exist, but MessageList doesn't fetch tags yet
+
+**Goal:** Update message fetching to include tags with proper joins and transformations.
+
+**Remaining Tasks:**
+
+1. **Update `fetchMessages` function in `MessageList.tsx`:**
+
+    - Include `message_links` in message query with nested select
     - Join with `animals` table to get animal name when `animal_id` is set
     - Join with `animal_groups` table to get group name when `group_id` is set
     - Join with `profiles` table to get foster name when `foster_profile_id` is set
-    - Return all three entity types with their display names
-    - Handle cases where multiple links exist for a single message
-
-2. **Update message fetching in MessageList:**
-
-    - Modify `fetchMessages` function to also fetch `message_links` for each message
-    - Use Supabase's `.select()` with nested queries to fetch links alongside messages
-    - Transform link data to include entity type and display name
+    - Use existing `transformMessageWithLinks()` helper to transform messages
     - Return messages with tags array attached
 
-3. **Create helper functions/types:**
-
-    - Type for message link result (includes `animal_id`, `group_id`, `foster_profile_id`, and joined data)
-    - Type for tag data (includes `type: 'animal' | 'group' | 'foster'`, `id`, `name`)
-    - Helper function to determine entity type from link (animal, group, or foster)
-    - Helper function to get display name for each entity type
-    - Helper function to transform raw link data into tag format
-
-4. **Create message link insertion function:**
-
-    - Create function to insert tags into `message_links` table
-    - Accept array of tags (each with `type` and `id`)
-    - Insert into `message_links` with appropriate field set based on type:
-        - If `type === 'animal'`: set `animal_id`, leave others null
-        - If `type === 'group'`: set `group_id`, leave others null
-        - If `type === 'foster'`: set `foster_profile_id`, leave others null
-    - Handle multiple tags for a single message (insert multiple rows)
-    - Handle errors gracefully (invalid IDs, permission errors, etc.)
-
-5. **Update message sending function:**
-
-    - Modify `sendMessage` function in `MessageInput.tsx` to accept optional `tags` parameter
-    - After message is created, if tags exist, call link insertion function
-    - Handle errors: if message is created but tags fail, show appropriate error
-    - Return message ID so tags can be linked to it
-
-6. **Test:**
-    - Verify queries return tags with correct names for all three entity types
-    - Verify tag insertion works for animals, groups, and fosters
-    - Verify helper functions correctly identify entity types
-    - Verify display names are correct for all entity types
-    - Test error cases (invalid IDs, permission errors)
+2. **Update real-time subscription in `MessageList.tsx`:**
+    - Include `message_links` in real-time message fetch
+    - Join with all three entity tables (animals, animal_groups, profiles)
+    - Transform new messages using `transformMessageWithLinks()` helper
 
 **Testing:**
 
 -   Can fetch message links with animal names
 -   Can fetch message links with group names
 -   Can fetch message links with foster names
--   Can insert tags for animals, groups, and fosters
--   Helper functions correctly identify entity types
--   Display names are correct for all entity types
+-   Tags are correctly transformed and attached to messages
+-   Real-time messages include tags
 -   Multiple tags per message work correctly
--   Error handling works for invalid tags
 
-**Deliverable:** Backend fully supports fetching and creating tags for animals, groups, and fosters. Messages can be tagged with any combination of animals, groups, and fosters.
+**Deliverable:** MessageList fetches and includes tags for all messages. Tags are available for display in MessageBubble.
 
 ---
 
 ### Tag Selection UI in MessageInput
 
+**Status:** [NOT STARTED]
+
 **Goal:** Add UI to select and display tags (animals, groups, fosters) before sending a message.
 
 **Tasks:**
 
-1. Add tag selection UI to `MessageInput.tsx`:
-    - Add button/icon to open tag selector (e.g., "@" button or "Tag" button)
-    - Create tag selector component/modal:
+1. **Create tag selector component/modal:**
+
+    - Add button/icon to `MessageInput.tsx` to open tag selector (e.g., "@" button or "Tag" button)
+    - Create tag selector modal/dropdown component:
         - Search/autocomplete input
         - Tabs or filter buttons for entity types (Animals, Groups, Fosters)
         - **Fosters tab should only be visible in coordinator chat** (hide for foster conversations)
         - List of selectable entities with names
         - Allow selecting multiple entities
-    - Fetch entities from organization:
-        - Animals: fetch from `animals` table (filtered by organization)
-        - Groups: fetch from `animal_groups` table (filtered by organization)
-        - Fosters: fetch from `profiles` table (filtered by organization, role='foster') - **only in coordinator chat**
-    - Display selected tags as chips above input field:
-        - Show entity name and type indicator (e.g., "Fluffy (Animal)", "John (Foster)", "Litter of 4 (Group)")
-        - Allow removing tags (X button on chip)
-        - Style chips distinctively
-2. **Restrict foster tagging to coordinator chat:**
+
+2. **Fetch entities from organization:**
+
+    - Animals: fetch from `animals` table (filtered by organization)
+    - Groups: fetch from `animal_groups` table (filtered by organization)
+    - Fosters: fetch from `profiles` table (filtered by organization, role='foster') - **only in coordinator chat**
+
+3. **Display selected tags as chips:**
+
+    - Show selected tags as chips above input field in `MessageInput.tsx`
+    - Show entity name and type indicator (e.g., "Fluffy (Animal)", "John (Foster)", "Litter of 4 (Group)")
+    - Allow removing tags (X button on chip)
+    - Style chips distinctively
+
+4. **Restrict foster tagging to coordinator chat:**
+
     - Check if current conversation is coordinator chat (check conversation type or user role)
     - Hide "Fosters" tab in tag selector for foster conversations
     - Only show "Fosters" tab when coordinators are messaging in coordinator chat
-3. Update message sending:
-    - Collect selected tags before sending
-    - Pass tags to send message function (from Backend Support for Foster Tagging)
+
+5. **Update message sending:**
+    - Collect selected tags from UI state before sending
+    - Pass tags to `sendMessage()` function (already supports tags)
     - Clear selected tags after successful send
-4. Test: Can open tag selector, search/filter entities, select multiple tags, remove tags, tags appear as chips
 
 **Testing:**
 
@@ -2111,33 +2109,32 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ### Display Tags in MessageBubble
 
+**Status:** [NOT STARTED]
+
 **Goal:** Display tags as clickable chips in message bubbles with proper navigation.
 
 **Tasks:**
 
-1. Update `MessageList.tsx` to fetch tags:
-    - Include `message_links` in message query (already done for animals/groups)
-    - Join with `profiles` table to get foster names for foster tags
-    - Transform tag data to include entity type and display name
-2. Update `MessageBubble.tsx` to display tags:
-    - Accept tags array as prop (from MessageList)
+1. **Update `MessageBubble.tsx` to display tags:**
+
+    - Accept `tags` array as prop (from MessageList - after MessageList fetches tags)
     - Display tags as clickable chips/badges below message content
     - Show entity type indicator on each tag (e.g., "Animal", "Group", "Foster")
     - Style tags distinctively from message content
     - Use different colors/styles for different entity types (optional enhancement)
-3. Add navigation for tags:
+
+2. **Add navigation for tags:**
     - Animals → link to `/animals/:id` (animal detail page)
-    - Groups → link to `/groups/:id` (group detail page - already created in Groups)
-    - Fosters → link to `/fosters/:id` (foster detail page - created in Foster List and Detail Pages)
-4. Test: Tags display correctly, tags are clickable, navigation works, styling is clear
+    - Groups → link to `/groups/:id` (group detail page)
+    - Fosters → link to `/fosters/:id` (foster detail page)
 
 **Testing:**
 
 -   Tags appear in message bubbles for all entity types
 -   Tags show correct names and type indicators
 -   Animal tags link to animal detail pages
--   Group tags link to group detail pages (when available)
--   Foster tags display foster names
+-   Group tags link to group detail pages
+-   Foster tags link to foster detail pages
 -   Tags are visually distinct from message content
 -   Works for messages with multiple tags of different types
 
