@@ -4,6 +4,8 @@ import {
 	isOffline,
 	handleSupabaseNotFound,
 } from "./errorUtils";
+import { applyNameSearch, applySortByCreatedAt } from "./filterUtils";
+import type { FosterFilters } from "../components/fosters/FosterFilters";
 
 export interface FosterProfile {
 	id: string;
@@ -39,6 +41,10 @@ export interface FetchFostersOptions {
 	limit?: number;
 	// Pagination: offset (number of records to skip). Default: 0
 	offset?: number;
+	// Search term for filtering by name
+	searchTerm?: string;
+	// Filters for additional filtering
+	filters?: FosterFilters;
 }
 
 // Fetch all fosters for an organization
@@ -54,11 +60,14 @@ export async function fetchFosters(
 		includeCoordinators = false,
 		limit,
 		offset = 0,
+		searchTerm = "",
+		filters,
 	} = options;
 
 	try {
 		const selectFields = fields.includes("*") ? "*" : fields.join(", ");
-		let query = supabase
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let query: any = supabase
 			.from("profiles")
 			.select(selectFields)
 			.eq("organization_id", organizationId);
@@ -70,8 +79,16 @@ export async function fetchFosters(
 			query = query.eq("role", "foster");
 		}
 
-		// Add ordering if specified
-		if (orderBy) {
+		// Apply search by full_name
+		query = applyNameSearch(query, searchTerm, "full_name") as any;
+
+		// Apply sorting - use sortByCreatedAt from filters if available, otherwise use orderBy/orderDirection
+		if (filters?.sortByCreatedAt) {
+			query = applySortByCreatedAt(
+				query,
+				filters.sortByCreatedAt
+			) as any;
+		} else if (orderBy) {
 			query = query.order(orderBy, {
 				ascending: orderDirection === "asc",
 				nullsFirst: false,
@@ -169,10 +186,12 @@ export async function fetchFosterById(
  */
 export async function fetchFostersCount(
 	organizationId: string,
-	includeCoordinators: boolean = false
+	includeCoordinators: boolean = false,
+	searchTerm: string = ""
 ): Promise<number> {
 	try {
-		let query = supabase
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let query: any = supabase
 			.from("profiles")
 			.select("*", { count: "exact", head: true })
 			.eq("organization_id", organizationId);
@@ -183,6 +202,9 @@ export async function fetchFostersCount(
 		} else {
 			query = query.eq("role", "foster");
 		}
+
+		// Apply search by full_name
+		query = applyNameSearch(query, searchTerm, "full_name") as any;
 
 		const { count, error } = await query;
 

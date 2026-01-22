@@ -39,8 +39,24 @@ async function fetchMessages(
 				animal_id,
 				group_id,
 				foster_profile_id,
-				animals(name),
-				animal_groups(name),
+				animals(
+					id,
+					name,
+					status,
+					sex_spay_neuter_status,
+					priority,
+					photos,
+					date_of_birth,
+					group_id
+				),
+				animal_groups(
+					id,
+					name,
+					description,
+					animal_ids,
+					priority,
+					group_photos
+				),
 				profiles(full_name)
 			)
 		`
@@ -316,8 +332,24 @@ export default function MessageList({
 								animal_id,
 								group_id,
 								foster_profile_id,
-								animals(name),
-								animal_groups(name),
+								animals(
+									id,
+									name,
+									status,
+									sex_spay_neuter_status,
+									priority,
+									photos,
+									date_of_birth,
+									group_id
+								),
+								animal_groups(
+									id,
+									name,
+									description,
+									animal_ids,
+									priority,
+									group_photos
+								),
 								profiles(full_name)
 							)
 						`
@@ -399,16 +431,28 @@ export default function MessageList({
 			// Double RAF ensures layout calculations are complete
 			requestAnimationFrame(() => {
 				requestAnimationFrame(() => {
-					if (messagesEndRef.current) {
-						// Instant scroll on first load only
-						messagesEndRef.current.scrollIntoView({
-							behavior: "auto",
-							block: "end",
-						});
+					if (
+						messagesEndRef.current &&
+						parentScrollableContainerRef?.current
+					) {
+						// Scroll the container to show the bottom (messages end ref)
+						// This ensures messages are visible but doesn't push input out of view
+						parentScrollableContainerRef.current.scrollTop =
+							parentScrollableContainerRef.current.scrollHeight;
 						// Mark that first load is complete and scroll has happened
 						isFirstLoadRef.current = false;
 						// Set flag to show messages after scroll is complete
 						// Use another RAF to ensure scroll has actually happened
+						requestAnimationFrame(() => {
+							setHasScrolledToBottom(true);
+						});
+					} else if (messagesEndRef.current) {
+						// Fallback if no parent container ref
+						messagesEndRef.current.scrollIntoView({
+							behavior: "auto",
+							block: "end",
+						});
+						isFirstLoadRef.current = false;
 						requestAnimationFrame(() => {
 							setHasScrolledToBottom(true);
 						});
@@ -419,7 +463,7 @@ export default function MessageList({
 			// If messages exist but it's not first load, we can show them immediately
 			setHasScrolledToBottom(true);
 		}
-	}, [messages, isLoadingMore]);
+	}, [messages, isLoadingMore, parentScrollableContainerRef]);
 
 	if (isLoading) {
 		return (
@@ -496,6 +540,7 @@ export default function MessageList({
 							created_at: message.created_at,
 							sender_name: message.sender_name,
 							photo_urls: message.photo_urls,
+							tags: message.tags,
 						}}
 						isOwnMessage={isOwnMessage}
 					/>

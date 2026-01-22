@@ -13,15 +13,17 @@ import {
 } from "../../lib/groupCardUtils";
 
 interface GroupCardProps {
-	group: Pick<
-		AnimalGroup,
-		| "id"
-		| "name"
-		| "description"
-		| "animal_ids"
-		| "priority"
-		| "group_photos"
-	>;
+	group: Partial<
+		Pick<
+			AnimalGroup,
+			| "id"
+			| "name"
+			| "description"
+			| "animal_ids"
+			| "priority"
+			| "group_photos"
+		>
+	> & { id: string };
 	/**
 	 * Optional map of animal data (photos and life_stage) for animals in the group.
 	 * Key: animal ID, Value: { photos?: PhotoMetadata[], life_stage?: LifeStage }

@@ -1,12 +1,21 @@
 import type {
 	MessageLinkRaw,
 	MessageTag,
+	MessageTagWithEntity,
 	MessageWithLinks,
 	MessageWithMetadata,
 	TagType,
+	Animal,
+	TimestampedPhoto,
 } from "../types";
 import { TAG_TYPES } from "../types";
 import { extractFullName } from "./supabaseUtils";
+
+/**
+ * Maximum number of tags allowed per message
+ * Configurable constant - change this value to adjust the limit
+ */
+export const MAX_MESSAGE_TAGS = 10;
 
 /**
  * Determines the entity type from a message link based on which ID field is set
@@ -61,17 +70,93 @@ export function transformLinkToTag(link: MessageLinkRaw): MessageTag | null {
 }
 
 /**
- * Transforms an array of raw message links into an array of MessageTags
+ * Transforms an array of raw message links into an array of MessageTags with entity data
  */
 export function transformLinksToTags(
 	links: MessageLinkRaw[] | null
-): MessageTag[] {
+): Array<MessageTagWithEntity> {
 	if (!links || links.length === 0) return [];
 
 	try {
 		return links
-			.map(transformLinkToTag)
-			.filter((tag): tag is MessageTag => tag !== null);
+			.map((link) => {
+				const tag = transformLinkToTag(link);
+				if (!tag) return null;
+
+				// Include full animal/group data if available
+				const result: MessageTagWithEntity = { ...tag };
+
+				if (link.animals && link.animal_id) {
+					result.animal = {
+						id: link.animals.id,
+						...(link.animals.name !== null &&
+							link.animals.name !== undefined && {
+								name: link.animals.name,
+							}),
+						...(link.animals.status && {
+							status: link.animals.status as Animal["status"],
+						}),
+						...(link.animals.sex_spay_neuter_status && {
+							sex_spay_neuter_status: link.animals
+								.sex_spay_neuter_status as Animal["sex_spay_neuter_status"],
+						}),
+						...(link.animals.priority !== undefined && {
+							priority: link.animals.priority,
+						}),
+						...(link.animals.photos && {
+							photos: link.animals.photos,
+						}),
+						...(link.animals.date_of_birth && {
+							date_of_birth: link.animals.date_of_birth,
+						}),
+						...(link.animals.group_id && {
+							group_id: link.animals.group_id,
+						}),
+					};
+				}
+
+				if (link.animal_groups && link.group_id) {
+					// Convert PhotoMetadata[] to TimestampedPhoto[] if needed
+					const groupPhotos = link.animal_groups.group_photos
+						? link.animal_groups.group_photos
+								.filter(
+									(photo): photo is TimestampedPhoto =>
+										photo.uploaded_by !== undefined &&
+										photo.uploaded_by !== null
+								)
+								.map((photo) => ({
+									url: photo.url,
+									uploaded_at: photo.uploaded_at,
+									uploaded_by: photo.uploaded_by!,
+								}))
+						: undefined;
+
+					result.group = {
+						id: link.animal_groups.id,
+						...(link.animal_groups.name !== null &&
+							link.animal_groups.name !== undefined && {
+								name: link.animal_groups.name,
+							}),
+						...(link.animal_groups.description && {
+							description: link.animal_groups.description,
+						}),
+						...(link.animal_groups.animal_ids &&
+							link.animal_groups.animal_ids.length > 0 && {
+								animal_ids: link.animal_groups.animal_ids,
+							}),
+						...(link.animal_groups.priority !== undefined && {
+							priority: link.animal_groups.priority,
+						}),
+						...(groupPhotos &&
+							groupPhotos.length > 0 && {
+								group_photos: groupPhotos,
+							}),
+					};
+				}
+
+				return result;
+			})
+			.filter((tag): tag is MessageTagWithEntity => tag !== null);
 	} catch (error) {
 		console.error("Error transforming links to tags:", error);
 		return [];
@@ -130,8 +215,11 @@ export function normalizeSupabaseLinks(
 		animal_id: string | null;
 		group_id: string | null;
 		foster_profile_id: string | null;
-		animals: { name: string } | { name: string }[] | null;
-		animal_groups: { name: string } | { name: string }[] | null;
+		animals: MessageLinkRaw["animals"] | MessageLinkRaw["animals"][] | null;
+		animal_groups:
+			| MessageLinkRaw["animal_groups"]
+			| MessageLinkRaw["animal_groups"][]
+			| null;
 		profiles: { full_name: string } | { full_name: string }[] | null;
 	}>,
 	messageId: string

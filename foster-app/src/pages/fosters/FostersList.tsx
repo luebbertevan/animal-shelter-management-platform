@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChatBubbleLeftIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
@@ -5,9 +6,19 @@ import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import Pagination from "../../components/shared/Pagination";
+import SearchInput from "../../components/shared/SearchInput";
+import FosterFilters, {
+	type FosterFilters as FosterFiltersType,
+} from "../../components/fosters/FosterFilters";
+import { FilterChip } from "../../components/shared/Filters";
 import { fetchFosters, fetchFostersCount } from "../../lib/fosterQueries";
+import { fetchAnimals } from "../../lib/animalQueries";
+import { fetchGroups } from "../../lib/groupQueries";
 import { isOffline, getErrorMessage } from "../../lib/errorUtils";
-import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
+import {
+	queryParamsToFilters,
+	filtersToQueryParams,
+} from "../../lib/filterUtils";
 import type { User, Foster } from "../../types";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
@@ -158,62 +169,226 @@ export default function FostersList() {
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
 
-	// Get pagination from URL
-	const page = parseInt(searchParams.get("page") || "1", 10);
-	const pageSize = parseInt(
-		searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE),
-		10
-	);
+	// Parse filters, search, and pagination from URL
+	const { filters, searchTerm, page, pageSize } = useMemo(() => {
+		return queryParamsToFilters<FosterFiltersType>(searchParams, {});
+	}, [searchParams]);
+
+	// If "currently fostering" filter is active, we need all fosters for client-side filtering
+	// Otherwise, we can use server-side pagination
+	const needsAllFosters = filters.currentlyFostering === true;
 	const offset = (page - 1) * pageSize;
 
+	// Fetch fosters with search and filters
 	const {
-		data: fosters = [],
-		isLoading,
-		isError,
-		error,
-		refetch,
-		isRefetching,
+		data: allFosters = [],
+		isLoading: isLoadingFosters,
+		isError: isErrorFosters,
+		error: fostersError,
+		refetch: refetchFosters,
+		isRefetching: isRefetchingFosters,
 	} = useQuery({
-		queryKey: ["fosters", user.id, profile.organization_id, page, pageSize],
+		queryKey: [
+			"fosters",
+			user.id,
+			profile.organization_id,
+			filters,
+			searchTerm,
+			needsAllFosters ? "all" : page,
+			needsAllFosters ? "all" : pageSize,
+		],
 		queryFn: () => {
-			return fetchFosters(profile.organization_id, {
-				fields: [
-					"id",
-					"email",
-					"full_name",
-					"phone_number",
-					"availability",
-					"role",
-				],
-				orderBy: "full_name",
-				orderDirection: "asc",
-				checkOffline: true,
-				includeCoordinators: true,
-				limit: pageSize,
-				offset,
-			});
+			// When "currently fostering" filter is active, fetch all fosters for client-side filtering
+			// Otherwise, use server-side pagination
+			if (needsAllFosters) {
+				return fetchFosters(profile.organization_id, {
+					fields: [
+						"id",
+						"email",
+						"full_name",
+						"phone_number",
+						"availability",
+						"role",
+						"created_at",
+					],
+					orderBy: "full_name",
+					orderDirection: "asc",
+					checkOffline: true,
+					includeCoordinators: true,
+					// Don't pass limit/offset to fetch all fosters
+					searchTerm,
+					filters,
+				});
+			} else {
+				// Server-side pagination when "currently fostering" filter is not active
+				return fetchFosters(profile.organization_id, {
+					fields: [
+						"id",
+						"email",
+						"full_name",
+						"phone_number",
+						"availability",
+						"role",
+						"created_at",
+					],
+					orderBy: "full_name",
+					orderDirection: "asc",
+					checkOffline: true,
+					includeCoordinators: true,
+					limit: pageSize,
+					offset,
+					searchTerm,
+					filters,
+				});
+			}
 		},
 		enabled: isCoordinator,
 	});
 
-	// Fetch total count for pagination
-	const { data: totalCount = 0 } = useQuery({
-		queryKey: ["fosters-count", profile.organization_id],
-		queryFn: () => fetchFostersCount(profile.organization_id, true),
-		enabled: isCoordinator,
+	// Fetch animals and groups to check "currently fostering" filter
+	// Only fetch if the filter is active
+	const { data: animalsData = [] } = useQuery({
+		queryKey: ["animals-for-foster-filter", profile.organization_id],
+		queryFn: () => {
+			return fetchAnimals(profile.organization_id, {
+				fields: ["id", "current_foster_id"],
+			});
+		},
+		enabled: isCoordinator && filters.currentlyFostering === true,
 	});
 
-	const totalPages = Math.ceil(totalCount / pageSize);
+	const { data: groupsData = [] } = useQuery({
+		queryKey: ["groups-for-foster-filter", profile.organization_id],
+		queryFn: () => {
+			return fetchGroups(profile.organization_id, {
+				fields: ["id", "current_foster_id"],
+			});
+		},
+		enabled: isCoordinator && filters.currentlyFostering === true,
+	});
+
+	// Filter fosters by "currently fostering" if filter is active
+	const filteredFosters = useMemo(() => {
+		if (filters.currentlyFostering !== true) {
+			return allFosters;
+		}
+
+		// Create a set of foster IDs that have animals or groups assigned
+		const fosteringFosterIds = new Set<string>();
+		animalsData.forEach((animal) => {
+			if (animal.current_foster_id) {
+				fosteringFosterIds.add(animal.current_foster_id);
+			}
+		});
+		groupsData.forEach((group) => {
+			if (group.current_foster_id) {
+				fosteringFosterIds.add(group.current_foster_id);
+			}
+		});
+
+		// Filter fosters to only those in the set
+		return allFosters.filter((foster) => fosteringFosterIds.has(foster.id));
+	}, [allFosters, filters.currentlyFostering, animalsData, groupsData]);
+
+	// Paginate the filtered fosters (client-side pagination when "currently fostering" is active)
+	const fosters = useMemo(() => {
+		if (needsAllFosters) {
+			// Client-side pagination
+			const startIndex = (page - 1) * pageSize;
+			const endIndex = startIndex + pageSize;
+			return filteredFosters.slice(startIndex, endIndex);
+		}
+		return filteredFosters;
+	}, [filteredFosters, needsAllFosters, page, pageSize]);
+
+	// Fetch total count for pagination (with search, but "currently fostering" handled client-side)
+	const { data: totalCount = 0 } = useQuery({
+		queryKey: ["fosters-count", profile.organization_id, searchTerm],
+		queryFn: () =>
+			fetchFostersCount(profile.organization_id, true, searchTerm),
+		enabled: isCoordinator && !needsAllFosters,
+	});
+
+	// Calculate total count - use filtered count if "currently fostering" is active
+	const adjustedTotalCount = useMemo(() => {
+		if (filters.currentlyFostering === true) {
+			return filteredFosters.length;
+		}
+		return totalCount;
+	}, [filters.currentlyFostering, totalCount, filteredFosters.length]);
+
+	const totalPages = Math.ceil(adjustedTotalCount / pageSize);
+
+	// Handle filter changes
+	const handleFiltersChange = (newFilters: FosterFiltersType) => {
+		const params = filtersToQueryParams(
+			newFilters,
+			searchTerm,
+			1,
+			pageSize
+		);
+		navigate(`/fosters?${params.toString()}`, { replace: true });
+	};
+
+	// Handle search
+	const handleSearch = (term: string) => {
+		const params = filtersToQueryParams(filters, term, 1, pageSize);
+		navigate(`/fosters?${params.toString()}`, { replace: true });
+	};
 
 	// Handle page change
 	const handlePageChange = (newPage: number) => {
-		const params = new URLSearchParams(searchParams);
-		if (newPage === 1) {
-			params.delete("page");
-		} else {
-			params.set("page", String(newPage));
-		}
+		const params = filtersToQueryParams(
+			filters,
+			searchTerm,
+			newPage,
+			pageSize
+		);
 		navigate(`/fosters?${params.toString()}`, { replace: true });
+	};
+
+	// Generate active filter chips
+	const activeFilterChips = useMemo(() => {
+		const chips: Array<{ label: string; onRemove: () => void }> = [];
+
+		if (filters.currentlyFostering === true) {
+			chips.push({
+				label: "Currently Fostering",
+				onRemove: () =>
+					handleFiltersChange({
+						...filters,
+						currentlyFostering: undefined,
+					}),
+			});
+		}
+
+		if (filters.sortByCreatedAt) {
+			chips.push({
+				label: `Sort: ${
+					filters.sortByCreatedAt === "oldest"
+						? "Oldest First"
+						: "Newest First"
+				}`,
+				onRemove: () =>
+					handleFiltersChange({
+						...filters,
+						sortByCreatedAt: undefined,
+					}),
+			});
+		}
+
+		return chips;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filters]);
+
+	const isLoading = isLoadingFosters;
+	const isRefetching = isRefetchingFosters;
+	const isError = isErrorFosters;
+	const error = fostersError;
+
+	// Refetch function
+	const handleRefetch = async () => {
+		await refetchFosters();
 	};
 
 	// Redirect non-coordinators (handled by route protection, but double-check)
@@ -236,7 +411,7 @@ export default function FostersList() {
 						</div>
 						<button
 							type="button"
-							onClick={() => refetch()}
+							onClick={handleRefetch}
 							disabled={isLoading || isRefetching}
 							className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
 							aria-label="Refresh fosters"
@@ -270,7 +445,7 @@ export default function FostersList() {
 							</p>
 							<button
 								type="button"
-								onClick={() => refetch()}
+								onClick={handleRefetch}
 								disabled={isLoading || isRefetching}
 								className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 							>
@@ -294,41 +469,83 @@ export default function FostersList() {
 								</p>
 								<button
 									type="button"
-									onClick={() => refetch()}
+									onClick={handleRefetch}
 									className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
 								>
 									Try Again
 								</button>
 							</div>
-						) : (
+						) : !searchTerm &&
+						  filters.currentlyFostering !== true &&
+						  allFosters.length === 0 ? (
 							<div className="text-gray-600">
 								No fosters found yet. Once fosters sign up, they
 								will appear here.
+							</div>
+						) : (
+							<div className="text-gray-600">
+								No fosters found matching your search and
+								filters.
 							</div>
 						)}
 					</div>
 				)}
 
-				{fosters.length > 0 && (
+				{!isLoading && !isError && (
 					<>
-						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-							{fosters.map((foster) => (
-								<FosterCard
-									key={foster.id}
-									foster={foster}
-									currentUserId={user.id}
-									organizationId={profile.organization_id}
+						{/* Search Input and Filters - Inline Layout */}
+						<div className="mb-4">
+							<div className="flex items-center gap-2">
+								<SearchInput
+									value={searchTerm}
+									onSearch={handleSearch}
+									disabled={isLoading}
 								/>
-							))}
+								<FosterFilters
+									filters={filters}
+									onFiltersChange={handleFiltersChange}
+								/>
+							</div>
 						</div>
-						{totalPages > 1 && (
-							<Pagination
-								currentPage={page}
-								totalPages={totalPages}
-								onPageChange={handlePageChange}
-								totalItems={totalCount}
-								itemsPerPage={pageSize}
-							/>
+
+						{/* Active Filter Chips */}
+						{activeFilterChips.length > 0 && (
+							<div className="mb-4 flex flex-wrap gap-2">
+								{activeFilterChips.map((chip, index) => (
+									<FilterChip
+										key={index}
+										label={chip.label}
+										onRemove={chip.onRemove}
+									/>
+								))}
+							</div>
+						)}
+
+						{/* Results */}
+						{fosters.length > 0 && (
+							<>
+								<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+									{fosters.map((foster) => (
+										<FosterCard
+											key={foster.id}
+											foster={foster}
+											currentUserId={user.id}
+											organizationId={
+												profile.organization_id
+											}
+										/>
+									))}
+								</div>
+								{totalPages > 1 && (
+									<Pagination
+										currentPage={page}
+										totalPages={totalPages}
+										onPageChange={handlePageChange}
+										totalItems={adjustedTotalCount}
+										itemsPerPage={pageSize}
+									/>
+								)}
+							</>
 						)}
 					</>
 				)}

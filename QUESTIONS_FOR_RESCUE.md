@@ -605,6 +605,7 @@ ui polish and branding for co kitty coalition
 copy animal
 search & filter
 tagging in messages
+messages notifications. add to scheme the unread messages field
 
 
 foster details?? do we want that I can't remeber. we want phone number only

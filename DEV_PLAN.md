@@ -2065,15 +2065,16 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     -   Server-side pagination with page size
 -   **Selection Behavior:**
     -   Select one animal or group at a time from modal
-    -   When selected, `@animalname` or `@groupname` appears in message text
-    -   `@name` text in message is styled pink and is clickable (links to animal/group detail page)
-    -   Keep `@name` text in message AND add chip below message on send
+    -   When selected, entity appears as `@name` chip above textarea (not in message text)
+    -   Chips can be removed before sending (X button on chip)
     -   Maximum tags per message: configurable variable (default 10, can be changed in one place)
-    -   If attempting to add tag when at max, show popup message (not hardcoded limit)
--   **Tag Display:** Tags appear as chips below the message (not above input field)
-    -   Chips styled similar to AnimalCard/GroupCard from animal list
-    -   Chips are clickable links to animal/group detail pages
+    -   If attempting to add tag when at max, show popup/alert message (not hardcoded limit)
+-   **Tag Display:**
+    -   **Before sending:** Selected tags appear as `@name` chips above textarea (removable, before photo previews)
+    -   **After sending:** Tags appear as cards/chips below the message (same styling as AnimalCard/GroupCard)
+    -   Tag cards are clickable links to animal/group detail pages
     -   Same type colors as used in animal/group cards
+    -   Message text remains unchanged (no @name text inserted into textarea)
 
 **Tasks:**
 
@@ -2085,11 +2086,20 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Button only visible for coordinators (check user role)
     - Open modal on click
 
-2. **Create Tag Selection Modal component:**
+2. **Create Tabs component:**
+
+    - Simple reusable `Tabs` component (or inline tabs in modal)
+    - Button-based tabs with active state styling
+    - Clicking tab shows corresponding content (Animals or Groups tab selection UI)
+    - Styled consistently with existing UI patterns
+
+3. **Create Tag Selection Modal component:**
 
     - Modal component (similar to `ConfirmModal` pattern)
-    - Responsive: full-screen on mobile, centered on desktop
-    - Two tabs: "Animals" and "Groups"
+    - Responsive: full-screen on mobile (below `md:` breakpoint), centered on desktop (`md:` and above)
+    - Close on backdrop click and Escape key press
+    - Two tabs: "Animals" and "Groups" (using Tabs component)
+    - Clicking tab shows either animal or group tag selection UI
     - Loading states:
         - Show `LoadingSpinner` while fetching entities
         - Show loading state in each tab independently
@@ -2103,43 +2113,46 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Pagination using `Pagination` component:
         - Follow same pagination pattern as animals/groups list
         - Server-side pagination with page size
-    - Click entity card to select (adds `@name` to message text)
+    - Click entity card to select (adds entity to selected tags, shows as chip above textarea)
     - Close modal after selection
 
-3. **Create max tags configuration:**
+4. **Create max tags configuration:**
 
     - Create configurable constant for max tags per message (e.g., `MAX_MESSAGE_TAGS = 10`)
-    - Place in shared constants file (e.g., `src/lib/constants.ts` or similar)
+    - Place in appropriate file (e.g., `src/lib/messageLinkUtils.ts` or `src/lib/constants.ts` if exists)
     - Use this constant in validation logic
-    - Show popup message when attempting to add tag at max limit
+    - Show popup/alert message when attempting to add tag at max limit
 
-4. **Fetch entities from organization:**
+5. **Fetch entities from organization:**
 
     - Animals: fetch from `animals` table (filtered by organization)
     - Groups: fetch from `animal_groups` table (filtered by organization)
     - Reuse existing query functions from animals/groups list pages
     - Support search, filters, and pagination (same as list pages)
 
-5. **Handle @ mentions in message text:**
+6. **Handle selected tags as chips:**
 
-    - When entity selected, insert `@animalname` or `@groupname` into message text at cursor position
-    - Style `@name` text as pink and make clickable links
-    - Track which entities are mentioned in message (for tag creation on send)
+    - Track selected entities as state in `MessageInput.tsx` (array of `MessageTag` objects)
+    - When entity selected from modal, add to selected tags array
+    - Display selected tags as `@name` chips above textarea (before photo previews)
+    - Chips show entity name with type indicator (e.g., "Fluffy (Animal)" or "Litter of 4 (Group)")
+    - Each chip has X button to remove
     - Check max tags limit before adding (show popup if at limit)
+    - Chips are NOT in message text - they're separate UI elements
 
-6. **Update message sending:**
+7. **Update message sending:**
 
-    - Parse `@name` mentions from message text
-    - Match mentions to selected entities
+    - Pass selected tags array directly to `sendMessage()` function (already supports tags)
+    - No parsing needed - tags are already tracked as `MessageTag` objects
     - Validate max tags limit (use configurable constant)
-    - Pass tags to `sendMessage()` function (already supports tags)
-    - Keep `@name` text in message AND create tag chips below message
-    - Clear tags after successful send (keep @name text in message)
+    - Clear selected tags array after successful send
+    - Message text remains unchanged (no @name text inserted)
 
-7. **Display tags as chips below message:**
+8. **Display tags as cards below message:**
     - Update `MessageBubble.tsx` to display tags (see Display Tags milestone)
-    - Style chips similar to AnimalCard/GroupCard
-    - Make chips clickable links to detail pages
+    - Tags are already fetched and attached to messages (from MessageList)
+    - Style tag cards similar to AnimalCard/GroupCard
+    - Make tag cards clickable links to detail pages
 
 **Testing:**
 
@@ -2153,17 +2166,17 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 -   Search/filter works independently in each tab
 -   Entity list shows AnimalCard/GroupCard components (same as list pages)
 -   Pagination works correctly in modal
--   Selecting entity adds `@name` to message text
--   `@name` text is pink and clickable
+-   Selecting entity adds `@name` chip above textarea (not in message text)
+-   Chips can be removed before sending
 -   Max tags popup appears when attempting to add tag at limit
 -   Max tags constant is configurable (not hardcoded)
--   Tags appear as chips below message after sending
--   `@name` text remains in message AND chips appear below
--   Chips are styled similar to animal/group cards
--   Chips link to detail pages
--   Tags are passed to send function correctly
+-   Tags appear as cards below message after sending
+-   Message text remains unchanged (no @name text in textarea)
+-   Tag cards are styled similar to animal/group cards
+-   Tag cards link to detail pages
+-   Tags are passed to send function correctly (no parsing needed)
 
-**Deliverable:** Tag selection UI working in MessageInput for coordinators only. Coordinators can tag animals and groups. `@name` appears in message text (pink, clickable). Tags appear as chips below messages after sending.
+**Deliverable:** Tag selection UI working in MessageInput for coordinators only. Coordinators can tag animals and groups. Selected tags appear as `@name` chips above textarea (removable). Tags appear as cards below messages after sending. Message text remains unchanged.
 
 ---
 
@@ -2196,23 +2209,18 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
     - Groups → link to `/groups/:id` (group detail page)
     - Fosters → link to `/fosters/:id` (foster detail page - if foster tagging added later)
 
-3. **Style @ mentions in message text:**
-    - Parse and style `@name` text in message content as pink
-    - Make `@name` text clickable links to detail pages
-    - Handle both @ mentions in text and tag chips below
-
 **Testing:**
 
 -   Tags appear in message bubbles below message content
 -   Tags show correct names
 -   Animal tags link to animal detail pages
 -   Group tags link to group detail pages
+-   Foster tags link to foster detail pages (if foster tagging added later)
 -   Tags are styled similar to animal/group cards
--   `@name` text in message is pink and clickable
--   Works for messages with multiple tags
+-   Works for messages with multiple tags of different types
 -   Tags appear correctly with photos
 
-**Deliverable:** Tags display correctly in message bubbles with proper styling and navigation. `@name` mentions in message text are pink and clickable. Complete tagging feature working end-to-end.
+**Deliverable:** Tags display correctly in message bubbles with proper styling and navigation. Tag cards appear below message content and link to detail pages. Complete tagging feature working end-to-end.
 
 ---
 
@@ -2225,9 +2233,13 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 **Design Decisions:**
 
 -   **Search:** Use `SearchInput` component (same as animals/groups list pages)
--   **Filters:** Add filter components following same pattern as animals/groups
+    -   Search by foster `full_name` only (case-insensitive partial match)
+-   **Filters:** Use existing `FosterFilters` component with:
+    -   **Currently Fostering:** Toggle filter to show only fosters who have animals/groups assigned (checked via `current_foster_id`)
+    -   **Sort:** Newest/Oldest sort by `created_at` (same as animals/groups)
 -   **Pagination:** Fosters list already has pagination, ensure it works with search/filters
 -   **Consistency:** Follow exact same patterns and conventions as animals/groups list pages
+-   **Filter Implementation:** "Currently Fostering" filter handled at application level (client-side) after fetching, as it requires checking animals/groups tables
 
 **Tasks:**
 
@@ -2235,16 +2247,16 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
     - Add `SearchInput` component to Fosters List page
     - Update `fetchFosters` query to support search term
-    - Search by foster name, email, or other relevant fields
+    - Search by foster `full_name` using `applyNameSearch` utility (same pattern as animals/groups)
     - Update URL query parameters to include search term
 
 2. **Add filter functionality:**
 
-    - Create `FosterFilters` component (if not exists) following same pattern as `AnimalFilters`
-    - Add filters relevant to fosters (e.g., availability, role, etc.)
-    - Update `fetchFosters` query to support filters
+    - Update `FosterFilters` component to add `sortByCreatedAt` filter (newest/oldest)
+    - Update `fetchFosters` query to support filters (currentlyFostering handled client-side)
     - Update URL query parameters to include filters
     - Show active filter chips (reuse `FilterChip` component)
+    - Implement "Currently Fostering" filter by checking if foster has animals/groups with matching `current_foster_id`
 
 3. **Update pagination:**
 

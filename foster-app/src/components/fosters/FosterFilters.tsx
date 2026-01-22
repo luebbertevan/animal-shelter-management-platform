@@ -1,8 +1,9 @@
-import { ToggleFilter, FilterButton } from "../shared/Filters";
+import { ToggleFilter, SortFilter, FilterButton } from "../shared/Filters";
 import Button from "../ui/Button";
 
 export interface FosterFilters extends Record<string, unknown> {
 	currentlyFostering?: boolean;
+	sortByCreatedAt?: "newest" | "oldest";
 }
 
 interface FosterFiltersProps {
@@ -10,10 +11,17 @@ interface FosterFiltersProps {
 	onFiltersChange: (filters: FosterFilters) => void;
 }
 
+// Sort options
+const sortOptions: { value: "newest" | "oldest"; label: string }[] = [
+	{ value: "newest", label: "Newest First" },
+	{ value: "oldest", label: "Oldest First" },
+];
+
 // Helper function to count active filters
 function countActiveFilters(filters: FosterFilters): number {
 	let count = 0;
 	if (filters.currentlyFostering === true) count++;
+	if (filters.sortByCreatedAt) count++;
 	return count;
 }
 
@@ -62,6 +70,20 @@ export default function FosterFilters({
 					onChange={(value) =>
 						handleFilterChange("currentlyFostering", value)
 					}
+					compact={true}
+				/>
+
+				{/* Sort Filter */}
+				<SortFilter
+					label="Sort by Date"
+					value={filters.sortByCreatedAt ?? "newest"}
+					onChange={(value) =>
+						handleFilterChange(
+							"sortByCreatedAt",
+							value as "newest" | "oldest"
+						)
+					}
+					options={sortOptions}
 					compact={true}
 				/>
 

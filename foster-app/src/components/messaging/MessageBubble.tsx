@@ -1,5 +1,9 @@
 import { useState } from "react";
 import PhotoLightbox from "./PhotoLightbox";
+import AnimalCard from "../animals/AnimalCard";
+import GroupCard from "../animals/GroupCard";
+import type { MessageTagWithEntity } from "../../types";
+import { TAG_TYPES } from "../../types";
 
 interface MessageBubbleProps {
 	message: {
@@ -8,6 +12,7 @@ interface MessageBubbleProps {
 		created_at: string;
 		sender_name: string;
 		photo_urls?: string[] | null;
+		tags?: Array<MessageTagWithEntity>;
 	};
 	isOwnMessage: boolean;
 }
@@ -34,6 +39,8 @@ export default function MessageBubble({
 	const photoUrls = message.photo_urls || [];
 	const hasPhotos = photoUrls.length > 0;
 	const hasContent = message.content.trim().length > 0;
+	const tags = message.tags || [];
+	const hasTags = tags.length > 0;
 
 	const handleImageLoad = (url: string) => {
 		setImageLoadStates((prev: Map<string, boolean>) => {
@@ -54,21 +61,25 @@ export default function MessageBubble({
 
 	return (
 		<div
-			className={`flex ${
-				isOwnMessage ? "justify-end" : "justify-start"
-			} mb-1`}
+			className={`flex flex-col ${
+				isOwnMessage ? "items-end" : "items-start"
+			} mb-1 w-full`}
 		>
 			<div
-				className={`rounded-lg p-3 max-w-[85%] sm:max-w-[80%] shadow-sm ${
+				className={`rounded-lg shadow-sm ${
 					isOwnMessage
 						? "bg-gray-700 text-white"
 						: "bg-white border border-gray-200"
+				} ${!hasContent && !hasPhotos ? "p-1.5 py-1" : "p-3"} ${
+					!hasContent && !hasPhotos
+						? "w-auto max-w-none"
+						: "max-w-[85%] sm:max-w-[80%]"
 				}`}
 			>
 				<div
-					className={`text-xs sm:text-sm mb-1.5 ${
-						isOwnMessage ? "text-gray-300" : "text-gray-500"
-					}`}
+					className={`text-xs sm:text-sm ${
+						!hasContent && !hasPhotos ? "mb-0" : "mb-1.5"
+					} ${isOwnMessage ? "text-gray-300" : "text-gray-500"}`}
 				>
 					{isOwnMessage ? "You" : message.sender_name} • {timestamp}
 				</div>
@@ -169,6 +180,73 @@ export default function MessageBubble({
 					</div>
 				)}
 			</div>
+
+			{/* Tags - outside message bubble to avoid width constraints */}
+			{hasTags && (
+				<div
+					className={`w-full mt-2 ${
+						isOwnMessage ? "flex justify-end" : "flex justify-start"
+					}`}
+				>
+					<div
+						className={`flex flex-wrap gap-3 ${
+							isOwnMessage
+								? "max-w-[85%] sm:max-w-[80%] justify-end"
+								: "w-full justify-start"
+						}`}
+					>
+						{tags.map((tag, index) => {
+							if (tag.type === TAG_TYPES.ANIMAL && tag.animal) {
+								return (
+									<div
+										key={`${tag.type}-${tag.id}-${index}`}
+										className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.5rem)] md:w-[calc(25%-0.5625rem)]"
+									>
+										<AnimalCard
+											animal={tag.animal}
+											hideGroupIndicator={true}
+										/>
+									</div>
+								);
+							} else if (
+								tag.type === TAG_TYPES.GROUP &&
+								tag.group
+							) {
+								return (
+									<div
+										key={`${tag.type}-${tag.id}-${index}`}
+										className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.5rem)] md:w-[calc(25%-0.5625rem)]"
+									>
+										<GroupCard group={tag.group} />
+									</div>
+								);
+							} else {
+								// Fallback for fosters or if data is missing
+								let linkTo = "";
+								if (tag.type === TAG_TYPES.ANIMAL) {
+									linkTo = `/animals/${tag.id}`;
+								} else if (tag.type === TAG_TYPES.GROUP) {
+									linkTo = `/groups/${tag.id}`;
+								} else if (tag.type === TAG_TYPES.FOSTER) {
+									linkTo = `/fosters/${tag.id}`;
+								}
+
+								return (
+									<a
+										key={`${tag.type}-${tag.id}-${index}`}
+										href={linkTo}
+										className="inline-flex items-center gap-1 px-3 py-1.5 bg-pink-100 text-pink-800 rounded-lg text-sm hover:bg-pink-200 transition-colors border border-pink-200"
+									>
+										<span className="font-medium">
+											{tag.name}
+										</span>
+									</a>
+								);
+							}
+						})}
+					</div>
+				</div>
+			)}
 
 			{/* Photo Lightbox */}
 			{hasPhotos && (

@@ -69,17 +69,19 @@ function formatAgeForDisplay(
 }
 
 interface AnimalCardProps {
-	animal: Pick<
-		Animal,
-		| "id"
-		| "name"
-		| "status"
-		| "sex_spay_neuter_status"
-		| "priority"
-		| "photos"
-		| "date_of_birth"
-		| "group_id"
-	> & {
+	animal: (Partial<
+		Pick<
+			Animal,
+			| "id"
+			| "name"
+			| "status"
+			| "sex_spay_neuter_status"
+			| "priority"
+			| "photos"
+			| "date_of_birth"
+			| "group_id"
+		>
+	> & { id: string }) & {
 		group_name?: string; // Optional group name if animal is in a group
 	};
 	hideGroupIndicator?: boolean; // If true, hide the "In group" indicator
