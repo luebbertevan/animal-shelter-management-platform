@@ -104,10 +104,10 @@ export default function MessageBubble({
 					}`}
 				>
 					<div
-						className={`flex flex-wrap gap-2 ${
+						className={`flex flex-wrap ${
 							isOwnMessage
 								? "max-w-[85%] sm:max-w-[80%] justify-end"
-								: "w-full justify-start"
+								: "max-w-[85%] sm:max-w-[80%] justify-start"
 						}`}
 					>
 						{photoUrls.length > 1 && (
@@ -123,7 +123,7 @@ export default function MessageBubble({
 							</div>
 						)}
 						<div
-							className={`grid gap-2 w-full ${
+							className={`grid gap-2 ${
 								photoUrls.length === 1
 									? "grid-cols-1"
 									: photoUrls.length === 2
@@ -201,10 +201,10 @@ export default function MessageBubble({
 					}`}
 				>
 					<div
-						className={`flex flex-wrap gap-3 ${
+						className={`flex flex-wrap gap-2 ${
 							isOwnMessage
 								? "max-w-[85%] sm:max-w-[80%] justify-end"
-								: "w-full justify-start"
+								: "max-w-[85%] sm:max-w-[80%] justify-start"
 						}`}
 					>
 						{tags.map((tag, index) => {
@@ -212,7 +212,7 @@ export default function MessageBubble({
 								return (
 									<div
 										key={`${tag.type}-${tag.id}-${index}`}
-										className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.5rem)] md:w-[calc(25%-0.5625rem)]"
+										className="w-[140px] sm:w-[160px]"
 									>
 										<AnimalCard
 											animal={tag.animal}
@@ -227,7 +227,7 @@ export default function MessageBubble({
 								return (
 									<div
 										key={`${tag.type}-${tag.id}-${index}`}
-										className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.5rem)] md:w-[calc(25%-0.5625rem)]"
+										className="w-[140px] sm:w-[160px]"
 									>
 										<GroupCard group={tag.group} />
 									</div>
