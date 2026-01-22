@@ -7,7 +7,6 @@ import type {
 import {
 	PriorityFilter,
 	SelectFilter,
-	ToggleFilter,
 	SortFilter,
 	FilterButton,
 } from "../shared/Filters";
@@ -17,7 +16,7 @@ export interface AnimalFilters extends Record<string, unknown> {
 	priority?: boolean;
 	sex?: SexSpayNeuterStatus;
 	life_stage?: LifeStage;
-	inGroup?: boolean;
+	inGroup?: boolean; // true = only in group, false = not in group, undefined = include groups (all)
 	status?: AnimalStatus;
 	foster_visibility?: FosterVisibility;
 	sortByCreatedAt?: "newest" | "oldest";
@@ -72,7 +71,7 @@ function countActiveFilters(filters: AnimalFilters): number {
 	if (filters.priority === true) count++;
 	if (filters.sex) count++;
 	if (filters.life_stage) count++;
-	if (filters.inGroup === true) count++;
+	if (filters.inGroup === true || filters.inGroup === false) count++;
 	if (filters.status) count++;
 	if (filters.foster_visibility) count++;
 	if (filters.sortByCreatedAt) count++;
@@ -99,7 +98,10 @@ export default function AnimalFilters({
 		// Handle different types separately to avoid TypeScript errors
 		let normalizedValue: AnimalFilters[K] | undefined;
 
-		if (value === false || value === undefined) {
+		// Special handling for inGroup: preserve false
+		if (key === "inGroup") {
+			normalizedValue = value as boolean | undefined;
+		} else if (value === false || value === undefined) {
 			normalizedValue = undefined;
 		} else {
 			// For string values, check if empty
@@ -129,29 +131,40 @@ export default function AnimalFilters({
 			storageKey="animal-filters-open"
 		>
 			<div className="space-y-3">
-				{/* Toggles row - grouped together */}
-				<div className="flex items-center gap-4">
-					<PriorityFilter
-						value={filters.priority ?? false}
-						onChange={(value) =>
-							handleFilterChange("priority", value)
-						}
-						compact={true}
-					/>
-					<ToggleFilter
-						label="In Group"
-						value={filters.inGroup ?? false}
-						onChange={(value) =>
-							handleFilterChange("inGroup", value)
-						}
-						compact={true}
-					/>
-				</div>
+				{/* Priority Filter - on its own line */}
+				<PriorityFilter
+					value={filters.priority ?? false}
+					onChange={(value) => handleFilterChange("priority", value)}
+					compact={true}
+				/>
 
-				{/* Select filters - aligned */}
-				<div className="space-y-2.5">
+				{/* Dropdown filters - stacked vertically */}
+				<div className="space-y-2.5 w-fit">
 					<SelectFilter
-						label="Sex"
+						value={
+							filters.inGroup === true
+								? "in_group"
+								: filters.inGroup === false
+								? "not_in_group"
+								: "all"
+						}
+						onChange={(value) => {
+							if (value === "in_group") {
+								handleFilterChange("inGroup", true);
+							} else if (value === "not_in_group") {
+								handleFilterChange("inGroup", false);
+							} else {
+								handleFilterChange("inGroup", undefined);
+							}
+						}}
+						options={[
+							{ value: "in_group", label: "Only In Group" },
+							{ value: "not_in_group", label: "Not In Group" },
+						]}
+						placeholder="Include Groups"
+						compact={true}
+					/>
+					<SelectFilter
 						value={filters.sex ?? ""}
 						onChange={(value) =>
 							handleFilterChange(
@@ -164,17 +177,15 @@ export default function AnimalFilters({
 						compact={true}
 					/>
 					<SelectFilter
-						label="Life Stage"
 						value={filters.life_stage ?? ""}
 						onChange={(value) =>
 							handleFilterChange("life_stage", value as LifeStage)
 						}
 						options={lifeStageOptions}
-						placeholder="All Life Stages"
+						placeholder="All Ages"
 						compact={true}
 					/>
 					<SelectFilter
-						label="Status"
 						value={filters.status ?? ""}
 						onChange={(value) =>
 							handleFilterChange("status", value as AnimalStatus)
@@ -184,7 +195,6 @@ export default function AnimalFilters({
 						compact={true}
 					/>
 					<SelectFilter
-						label="Foster Visibility"
 						value={filters.foster_visibility ?? ""}
 						onChange={(value) =>
 							handleFilterChange(
@@ -197,7 +207,6 @@ export default function AnimalFilters({
 						compact={true}
 					/>
 					<SortFilter
-						label="Sort by Date"
 						value={filters.sortByCreatedAt ?? "newest"}
 						onChange={(value) =>
 							handleFilterChange(

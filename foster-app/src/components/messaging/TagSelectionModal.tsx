@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { MessageTag } from "../../types";
+import type { MessageTag, PhotoMetadata, LifeStage } from "../../types";
 import type { AnimalFilters } from "../animals/AnimalFilters";
 import type { GroupFilters } from "../animals/GroupFilters";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
@@ -24,7 +24,7 @@ interface TagSelectionModalProps {
 	maxTags: number;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 40;
 
 export default function TagSelectionModal({
 	isOpen,
@@ -122,7 +122,7 @@ export default function TagSelectionModal({
 			groupPage,
 		],
 		queryFn: async () => {
-			return fetchGroups(profile.organization_id, {
+			const result = await fetchGroups(profile.organization_id, {
 				fields: [
 					"id",
 					"name",
@@ -139,6 +139,7 @@ export default function TagSelectionModal({
 				filters: groupFilters,
 				searchTerm: groupSearchTerm,
 			});
+			return result;
 		},
 		enabled: isOpen && activeTab === "groups",
 	});
@@ -159,6 +160,38 @@ export default function TagSelectionModal({
 			),
 		enabled: isOpen && activeTab === "groups",
 	});
+
+	// Fetch all animals for animalData map (needed for GroupCard fallback to animal photos)
+	const { data: allAnimalsForGroups = [] } = useQuery({
+		queryKey: [
+			"tag-selection-all-animals-for-groups",
+			profile.organization_id,
+		],
+		queryFn: async () => {
+			return fetchAnimals(profile.organization_id, {
+				fields: ["id", "photos", "life_stage"],
+				checkOffline: true,
+			});
+		},
+		enabled: isOpen && activeTab === "groups",
+	});
+
+	// Create animalData map for GroupCard (photos + life_stage)
+	const animalDataMap = useMemo(() => {
+		const map = new Map<
+			string,
+			{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
+		>();
+		allAnimalsForGroups.forEach((animal) => {
+			if (animal.id) {
+				map.set(animal.id, {
+					photos: animal.photos,
+					life_stage: animal.life_stage,
+				});
+			}
+		});
+		return map;
+	}, [allAnimalsForGroups]);
 
 	const handleAnimalSearch = (searchTerm: string) => {
 		setAnimalSearchTerm(searchTerm);
@@ -237,23 +270,35 @@ export default function TagSelectionModal({
 
 	return (
 		<>
-			{/* Backdrop */}
+			{/* Backdrop - very light overlay to keep background visible */}
 			<div
-				className="fixed inset-0 bg-black bg-opacity-50 z-40"
+				className="fixed inset-x-0 top-16 bottom-0 z-40"
+				style={{
+					backgroundColor: "rgba(0, 0, 0, 0.65)",
+					backdropFilter: "blur(4px)",
+					WebkitBackdropFilter: "blur(4px)",
+				}}
 				onClick={onClose}
 			/>
 
 			{/* Modal */}
-			<div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
+			<div className="fixed inset-x-0 top-16 bottom-0 z-50 flex items-center justify-center p-4 md:p-8 pointer-events-none">
 				<div
-					className="bg-white rounded-lg shadow-xl w-full h-full md:h-auto md:max-h-[90vh] md:max-w-4xl flex flex-col"
+					className="bg-white rounded-lg shadow-xl w-full h-full md:h-auto md:max-h-[90vh] md:max-w-4xl flex flex-col pointer-events-auto"
 					onClick={(e) => e.stopPropagation()}
 				>
 					{/* Header */}
-					<div className="p-4 border-b border-gray-200">
+					<div className="p-4 border-b border-gray-200 flex items-center justify-between">
 						<h3 className="text-lg font-semibold text-gray-900">
 							Tag Animal or Group
 						</h3>
+						<button
+							type="button"
+							onClick={onClose}
+							className="px-2 py-1 text-xs font-medium border-2 border-pink-500 text-pink-600 rounded-md hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 transition-colors"
+						>
+							Cancel
+						</button>
 					</div>
 
 					{/* Tabs */}
@@ -263,9 +308,9 @@ export default function TagSelectionModal({
 							{ id: "groups", label: "Groups" },
 						]}
 						activeTab={activeTab}
-						onTabChange={(tabId) =>
-							setActiveTab(tabId as "animals" | "groups")
-						}
+						onTabChange={(tabId) => {
+							setActiveTab(tabId as "animals" | "groups");
+						}}
 					/>
 
 					{/* Content */}
@@ -273,7 +318,7 @@ export default function TagSelectionModal({
 						{activeTab === "animals" && (
 							<div className="space-y-4">
 								{/* Search and Filters */}
-								<div className="space-y-3">
+								<div className="flex items-center gap-2">
 									<SearchInput
 										value={animalSearchTerm}
 										onSearch={handleAnimalSearch}
@@ -346,7 +391,7 @@ export default function TagSelectionModal({
 						{activeTab === "groups" && (
 							<div className="space-y-4">
 								{/* Search and Filters */}
-								<div className="space-y-3">
+								<div className="flex items-center gap-2">
 									<SearchInput
 										value={groupSearchTerm}
 										onSearch={handleGroupSearch}
@@ -376,25 +421,30 @@ export default function TagSelectionModal({
 											</div>
 										) : (
 											<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-												{groups.map((group) => (
-													<div
-														key={group.id}
-														onClick={(e) => {
-															e.preventDefault();
-															e.stopPropagation();
-															handleGroupSelect(
-																group.id,
-																group.name ||
-																	"Unnamed Group"
-															);
-														}}
-														className="cursor-pointer [&_a]:pointer-events-none"
-													>
-														<GroupCard
-															group={group}
-														/>
-													</div>
-												))}
+												{groups.map((group) => {
+													return (
+														<div
+															key={group.id}
+															onClick={(e) => {
+																e.preventDefault();
+																e.stopPropagation();
+																handleGroupSelect(
+																	group.id,
+																	group.name ||
+																		"Unnamed Group"
+																);
+															}}
+															className="cursor-pointer [&_a]:pointer-events-none"
+														>
+															<GroupCard
+																group={group}
+																animalData={
+																	animalDataMap
+																}
+															/>
+														</div>
+													);
+												})}
 											</div>
 										)}
 

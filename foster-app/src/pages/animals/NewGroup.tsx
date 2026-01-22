@@ -11,7 +11,6 @@ import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import { createGroup, findGroupContainingAnimal } from "../../lib/groupQueries";
-import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 import { uploadGroupPhoto } from "../../lib/photoUtils";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import type { TimestampedPhoto } from "../../types";
@@ -51,7 +50,7 @@ export default function NewGroup() {
 
 	// Pagination state for animal selection
 	const [animalPage, setAnimalPage] = useState(1);
-	const [animalPageSize] = useState(DEFAULT_PAGE_SIZE);
+	const [animalPageSize] = useState(40);
 
 	// Empty group confirmation modal state
 	const [showEmptyGroupConfirm, setShowEmptyGroupConfirm] = useState(false);
@@ -171,13 +170,9 @@ export default function NewGroup() {
 	});
 
 	// Filter animals client-side when filters/search are active
-	// Exclude animals already in groups (unless they're in the selected list)
+	// Now showing animals in groups to allow transferring between groups
 	const filteredAnimals = useMemo(() => {
 		let filtered = animals;
-
-		// Filter out animals already in groups (unless we're allowing selection of grouped animals)
-		// For now, we only show animals not in groups
-		filtered = filtered.filter((animal) => !animal.group_id);
 
 		// Apply search filter if active (already applied server-side, but apply again for consistency)
 		if (animalSearchTerm) {

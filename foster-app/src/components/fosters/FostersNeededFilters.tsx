@@ -2,7 +2,9 @@ import type {
 	SexSpayNeuterStatus,
 	LifeStage,
 	FosterVisibility,
+	AnimalStatus,
 } from "../../types";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import {
 	PriorityFilter,
 	SelectFilter,
@@ -16,6 +18,7 @@ export interface FostersNeededFilters extends Record<string, unknown> {
 	sex?: SexSpayNeuterStatus;
 	life_stage?: LifeStage;
 	availability?: FosterVisibility; // Renamed from foster_visibility for UI clarity
+	status?: AnimalStatus; // Only visible to coordinators
 	sortByCreatedAt?: "newest" | "oldest";
 	type?: "groups" | "singles" | "both"; // New filter: groups only, singles only, or both
 }
@@ -47,6 +50,15 @@ const availabilityOptions: { value: FosterVisibility; label: string }[] = [
 	{ value: "foster_pending", label: "Foster Pending" },
 ];
 
+// Status options (for coordinators only)
+const statusOptions: { value: AnimalStatus; label: string }[] = [
+	{ value: "in_foster", label: "In Foster" },
+	{ value: "adopted", label: "Adopted" },
+	{ value: "medical_hold", label: "Medical Hold" },
+	{ value: "in_shelter", label: "In Shelter" },
+	{ value: "transferring", label: "Transferring" },
+];
+
 // Type options (groups/singles/both)
 const typeOptions: { value: "groups" | "singles" | "both"; label: string }[] = [
 	{ value: "both", label: "Both" },
@@ -67,6 +79,7 @@ function countActiveFilters(filters: FostersNeededFilters): number {
 	if (filters.sex) count++;
 	if (filters.life_stage) count++;
 	if (filters.availability) count++;
+	if (filters.status) count++;
 	if (filters.type && filters.type !== "both") count++; // Only count if not default
 	if (filters.sortByCreatedAt) count++;
 	return count;
@@ -81,6 +94,7 @@ export default function FostersNeededFilters({
 	filters,
 	onFiltersChange,
 }: FostersNeededFiltersProps) {
+	const { isCoordinator } = useProtectedAuth();
 	const activeFilterCount = countActiveFilters(filters);
 	const hasActiveFilters = activeFilterCount > 0;
 
@@ -124,18 +138,17 @@ export default function FostersNeededFilters({
 			storageKey="fosters-needed-filters-open"
 		>
 			<div className="space-y-3">
-				{/* Priority Filter */}
+				{/* Priority Filter - on its own line */}
 				<PriorityFilter
 					value={filters.priority || false}
 					onChange={(value) => handleFilterChange("priority", value)}
 					compact={true}
 				/>
 
-				{/* Select filters - aligned */}
-				<div className="space-y-2.5">
+				{/* Dropdown filters - stacked vertically */}
+				<div className="space-y-2.5 w-fit">
 					{/* Type Filter - Groups/Singles/Both */}
 					<SelectFilter
-						label="Type"
 						value={filters.type || "both"}
 						onChange={(value) =>
 							handleFilterChange(
@@ -144,16 +157,18 @@ export default function FostersNeededFilters({
 							)
 						}
 						options={typeOptions}
-						placeholder="All Types"
+						placeholder="Include Groups"
 						compact={true}
 					/>
 
 					{/* Sex Filter */}
 					<SelectFilter
-						label="Sex"
 						value={filters.sex || ""}
 						onChange={(value) =>
-							handleFilterChange("sex", value as SexSpayNeuterStatus)
+							handleFilterChange(
+								"sex",
+								value as SexSpayNeuterStatus
+							)
 						}
 						options={sexOptions}
 						placeholder="All Sexes"
@@ -162,19 +177,17 @@ export default function FostersNeededFilters({
 
 					{/* Life Stage Filter */}
 					<SelectFilter
-						label="Life Stage"
 						value={filters.life_stage || ""}
 						onChange={(value) =>
 							handleFilterChange("life_stage", value as LifeStage)
 						}
 						options={lifeStageOptions}
-						placeholder="All Life Stages"
+						placeholder="All Ages"
 						compact={true}
 					/>
 
 					{/* Availability Filter (foster_visibility without not_visible) */}
 					<SelectFilter
-						label="Availability"
 						value={filters.availability || ""}
 						onChange={(value) =>
 							handleFilterChange(
@@ -187,9 +200,24 @@ export default function FostersNeededFilters({
 						compact={true}
 					/>
 
+					{/* Status Filter - Only for coordinators */}
+					{isCoordinator && (
+						<SelectFilter
+							value={filters.status || ""}
+							onChange={(value) =>
+								handleFilterChange(
+									"status",
+									value as AnimalStatus
+								)
+							}
+							options={statusOptions}
+							placeholder="All Statuses"
+							compact={true}
+						/>
+					)}
+
 					{/* Sort by Created At */}
 					<SortFilter
-						label="Sort by Date"
 						value={filters.sortByCreatedAt || "newest"}
 						options={sortOptions}
 						onChange={(value) =>

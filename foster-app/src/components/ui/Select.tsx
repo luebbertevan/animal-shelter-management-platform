@@ -1,7 +1,7 @@
 import type { SelectHTMLAttributes } from "react";
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
-	label: string;
+	label?: string; // Optional label - can be omitted for compact filter use
 	error?: string;
 	options: { value: string; label: string }[];
 	compact?: boolean; // Compact mode for inline/filter use
@@ -16,17 +16,19 @@ export default function Select({
 	compact = false,
 	...props
 }: SelectProps) {
-	const selectId = id || `select-${label.toLowerCase().replace(/\s+/g, "-")}`;
+	const selectId = id || `select-${(label || "filter").toLowerCase().replace(/\s+/g, "-")}`;
 
 	if (compact) {
 		return (
-			<div className="flex items-center gap-2">
-				<label
-					htmlFor={selectId}
-					className="text-sm font-medium text-gray-700 whitespace-nowrap w-[130px] flex-shrink-0"
-				>
-					{label}:
-				</label>
+			<div className={`flex items-center ${label ? "gap-2" : ""}`}>
+				{label && (
+					<label
+						htmlFor={selectId}
+						className="text-sm font-medium text-gray-700 whitespace-nowrap w-[130px] flex-shrink-0"
+					>
+						{label}:
+					</label>
+				)}
 				<select
 					id={selectId}
 					className={`w-[140px] flex-shrink-0 px-2.5 py-1.5 text-sm border text-gray-900 ${
@@ -49,12 +51,14 @@ export default function Select({
 
 	return (
 		<div>
-			<label
-				htmlFor={selectId}
-				className="block text-sm font-medium text-gray-700 mb-1"
-			>
-				{label}
-			</label>
+			{label && (
+				<label
+					htmlFor={selectId}
+					className="block text-sm font-medium text-gray-700 mb-1"
+				>
+					{label}
+				</label>
+			)}
 			<select
 				id={selectId}
 				className={`w-full px-3 py-2 border text-gray-900 ${

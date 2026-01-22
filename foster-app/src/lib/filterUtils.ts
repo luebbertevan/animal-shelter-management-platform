@@ -11,7 +11,7 @@ import type {
 /**
  * Default page size for pagination across list pages
  */
-export const DEFAULT_PAGE_SIZE = 50;
+export const DEFAULT_PAGE_SIZE = 40;
 
 // Generic type for Supabase query builder that supports chaining
 // This represents a query that can be chained with .eq(), .not(), .order(), etc.
@@ -56,11 +56,14 @@ export function applyAnimalFilters(
 	}
 
 	// In group filter
+	// Default to undefined (Include Groups - show all) when undefined
+	// true = Only In Group, false = Not In Group, undefined = Include Groups (all)
 	if (filters.inGroup === true) {
 		filteredQuery = filteredQuery.not("group_id", "is", null);
 	} else if (filters.inGroup === false) {
 		filteredQuery = filteredQuery.is("group_id", null);
 	}
+	// If filters.inGroup === undefined, don't apply any filter (show all - include groups)
 
 	// Status filter
 	if (filters.status) {
@@ -168,6 +171,7 @@ export function countActiveFilters(filters: AnimalFilters): number {
 	if (filters.priority === true) count++;
 	if (filters.sex) count++;
 	if (filters.life_stage) count++;
+	// Count inGroup as active only if explicitly set to true or false (not null or undefined)
 	if (filters.inGroup === true || filters.inGroup === false) count++;
 	if (filters.status) count++;
 	if (filters.foster_visibility) count++;

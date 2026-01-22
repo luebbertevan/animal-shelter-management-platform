@@ -49,7 +49,7 @@ export function PriorityFilter({
 
 // SelectFilter - Generic dropdown filter component
 interface SelectFilterProps {
-	label: string;
+	label?: string; // Optional label - omitted for compact filter use
 	value: string;
 	onChange: (value: string) => void;
 	options: { value: string; label: string }[];
@@ -125,7 +125,7 @@ export function ToggleFilter({
 
 // SortFilter - Dropdown for sorting
 interface SortFilterProps {
-	label: string;
+	label?: string; // Optional label - omitted for compact filter use
 	value: string;
 	onChange: (value: string) => void;
 	options: { value: string; label: string }[];
@@ -266,7 +266,7 @@ export function FilterButton({
 
 			{/* Dropdown content */}
 			{isOpen && (
-				<div className="absolute top-full right-0 mt-1 w-auto min-w-[320px] max-w-[90vw] border border-pink-300 rounded-md bg-white shadow-lg z-50">
+				<div className="absolute top-full right-0 mt-1 w-fit max-w-[90vw] border border-pink-300 rounded-md bg-white shadow-lg z-50">
 					<div className="px-3 pb-3 pt-2">{children}</div>
 				</div>
 			)}
