@@ -73,19 +73,21 @@ export default function FosterFilters({
 					compact={true}
 				/>
 
-				{/* Sort Filter */}
-				<SortFilter
-					label="Sort by Date"
-					value={filters.sortByCreatedAt ?? "newest"}
-					onChange={(value) =>
-						handleFilterChange(
-							"sortByCreatedAt",
-							value as "newest" | "oldest"
-						)
-					}
-					options={sortOptions}
-					compact={true}
-				/>
+				{/* Dropdown filters - stacked vertically */}
+				<div className="space-y-2.5 w-fit">
+					{/* Sort Filter */}
+					<SortFilter
+						value={filters.sortByCreatedAt ?? "newest"}
+						onChange={(value) =>
+							handleFilterChange(
+								"sortByCreatedAt",
+								value as "newest" | "oldest"
+							)
+						}
+						options={sortOptions}
+						compact={true}
+					/>
+				</div>
 
 				{/* Clear Filters Button */}
 				{hasActiveFilters && (

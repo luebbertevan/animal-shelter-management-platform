@@ -18,7 +18,6 @@ import {
 } from "../../lib/groupQueries";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
-import { DEFAULT_PAGE_SIZE } from "../../lib/filterUtils";
 import type { Animal, TimestampedPhoto } from "../../types";
 import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
 import type { AnimalFilters } from "../../components/animals/AnimalFilters";
@@ -52,7 +51,7 @@ export default function EditGroup() {
 
 	// Pagination state for animal selection
 	const [animalPage, setAnimalPage] = useState(1);
-	const [animalPageSize] = useState(DEFAULT_PAGE_SIZE);
+	const [animalPageSize] = useState(40);
 
 	// If filters or search are active, we need all animals for client-side filtering
 	// Otherwise, use server-side pagination
@@ -155,13 +154,9 @@ export default function EditGroup() {
 	});
 
 	// Filter animals client-side when filters/search are active
-	// Exclude animals already in groups (unless they're in the selected list)
+	// Now showing animals in groups to allow transferring between groups
 	const filteredAnimals = useMemo(() => {
 		let filtered = animals;
-
-		// Filter out animals already in groups (unless we're allowing selection of grouped animals)
-		// For now, we only show animals not in groups
-		filtered = filtered.filter((animal) => !animal.group_id);
 
 		// Apply search filter if active (already applied server-side, but apply again for consistency)
 		if (animalSearchTerm) {

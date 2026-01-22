@@ -24,7 +24,7 @@ interface TagSelectionModalProps {
 	maxTags: number;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 40;
 
 export default function TagSelectionModal({
 	isOpen,

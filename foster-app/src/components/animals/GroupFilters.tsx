@@ -91,41 +91,42 @@ export default function GroupFilters({
 			storageKey="group-filters-open"
 		>
 			<div className="space-y-3">
-				{/* Priority Filter */}
+				{/* Priority Filter - on its own line */}
 				<PriorityFilter
 					value={filters.priority ?? false}
 					onChange={(value) => handleFilterChange("priority", value)}
 					compact={true}
 				/>
 
-				{/* Foster Visibility Filter */}
-				<SelectFilter
-					label="Foster Visibility"
-					value={filters.foster_visibility || ""}
-					onChange={(value) =>
-						handleFilterChange(
-							"foster_visibility",
-							value as FosterVisibility
-						)
-					}
-					options={fosterVisibilityOptions}
-					placeholder="All Visibility"
-					compact={true}
-				/>
+				{/* Dropdown filters - stacked vertically */}
+				<div className="space-y-2.5 w-fit">
+					{/* Foster Visibility Filter */}
+					<SelectFilter
+						value={filters.foster_visibility || ""}
+						onChange={(value) =>
+							handleFilterChange(
+								"foster_visibility",
+								value as FosterVisibility
+							)
+						}
+						options={fosterVisibilityOptions}
+						placeholder="All Visibility"
+						compact={true}
+					/>
 
-				{/* Sort by Created At */}
-				<SortFilter
-					label="Sort by Date"
-					value={filters.sortByCreatedAt ?? "newest"}
-					onChange={(value) =>
-						handleFilterChange(
-							"sortByCreatedAt",
-							value as "newest" | "oldest"
-						)
-					}
-					options={sortOptions}
-					compact={true}
-				/>
+					{/* Sort by Created At */}
+					<SortFilter
+						value={filters.sortByCreatedAt ?? "newest"}
+						onChange={(value) =>
+							handleFilterChange(
+								"sortByCreatedAt",
+								value as "newest" | "oldest"
+							)
+						}
+						options={sortOptions}
+						compact={true}
+					/>
+				</div>
 
 				{/* Clear Filters Button */}
 				{hasActiveFilters && (

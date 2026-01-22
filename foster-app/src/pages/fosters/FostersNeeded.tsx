@@ -225,7 +225,8 @@ export default function FostersNeeded() {
 					animal.life_stage !== filters.life_stage
 				)
 					return;
-				// Note: status filter removed for FostersNeeded
+				// Status filter (only for coordinators)
+				if (filters.status && animal.status !== filters.status) return;
 				// Map availability filter to foster_visibility
 				if (
 					filters.availability &&

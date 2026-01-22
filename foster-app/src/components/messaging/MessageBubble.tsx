@@ -70,15 +70,15 @@ export default function MessageBubble({
 					isOwnMessage
 						? "bg-gray-700 text-white"
 						: "bg-white border border-gray-200"
-				} ${!hasContent && !hasPhotos ? "p-1.5 py-1" : "p-3"} ${
-					!hasContent && !hasPhotos
+				} ${!hasContent ? "p-1.5 py-1" : "p-3"} ${
+					!hasContent
 						? "w-auto max-w-none"
 						: "max-w-[85%] sm:max-w-[80%]"
 				}`}
 			>
 				<div
 					className={`text-xs sm:text-sm ${
-						!hasContent && !hasPhotos ? "mb-0" : "mb-1.5"
+						!hasContent ? "mb-0" : "mb-1.5"
 					} ${isOwnMessage ? "text-gray-300" : "text-gray-500"}`}
 				>
 					{isOwnMessage ? "You" : message.sender_name} • {timestamp}
@@ -94,13 +94,25 @@ export default function MessageBubble({
 						{message.content}
 					</div>
 				)}
+			</div>
 
-				{/* Photos grid */}
-				{hasPhotos && (
-					<div className="mt-2">
+			{/* Photos - outside message bubble to avoid width constraints */}
+			{hasPhotos && (
+				<div
+					className={`w-full mt-2 ${
+						isOwnMessage ? "flex justify-end" : "flex justify-start"
+					}`}
+				>
+					<div
+						className={`flex flex-wrap gap-2 ${
+							isOwnMessage
+								? "max-w-[85%] sm:max-w-[80%] justify-end"
+								: "w-full justify-start"
+						}`}
+					>
 						{photoUrls.length > 1 && (
 							<div
-								className={`text-xs mb-2 ${
+								className={`w-full text-xs mb-1 ${
 									isOwnMessage
 										? "text-gray-300"
 										: "text-gray-500"
@@ -178,8 +190,8 @@ export default function MessageBubble({
 							})}
 						</div>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 
 			{/* Tags - outside message bubble to avoid width constraints */}
 			{hasTags && (

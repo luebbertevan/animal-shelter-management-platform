@@ -402,7 +402,7 @@ export default function GroupForm({
 				</label>
 
 				{/* Search and Filters for Animal Selection */}
-				{!isLoadingAnimals && !isErrorAnimals && animals.length > 0 && (
+				{!isLoadingAnimals && !isErrorAnimals && (
 					<div className="mb-4">
 						<div className="flex items-center gap-2">
 							{/* Search Input */}
