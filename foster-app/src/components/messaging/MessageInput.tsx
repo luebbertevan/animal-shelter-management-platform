@@ -6,10 +6,12 @@ import { uploadPhoto } from "../../lib/photoUtils";
 import {
 	transformTagsToLinks,
 	validateTagIds,
+	MAX_MESSAGE_TAGS,
 } from "../../lib/messageLinkUtils";
 import type { MessageTag } from "../../types";
 import Button from "../ui/Button";
 import LoadingSpinner from "../ui/LoadingSpinner";
+import TagSelectionModal from "./TagSelectionModal";
 
 // Maximum number of photos per message
 const MAX_PHOTOS = 10;
@@ -128,7 +130,7 @@ export default function MessageInput({
 	conversationId,
 	onMessageSent,
 }: MessageInputProps) {
-	const { user, profile } = useProtectedAuth();
+	const { user, profile, isCoordinator } = useProtectedAuth();
 	const [message, setMessage] = useState("");
 	const [sending, setSending] = useState(false);
 	const [uploading, setUploading] = useState(false);
@@ -136,6 +138,8 @@ export default function MessageInput({
 	const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
 	const [photoError, setPhotoError] = useState<string | null>(null);
 	const [tagError, setTagError] = useState<string | null>(null);
+	const [selectedTags, setSelectedTags] = useState<MessageTag[]>([]);
+	const [isTagModalOpen, setIsTagModalOpen] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
@@ -151,9 +155,9 @@ export default function MessageInput({
 	const handleSubmit = async (e?: React.FormEvent) => {
 		e?.preventDefault();
 
-		// Validation: must have either message text or photos
+		// Validation: must have either message text, photos, or tags
 		const trimmedMessage = message.trim();
-		if (!trimmedMessage && selectedPhotos.length === 0) {
+		if (!trimmedMessage && selectedPhotos.length === 0 && selectedTags.length === 0) {
 			return;
 		}
 
@@ -235,9 +239,7 @@ export default function MessageInput({
 				}
 			}
 
-			// TODO: Get selected tags from UI (M 5.10c - Tag Selection UI)
-			// For now, tags array is empty until tag selection UI is implemented
-			const selectedTags: MessageTag[] = [];
+			// Use selected tags from state
 
 			// Validate tags before sending (if any are selected)
 			if (selectedTags.length > 0) {
@@ -266,7 +268,7 @@ export default function MessageInput({
 					selectedTags
 				);
 
-				// Clear input and photos on success
+				// Clear input, photos, and tags on success
 				setMessage("");
 				// Clean up remaining photo preview URLs
 				selectedPhotos.forEach((photo) => {
@@ -274,6 +276,7 @@ export default function MessageInput({
 				});
 				setSelectedPhotos([]);
 				selectedPhotosRef.current = [];
+				setSelectedTags([]);
 				// Clear photo error if message was sent successfully
 				if (failedPhotos.length === 0) {
 					setPhotoError(null);
@@ -291,13 +294,14 @@ export default function MessageInput({
 					setTagError(
 						"Message sent, but some tags could not be added. Please try again."
 					);
-					// Still clear input and notify parent since message was sent
+					// Still clear input, photos, and tags and notify parent since message was sent
 					setMessage("");
 					selectedPhotos.forEach((photo) => {
 						URL.revokeObjectURL(photo.preview);
 					});
 					setSelectedPhotos([]);
 					selectedPhotosRef.current = [];
+					setSelectedTags([]);
 					onMessageSent();
 				} else {
 					// Regular error - message send failed
@@ -429,10 +433,34 @@ export default function MessageInput({
 	const isDisabled =
 		sending ||
 		uploading ||
-		(!message.trim() && selectedPhotos.length === 0);
+		(!message.trim() && selectedPhotos.length === 0 && selectedTags.length === 0);
 
 	const handlePhotoButtonClick = () => {
 		fileInputRef.current?.click();
+	};
+
+	const handleTagSelect = (tag: MessageTag) => {
+		// Check max tags limit
+		if (selectedTags.length >= MAX_MESSAGE_TAGS) {
+			alert(`Maximum ${MAX_MESSAGE_TAGS} tags per message. Please remove a tag first.`);
+			return;
+		}
+
+		// Check if already selected
+		const isAlreadySelected = selectedTags.some(
+			(t) => t.type === tag.type && t.id === tag.id
+		);
+		if (isAlreadySelected) {
+			return;
+		}
+
+		setSelectedTags([...selectedTags, tag]);
+	};
+
+	const handleRemoveTag = (tagToRemove: MessageTag) => {
+		setSelectedTags(selectedTags.filter(
+			(tag) => !(tag.type === tagToRemove.type && tag.id === tagToRemove.id)
+		));
 	};
 
 	return (
@@ -456,6 +484,30 @@ export default function MessageInput({
 				<div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-blue-600 text-sm flex items-center gap-2">
 					<LoadingSpinner />
 					<span>Uploading photos...</span>
+				</div>
+			)}
+
+			{/* Selected tags chips */}
+			{selectedTags.length > 0 && (
+				<div className="mb-3">
+					<div className="flex flex-wrap gap-2">
+						{selectedTags.map((tag, index) => (
+							<div
+								key={`${tag.type}-${tag.id}-${index}`}
+								className="inline-flex items-center gap-1 px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-sm"
+							>
+								<span>@{tag.name}</span>
+								<button
+									type="button"
+									onClick={() => handleRemoveTag(tag)}
+									className="ml-1 text-pink-600 hover:text-pink-800 font-bold"
+									aria-label={`Remove ${tag.name} tag`}
+								>
+									×
+								</button>
+							</div>
+						))}
+					</div>
 				</div>
 			)}
 
@@ -490,7 +542,7 @@ export default function MessageInput({
 				</div>
 			)}
 
-			<form onSubmit={handleSubmit} className="flex gap-2 items-end">
+			<form onSubmit={handleSubmit} className="flex gap-1 items-end">
 				{/* Hidden file input */}
 				<input
 					ref={fileInputRef}
@@ -526,6 +578,33 @@ export default function MessageInput({
 					</svg>
 				</button>
 
+				{/* Tag button - only visible for coordinators */}
+				{isCoordinator && (
+					<button
+						type="button"
+						onClick={() => setIsTagModalOpen(true)}
+						disabled={sending || selectedTags.length >= MAX_MESSAGE_TAGS}
+						className="shrink-0 p-2 text-gray-600 hover:text-pink-500 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+						aria-label="Tag animal or group"
+						title="Tag animal or group"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							className="h-6 w-6"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+							/>
+						</svg>
+					</button>
+				)}
+
 				<textarea
 					ref={textareaRef}
 					value={message}
@@ -553,6 +632,17 @@ export default function MessageInput({
 						: "Send"}
 				</Button>
 			</form>
+
+			{/* Tag Selection Modal */}
+			{isCoordinator && (
+				<TagSelectionModal
+					isOpen={isTagModalOpen}
+					onClose={() => setIsTagModalOpen(false)}
+					onSelect={handleTagSelect}
+					selectedTags={selectedTags}
+					maxTags={MAX_MESSAGE_TAGS}
+				/>
+			)}
 		</div>
 	);
 }

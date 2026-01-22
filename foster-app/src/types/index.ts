@@ -215,6 +215,34 @@ export interface MessageTag {
 	name: string;
 }
 
+// Message tag with full entity data for display (used in message bubbles)
+export type MessageTagWithEntity = MessageTag & {
+	animal?: Partial<
+		Pick<
+			Animal,
+			| "id"
+			| "name"
+			| "status"
+			| "sex_spay_neuter_status"
+			| "priority"
+			| "photos"
+			| "date_of_birth"
+			| "group_id"
+		>
+	> & { id: string }; // id is always required
+	group?: Partial<
+		Pick<
+			AnimalGroup,
+			| "id"
+			| "name"
+			| "description"
+			| "animal_ids"
+			| "priority"
+			| "group_photos"
+		>
+	> & { id: string }; // id is always required
+};
+
 // Raw message link data from Supabase (with joined data)
 export interface MessageLinkRaw {
 	id: string;
@@ -222,8 +250,24 @@ export interface MessageLinkRaw {
 	animal_id: string | null;
 	group_id: string | null;
 	foster_profile_id: string | null;
-	animals: { name: string } | null;
-	animal_groups: { name: string } | null;
+	animals: {
+		id: string;
+		name: string | null;
+		status?: string;
+		sex_spay_neuter_status?: string;
+		priority?: boolean;
+		photos?: PhotoMetadata[] | null;
+		date_of_birth?: string | null;
+		group_id?: string | null;
+	} | null;
+	animal_groups: {
+		id: string;
+		name: string | null;
+		description?: string | null;
+		animal_ids?: string[] | null;
+		priority?: boolean;
+		group_photos?: PhotoMetadata[] | null;
+	} | null;
 	profiles: { full_name: string } | null;
 }
 
@@ -243,8 +287,24 @@ export type MessageWithLinks = {
 		animal_id: string | null;
 		group_id: string | null;
 		foster_profile_id: string | null;
-		animals: { name: string } | null;
-		animal_groups: { name: string } | null;
+		animals: {
+			id: string;
+			name: string | null;
+			status?: string;
+			sex_spay_neuter_status?: string;
+			priority?: boolean;
+			photos?: PhotoMetadata[] | null;
+			date_of_birth?: string | null;
+			group_id?: string | null;
+		} | null;
+		animal_groups: {
+			id: string;
+			name: string | null;
+			description?: string | null;
+			animal_ids?: string[] | null;
+			priority?: boolean;
+			group_photos?: PhotoMetadata[] | null;
+		} | null;
 		profiles: { full_name: string } | null;
 	}> | null;
 };
@@ -252,5 +312,5 @@ export type MessageWithLinks = {
 // Message with metadata (sender name and tags) for UI
 export type MessageWithMetadata = Message & {
 	sender_name: string;
-	tags: MessageTag[];
+	tags: Array<MessageTagWithEntity>;
 };

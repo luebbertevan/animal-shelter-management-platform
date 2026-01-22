@@ -192,6 +192,7 @@ export function countActiveGroupFilters(filters: GroupFilters): number {
 export function countActiveFosterFilters(filters: FosterFilters): number {
 	let count = 0;
 	if (filters.currentlyFostering === true) count++;
+	if (filters.sortByCreatedAt) count++;
 	return count;
 }
 

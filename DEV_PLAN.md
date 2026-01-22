@@ -1949,199 +1949,395 @@ This plan follows a **PWA-first approach**: build a mobile-friendly web app with
 
 ---
 
-### Update Database Schema for Foster Tagging
+## Message Tagging for Animals, Groups, and Fosters
 
-**Goal:** Extend `message_links` table to support tagging fosters in addition to animals and groups, and rename table to reflect its broader purpose.
+### Update Database Schema for Message Tagging
 
-**Tasks:**
+**Status:** [COMPLETED]
 
-1. Create migration to rename and update table:
-    - Rename `message_animal_links` to `message_links` (more accurate name since it supports multiple entity types)
-    - Add `foster_profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE` column (nullable)
-    - Update constraint `exactly_one_link` to allow exactly one of:
-        - `animal_id` (not null, others null)
-        - `group_id` (not null, others null)
-        - `foster_profile_id` (not null, others null)
-    - Add index on `foster_profile_id` for query performance
-    - Rename indexes to match new table name:
-        - `idx_message_animal_links_message_id` → `idx_message_links_message_id`
-        - `idx_message_animal_links_animal_id` → `idx_message_links_animal_id`
-        - `idx_message_animal_links_group_id` → `idx_message_links_group_id`
-        - Add new: `idx_message_links_foster_profile_id`
-2. Update RLS policies for `message_links`:
-    - Ensure users can view/create links for fosters in their organization
-    - Policy should allow tagging any foster profile in user's organization
-3. Test schema changes:
-    - Can insert link with `animal_id` only
-    - Can insert link with `group_id` only
-    - Can insert link with `foster_profile_id` only
-    - Cannot insert link with multiple IDs set
-    - Cannot insert link with no IDs set
-    - RLS policies prevent unauthorized access
+**Goal:** Extend `message_links` table to support tagging animals, groups, and fosters in messages.
 
-**Testing:**
+**Completed Tasks:**
 
--   Migration runs successfully
--   Can create message-animal links (existing functionality still works)
--   Can create message-group links (existing functionality still works)
--   Can create message-foster links (new functionality)
--   Constraint prevents invalid combinations
--   RLS policies work correctly
+-   Created migration to rename `message_animal_links` to `message_links`
+-   Added `foster_profile_id` column to support foster tagging
+-   Updated constraint to allow exactly one of `animal_id`, `group_id`, or `foster_profile_id`
+-   Added index on `foster_profile_id` for query performance
+-   Renamed all indexes to match new table name
+-   Updated RLS policies to allow tagging fosters in user's organization
 
 **Deliverable:** Database schema updated to support tagging animals, groups, and fosters. All three entity types can be linked to messages.
 
 ---
 
-### Backend Support for Foster Tagging
+### Backend Helper Functions and Types
 
-**Goal:** Create backend queries and functions to fetch and create message tags for animals, groups, and fosters.
+**Status:** [COMPLETED]
 
-**Tasks:**
+**Goal:** Create helper functions and types for transforming and validating message tags.
 
-1. **Create message link fetching queries:**
+**Completed Tasks:**
 
-    - Create query function to fetch `message_links` for a given message ID
-    - Join with `animals` table to get animal name when `animal_id` is set
-    - Join with `animal_groups` table to get group name when `group_id` is set
-    - Join with `profiles` table to get foster name when `foster_profile_id` is set
-    - Return all three entity types with their display names
-    - Handle cases where multiple links exist for a single message
+-   Created TypeScript types for message tags (`MessageTag`, `MessageLinkRaw`, `MessageWithLinks`, `MessageWithMetadata`)
+-   Created helper function `getEntityTypeFromLink()` to determine entity type from link
+-   Created helper function `getDisplayNameFromLink()` to get display name for each entity type
+-   Created helper function `getEntityIdFromLink()` to get entity ID from link
+-   Created helper function `transformLinkToTag()` to transform raw link data into tag format
+-   Created helper function `transformLinksToTags()` to transform array of links to tags
+-   Created helper function `transformTagsToLinks()` to transform tags into database format
+-   Created helper function `normalizeSupabaseLinks()` to handle Supabase response inconsistencies
+-   Created helper function `transformMessageWithLinks()` to transform messages with links for UI
+-   Created helper function `validateTagIds()` to validate tag IDs exist and are accessible
 
-2. **Update message fetching in MessageList:**
+**File:** `src/lib/messageLinkUtils.ts`
 
-    - Modify `fetchMessages` function to also fetch `message_links` for each message
-    - Use Supabase's `.select()` with nested queries to fetch links alongside messages
-    - Transform link data to include entity type and display name
-    - Return messages with tags array attached
+**Deliverable:** All helper functions and types created for message tagging. Functions handle transformation between database format and UI format for all three entity types.
 
-3. **Create helper functions/types:**
+---
 
-    - Type for message link result (includes `animal_id`, `group_id`, `foster_profile_id`, and joined data)
-    - Type for tag data (includes `type: 'animal' | 'group' | 'foster'`, `id`, `name`)
-    - Helper function to determine entity type from link (animal, group, or foster)
-    - Helper function to get display name for each entity type
-    - Helper function to transform raw link data into tag format
+### Message Link Insertion and Sending
 
-4. **Create message link insertion function:**
+**Status:** [COMPLETED]
 
-    - Create function to insert tags into `message_links` table
-    - Accept array of tags (each with `type` and `id`)
-    - Insert into `message_links` with appropriate field set based on type:
-        - If `type === 'animal'`: set `animal_id`, leave others null
-        - If `type === 'group'`: set `group_id`, leave others null
-        - If `type === 'foster'`: set `foster_profile_id`, leave others null
-    - Handle multiple tags for a single message (insert multiple rows)
-    - Handle errors gracefully (invalid IDs, permission errors, etc.)
+**Goal:** Enable message sending with tag insertion support.
 
-5. **Update message sending function:**
+**Completed Tasks:**
 
-    - Modify `sendMessage` function in `MessageInput.tsx` to accept optional `tags` parameter
-    - After message is created, if tags exist, call link insertion function
-    - Handle errors: if message is created but tags fail, show appropriate error
-    - Return message ID so tags can be linked to it
+-   Created `insertMessageLinks()` function to insert tags into `message_links` table
+-   Updated `sendMessage()` function in `MessageInput.tsx` to accept optional `tags` parameter
+-   Implemented tag insertion after message creation
+-   Added error handling for tag insertion failures (message sent but tags failed)
+-   Added tag validation before sending
 
-6. **Test:**
-    - Verify queries return tags with correct names for all three entity types
-    - Verify tag insertion works for animals, groups, and fosters
-    - Verify helper functions correctly identify entity types
-    - Verify display names are correct for all entity types
-    - Test error cases (invalid IDs, permission errors)
+**File:** `src/components/messaging/MessageInput.tsx`
 
-**Testing:**
+**Deliverable:** Message sending function supports tags. Tags can be inserted for animals, groups, and fosters when sending messages.
 
--   Can fetch message links with animal names
--   Can fetch message links with group names
--   Can fetch message links with foster names
--   Can insert tags for animals, groups, and fosters
--   Helper functions correctly identify entity types
--   Display names are correct for all entity types
--   Multiple tags per message work correctly
--   Error handling works for invalid tags
+---
 
-**Deliverable:** Backend fully supports fetching and creating tags for animals, groups, and fosters. Messages can be tagged with any combination of animals, groups, and fosters.
+### Fetch Tags in MessageList
+
+**Status:** [COMPLETED]
+
+**Goal:** Update message fetching to include tags with proper joins and transformations.
+
+**Completed Tasks:**
+
+-   Updated `fetchMessages` function in `MessageList.tsx` to include `message_links` with nested select
+-   Added joins with `animals` table to get animal name when `animal_id` is set
+-   Added joins with `animal_groups` table to get group name when `group_id` is set
+-   Added joins with `profiles` table to get foster name when `foster_profile_id` is set
+-   Using existing `transformMessageWithLinks()` helper to transform messages
+-   Messages now return with tags array attached
+-   Updated real-time subscription in `MessageList.tsx` to include `message_links` with all entity joins
+-   Real-time messages are transformed using `transformMessageWithLinks()` helper
+
+**File:** `src/components/messaging/MessageList.tsx`
+
+**Deliverable:** MessageList fetches and includes tags for all messages. Tags are available for display in MessageBubble.
 
 ---
 
 ### Tag Selection UI in MessageInput
 
-**Goal:** Add UI to select and display tags (animals, groups, fosters) before sending a message.
+**Status:** [NOT STARTED]
+
+**Goal:** Add UI to select and display tags (animals, groups) for coordinators. Fosters do not have access to tagging UI (may be added later).
+
+**Design Decisions:**
+
+-   **Access Control:** Only coordinators can access tagging UI. Fosters do not see the @ button or tagging feature
+-   **UI Container:** Modal (not dropdown) for all screen sizes - provides more space for search and entity lists
+-   **Trigger Button:** "@" icon button next to photo upload button in `MessageInput.tsx`
+    -   Compact spacing between buttons to avoid overcrowding
+    -   Buttons should stack vertically if textarea expands
+    -   **No keyboard shortcut:** @ key does NOT open the tagging menu (only button click)
+-   **Modal Content:** Two tabs - "Animals" and "Groups" (no Fosters tab - see separate Foster Tagging milestone)
+-   **Search/Filter:** Each tab has its own search and filter functionality following the same pattern as animals/groups list pages
+    -   Use `SearchInput` component (not real-time filtering - search on Enter/button click)
+    -   Reuse existing search and filter code from animals/groups list pages
+    -   Each tab maintains its own search term and filters independently
+-   **Entity List Display:** Show AnimalCard/GroupCard components (same cards as in list pages) depending on active tab
+    -   Grid layout similar to animals/groups list pages
+    -   Click card to select entity
+-   **Pagination:** Follow same pagination pattern as animals/groups list pages
+    -   Use `Pagination` component
+    -   Server-side pagination with page size
+-   **Selection Behavior:**
+    -   Select one animal or group at a time from modal
+    -   When selected, entity appears as `@name` chip above textarea (not in message text)
+    -   Chips can be removed before sending (X button on chip)
+    -   Maximum tags per message: configurable variable (default 10, can be changed in one place)
+    -   If attempting to add tag when at max, show popup/alert message (not hardcoded limit)
+-   **Tag Display:**
+    -   **Before sending:** Selected tags appear as `@name` chips above textarea (removable, before photo previews)
+    -   **After sending:** Tags appear as cards/chips below the message (same styling as AnimalCard/GroupCard)
+    -   Tag cards are clickable links to animal/group detail pages
+    -   Same type colors as used in animal/group cards
+    -   Message text remains unchanged (no @name text inserted into textarea)
 
 **Tasks:**
 
-1. Add tag selection UI to `MessageInput.tsx`:
-    - Add button/icon to open tag selector (e.g., "@" button or "Tag" button)
-    - Create tag selector component/modal:
-        - Search/autocomplete input
-        - Tabs or filter buttons for entity types (Animals, Groups, Fosters)
-        - **Fosters tab should only be visible in coordinator chat** (hide for foster conversations)
-        - List of selectable entities with names
-        - Allow selecting multiple entities
-    - Fetch entities from organization:
-        - Animals: fetch from `animals` table (filtered by organization)
-        - Groups: fetch from `animal_groups` table (filtered by organization)
-        - Fosters: fetch from `profiles` table (filtered by organization, role='foster') - **only in coordinator chat**
-    - Display selected tags as chips above input field:
-        - Show entity name and type indicator (e.g., "Fluffy (Animal)", "John (Foster)", "Litter of 4 (Group)")
-        - Allow removing tags (X button on chip)
-        - Style chips distinctively
-2. **Restrict foster tagging to coordinator chat:**
-    - Check if current conversation is coordinator chat (check conversation type or user role)
-    - Hide "Fosters" tab in tag selector for foster conversations
-    - Only show "Fosters" tab when coordinators are messaging in coordinator chat
-3. Update message sending:
-    - Collect selected tags before sending
-    - Pass tags to send message function (from Backend Support for Foster Tagging)
-    - Clear selected tags after successful send
-4. Test: Can open tag selector, search/filter entities, select multiple tags, remove tags, tags appear as chips
+1. **Add @ button to `MessageInput.tsx`:**
+
+    - Add "@" icon button next to photo upload button
+    - Compact spacing between buttons (reduce gap)
+    - Buttons stack vertically when textarea expands
+    - Button only visible for coordinators (check user role)
+    - Open modal on click
+
+2. **Create Tabs component:**
+
+    - Simple reusable `Tabs` component (or inline tabs in modal)
+    - Button-based tabs with active state styling
+    - Clicking tab shows corresponding content (Animals or Groups tab selection UI)
+    - Styled consistently with existing UI patterns
+
+3. **Create Tag Selection Modal component:**
+
+    - Modal component (similar to `ConfirmModal` pattern)
+    - Responsive: full-screen on mobile (below `md:` breakpoint), centered on desktop (`md:` and above)
+    - Close on backdrop click and Escape key press
+    - Two tabs: "Animals" and "Groups" (using Tabs component)
+    - Clicking tab shows either animal or group tag selection UI
+    - Loading states:
+        - Show `LoadingSpinner` while fetching entities
+        - Show loading state in each tab independently
+    - Each tab has independent search and filter functionality:
+        - Use `SearchInput` component (same as animals/groups list pages)
+        - Reuse filter components from animals/groups list pages
+        - Search/filter works on Enter/button click (not real-time)
+    - Entity list displays AnimalCard/GroupCard components (same as list pages):
+        - Grid layout matching animals/groups list pages
+        - Click card to select entity
+    - Pagination using `Pagination` component:
+        - Follow same pagination pattern as animals/groups list
+        - Server-side pagination with page size
+    - Click entity card to select (adds entity to selected tags, shows as chip above textarea)
+    - Close modal after selection
+
+4. **Create max tags configuration:**
+
+    - Create configurable constant for max tags per message (e.g., `MAX_MESSAGE_TAGS = 10`)
+    - Place in appropriate file (e.g., `src/lib/messageLinkUtils.ts` or `src/lib/constants.ts` if exists)
+    - Use this constant in validation logic
+    - Show popup/alert message when attempting to add tag at max limit
+
+5. **Fetch entities from organization:**
+
+    - Animals: fetch from `animals` table (filtered by organization)
+    - Groups: fetch from `animal_groups` table (filtered by organization)
+    - Reuse existing query functions from animals/groups list pages
+    - Support search, filters, and pagination (same as list pages)
+
+6. **Handle selected tags as chips:**
+
+    - Track selected entities as state in `MessageInput.tsx` (array of `MessageTag` objects)
+    - When entity selected from modal, add to selected tags array
+    - Display selected tags as `@name` chips above textarea (before photo previews)
+    - Chips show entity name with type indicator (e.g., "Fluffy (Animal)" or "Litter of 4 (Group)")
+    - Each chip has X button to remove
+    - Check max tags limit before adding (show popup if at limit)
+    - Chips are NOT in message text - they're separate UI elements
+
+7. **Update message sending:**
+
+    - Pass selected tags array directly to `sendMessage()` function (already supports tags)
+    - No parsing needed - tags are already tracked as `MessageTag` objects
+    - Validate max tags limit (use configurable constant)
+    - Clear selected tags array after successful send
+    - Message text remains unchanged (no @name text inserted)
+
+8. **Display tags as cards below message:**
+    - Update `MessageBubble.tsx` to display tags (see Display Tags milestone)
+    - Tags are already fetched and attached to messages (from MessageList)
+    - Style tag cards similar to AnimalCard/GroupCard
+    - Make tag cards clickable links to detail pages
 
 **Testing:**
 
--   Tag selector opens and closes correctly
--   Can search/filter animals, groups, and fosters (in coordinator chat)
--   Fosters tab is hidden in foster conversations
--   Fosters tab is visible in coordinator chat
--   Can select multiple entities of different types
--   Selected tags appear as chips with type indicators
--   Can remove tags before sending
--   Tags are passed to send function correctly
+-   @ button only visible to coordinators
+-   Fosters do not see @ button or tagging feature
+-   Modal opens and closes correctly
+-   Modal is responsive (full-screen mobile, centered desktop)
+-   Loading spinner shows while fetching entities
+-   @ key does NOT open tagging menu (only button click works)
+-   Can search/filter animals and groups within tabs (using SearchInput, not real-time)
+-   Search/filter works independently in each tab
+-   Entity list shows AnimalCard/GroupCard components (same as list pages)
+-   Pagination works correctly in modal
+-   Selecting entity adds `@name` chip above textarea (not in message text)
+-   Chips can be removed before sending
+-   Max tags popup appears when attempting to add tag at limit
+-   Max tags constant is configurable (not hardcoded)
+-   Tags appear as cards below message after sending
+-   Message text remains unchanged (no @name text in textarea)
+-   Tag cards are styled similar to animal/group cards
+-   Tag cards link to detail pages
+-   Tags are passed to send function correctly (no parsing needed)
 
-**Deliverable:** Tag selection UI working in MessageInput. Coordinators can select animals, groups, and fosters to tag in coordinator chat. Fosters can only tag animals and groups in their conversations.
+**Deliverable:** Tag selection UI working in MessageInput for coordinators only. Coordinators can tag animals and groups. Selected tags appear as `@name` chips above textarea (removable). Tags appear as cards below messages after sending. Message text remains unchanged.
 
 ---
 
 ### Display Tags in MessageBubble
 
-**Goal:** Display tags as clickable chips in message bubbles with proper navigation.
+**Status:** [NOT STARTED]
+
+**Goal:** Display tags as clickable chips below message content with styling similar to animal/group cards.
+
+**Design Decisions:**
+
+-   **Chip Placement:** Tags appear as chips below message content (not above)
+-   **Chip Styling:** Similar to AnimalCard/GroupCard styling from animal list
+-   **Type Colors:** Use same type colors as animal/group cards
+-   **Clickable:** Chips are clickable links to detail pages
 
 **Tasks:**
 
-1. Update `MessageList.tsx` to fetch tags:
-    - Include `message_links` in message query (already done for animals/groups)
-    - Join with `profiles` table to get foster names for foster tags
-    - Transform tag data to include entity type and display name
-2. Update `MessageBubble.tsx` to display tags:
-    - Accept tags array as prop (from MessageList)
-    - Display tags as clickable chips/badges below message content
-    - Show entity type indicator on each tag (e.g., "Animal", "Group", "Foster")
-    - Style tags distinctively from message content
-    - Use different colors/styles for different entity types (optional enhancement)
-3. Add navigation for tags:
+1. **Update `MessageBubble.tsx` to display tags:**
+
+    - Accept `tags` array as prop (from MessageList - tags are already fetched)
+    - Display tags as clickable chips/badges below message content (after photos if present)
+    - Style chips similar to AnimalCard/GroupCard components
+    - Use same type colors as animal/group cards
+    - Show entity name on chip (type indicator optional or subtle)
+
+2. **Add navigation for tags:**
+
     - Animals → link to `/animals/:id` (animal detail page)
-    - Groups → link to `/groups/:id` (group detail page - already created in Groups)
-    - Fosters → link to `/fosters/:id` (foster detail page - created in Foster List and Detail Pages)
-4. Test: Tags display correctly, tags are clickable, navigation works, styling is clear
+    - Groups → link to `/groups/:id` (group detail page)
+    - Fosters → link to `/fosters/:id` (foster detail page - if foster tagging added later)
 
 **Testing:**
 
--   Tags appear in message bubbles for all entity types
--   Tags show correct names and type indicators
+-   Tags appear in message bubbles below message content
+-   Tags show correct names
 -   Animal tags link to animal detail pages
--   Group tags link to group detail pages (when available)
--   Foster tags display foster names
--   Tags are visually distinct from message content
+-   Group tags link to group detail pages
+-   Foster tags link to foster detail pages (if foster tagging added later)
+-   Tags are styled similar to animal/group cards
 -   Works for messages with multiple tags of different types
+-   Tags appear correctly with photos
 
-**Deliverable:** Tags display correctly in message bubbles with proper styling and navigation. Complete tagging feature working end-to-end.
+**Deliverable:** Tags display correctly in message bubbles with proper styling and navigation. Tag cards appear below message content and link to detail pages. Complete tagging feature working end-to-end.
+
+---
+
+### Search and Pagination for Fosters List
+
+**Status:** [NOT STARTED]
+
+**Goal:** Add search and filter functionality to Fosters List page, following the same conventions as animals/groups list pages.
+
+**Design Decisions:**
+
+-   **Search:** Use `SearchInput` component (same as animals/groups list pages)
+    -   Search by foster `full_name` only (case-insensitive partial match)
+-   **Filters:** Use existing `FosterFilters` component with:
+    -   **Currently Fostering:** Toggle filter to show only fosters who have animals/groups assigned (checked via `current_foster_id`)
+    -   **Sort:** Newest/Oldest sort by `created_at` (same as animals/groups)
+-   **Pagination:** Fosters list already has pagination, ensure it works with search/filters
+-   **Consistency:** Follow exact same patterns and conventions as animals/groups list pages
+-   **Filter Implementation:** "Currently Fostering" filter handled at application level (client-side) after fetching, as it requires checking animals/groups tables
+
+**Tasks:**
+
+1. **Add search functionality:**
+
+    - Add `SearchInput` component to Fosters List page
+    - Update `fetchFosters` query to support search term
+    - Search by foster `full_name` using `applyNameSearch` utility (same pattern as animals/groups)
+    - Update URL query parameters to include search term
+
+2. **Add filter functionality:**
+
+    - Update `FosterFilters` component to add `sortByCreatedAt` filter (newest/oldest)
+    - Update `fetchFosters` query to support filters (currentlyFostering handled client-side)
+    - Update URL query parameters to include filters
+    - Show active filter chips (reuse `FilterChip` component)
+    - Implement "Currently Fostering" filter by checking if foster has animals/groups with matching `current_foster_id`
+
+3. **Update pagination:**
+
+    - Ensure pagination works correctly with search and filters
+    - Update total count query to include search/filter parameters
+    - Reset to page 1 when search/filters change
+
+4. **Update URL query parameter handling:**
+
+    - Use `queryParamsToFilters` and `filtersToQueryParams` utilities (same as animals/groups)
+    - Support bookmarkable/shareable filtered views
+
+**Testing:**
+
+-   Search works correctly (Enter/button click, not real-time)
+-   Filters work correctly
+-   Active filters show as chips
+-   Pagination works with search and filters
+-   URL query parameters persist correctly
+-   Filtered views are bookmarkable/shareable
+-   Follows same conventions as animals/groups list pages
+
+**Deliverable:** Fosters List page has search and filter functionality matching animals/groups list pages. Pagination works correctly with search/filters.
+
+---
+
+### Foster Tagging in Messages
+
+**Status:** [NOT STARTED]
+
+**Goal:** Add foster tagging capability to message tagging UI. Allows coordinators to tag fosters in messages (in addition to animals and groups).
+
+**Prerequisites:** Tag Selection UI milestone must be completed first.
+
+**Design Decisions:**
+
+-   **Access Control:** Only coordinators can tag fosters (same as animal/group tagging)
+-   **UI Addition:** Add "Fosters" tab to existing tag selection modal
+-   **Foster List:** Use same search, filter, and pagination patterns as Fosters List page
+-   **Display:** Foster tags appear as chips below messages (same as animal/group tags)
+
+**Tasks:**
+
+1. **Add Fosters tab to Tag Selection Modal:**
+
+    - Add third tab "Fosters" to existing tag selection modal
+    - Tab only visible to coordinators
+    - Reuse search, filter, and pagination from Fosters List page
+
+2. **Fetch fosters for tagging:**
+
+    - Reuse `fetchFosters` query function from Fosters List page
+    - Support search, filters, and pagination (same as Fosters List)
+    - Display fosters in selectable list (similar to animal/group cards)
+
+3. **Handle foster tag selection:**
+
+    - When foster selected, insert `@fostername` into message text
+    - Style `@name` text as pink and make clickable (links to foster detail page)
+    - Create foster tag on message send (backend already supports this)
+
+4. **Display foster tags:**
+
+    - Foster tags appear as chips below messages (same styling as animal/group tags)
+    - Chips link to foster detail pages
+    - Update `MessageBubble.tsx` to handle foster tags (if not already handled)
+
+**Note:** Backend infrastructure already exists for foster tagging (database schema, helper functions, validation). This milestone only adds the UI.
+
+**Testing:**
+
+-   Fosters tab appears in tag selection modal (coordinators only)
+-   Can search/filter fosters in Fosters tab
+-   Pagination works correctly in Fosters tab
+-   Selecting foster adds `@fostername` to message text
+-   `@fostername` text is pink and clickable
+-   Foster tags appear as chips below messages after sending
+-   Foster tag chips link to foster detail pages
+-   Max tags limit includes foster tags (total across all types)
+
+**Deliverable:** Coordinators can tag fosters in messages. Fosters tab added to tag selection modal with search, filter, and pagination. Foster tags display correctly below messages.
 
 ---
 

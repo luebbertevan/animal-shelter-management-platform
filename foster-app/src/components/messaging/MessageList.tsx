@@ -33,7 +33,32 @@ async function fetchMessages(
 			created_at,
 			edited_at,
 			photo_urls,
-			profiles!messages_sender_id_fkey(full_name)
+			profiles!messages_sender_id_fkey(full_name),
+			message_links(
+				id,
+				animal_id,
+				group_id,
+				foster_profile_id,
+				animals(
+					id,
+					name,
+					status,
+					sex_spay_neuter_status,
+					priority,
+					photos,
+					date_of_birth,
+					group_id
+				),
+				animal_groups(
+					id,
+					name,
+					description,
+					animal_ids,
+					priority,
+					group_photos
+				),
+				profiles(full_name)
+			)
 		`
 		)
 		.eq("conversation_id", conversationId)
@@ -58,7 +83,7 @@ async function fetchMessages(
 
 	// Transform data to include sender name and tags
 	// The JOIN returns profiles as a nested object: { profiles: { full_name: "..." } }
-	// Note: message_links are not fetched here (tagging deferred to later)
+	// message_links includes joined data from animals, animal_groups, and profiles
 	// Cast the data to our known type since Supabase doesn't infer JOIN types
 	const messagesWithProfile = (data || []) as unknown as MessageWithLinks[];
 
@@ -288,7 +313,7 @@ export default function MessageList({
 						photo_urls: string[] | null;
 					};
 
-					// Fetch message with profile join (message_links not fetched - tagging deferred)
+					// Fetch message with profile join and message_links with all entity joins
 					const { data: messageData, error: fetchError } =
 						await supabase
 							.from("messages")
@@ -301,7 +326,32 @@ export default function MessageList({
 							created_at,
 							edited_at,
 							photo_urls,
-							profiles!messages_sender_id_fkey(full_name)
+							profiles!messages_sender_id_fkey(full_name),
+							message_links(
+								id,
+								animal_id,
+								group_id,
+								foster_profile_id,
+								animals(
+									id,
+									name,
+									status,
+									sex_spay_neuter_status,
+									priority,
+									photos,
+									date_of_birth,
+									group_id
+								),
+								animal_groups(
+									id,
+									name,
+									description,
+									animal_ids,
+									priority,
+									group_photos
+								),
+								profiles(full_name)
+							)
 						`
 							)
 							.eq("id", newMessage.id)
@@ -381,16 +431,28 @@ export default function MessageList({
 			// Double RAF ensures layout calculations are complete
 			requestAnimationFrame(() => {
 				requestAnimationFrame(() => {
-					if (messagesEndRef.current) {
-						// Instant scroll on first load only
-						messagesEndRef.current.scrollIntoView({
-							behavior: "auto",
-							block: "end",
-						});
+					if (
+						messagesEndRef.current &&
+						parentScrollableContainerRef?.current
+					) {
+						// Scroll the container to show the bottom (messages end ref)
+						// This ensures messages are visible but doesn't push input out of view
+						parentScrollableContainerRef.current.scrollTop =
+							parentScrollableContainerRef.current.scrollHeight;
 						// Mark that first load is complete and scroll has happened
 						isFirstLoadRef.current = false;
 						// Set flag to show messages after scroll is complete
 						// Use another RAF to ensure scroll has actually happened
+						requestAnimationFrame(() => {
+							setHasScrolledToBottom(true);
+						});
+					} else if (messagesEndRef.current) {
+						// Fallback if no parent container ref
+						messagesEndRef.current.scrollIntoView({
+							behavior: "auto",
+							block: "end",
+						});
+						isFirstLoadRef.current = false;
 						requestAnimationFrame(() => {
 							setHasScrolledToBottom(true);
 						});
@@ -401,7 +463,7 @@ export default function MessageList({
 			// If messages exist but it's not first load, we can show them immediately
 			setHasScrolledToBottom(true);
 		}
-	}, [messages, isLoadingMore]);
+	}, [messages, isLoadingMore, parentScrollableContainerRef]);
 
 	if (isLoading) {
 		return (
@@ -478,6 +540,7 @@ export default function MessageList({
 							created_at: message.created_at,
 							sender_name: message.sender_name,
 							photo_urls: message.photo_urls,
+							tags: message.tags,
 						}}
 						isOwnMessage={isOwnMessage}
 					/>
