@@ -27,6 +27,7 @@ These prerequisites ensure that foster selection, search functionality, and mess
     -   `animal_id` (UUID, nullable, foreign key to animals)
     -   `group_id` (UUID, nullable, foreign key to animal_groups)
     -   `status` (TEXT): `pending`, `approved`, `denied`, `cancelled`
+    -   `previous_foster_visibility` (TEXT): Stores the foster_visibility value before the request was made (for reversion on denial)
     -   `message` (TEXT, nullable): Custom message from foster
     -   `coordinator_message` (TEXT, nullable): Custom message from coordinator when approving/denying
     -   `created_at` (TIMESTAMP)
@@ -64,8 +65,13 @@ These prerequisites ensure that foster selection, search functionality, and mess
 
 -   **When coordinator denies request:**
 
-    -   `foster_visibility` reverts to previous value (or `available_now` if no previous value)
+    -   `foster_visibility` reverts to `previous_foster_visibility` stored in the request record
     -   Request status changes to `denied`
+
+-   **When multiple requests exist for the same animal/group:**
+
+    -   When one request is approved, all other pending requests for the same animal/group are auto-denied
+    -   Auto-denied requests receive a message: "Your request for [Animal/Group Name] has not been approved."
 
 -   **When unassigning:**
     -   Coordinator can choose new `status` and `foster_visibility`
@@ -77,6 +83,13 @@ These prerequisites ensure that foster selection, search functionality, and mess
 -   Messages are sent to the foster's conversation (foster chat)
 -   Messages are visible in coordinator group chat
 -   Standard message templates are provided but can be customized
+-   **Messages are optional** - if no custom message is provided, the default template is sent automatically
+
+### Direct Assignment vs Request-Based Assignment
+
+-   **Direct assignment** (Phase 1): Coordinator assigns without a request. No request record created - this is a simpler flow for urgent situations.
+-   **Request-based assignment** (Phase 3): Foster requests → Coordinator approves. Request record tracks the full lifecycle.
+-   Both flows result in the same end state (animal/group assigned to foster with message sent).
 
 ---
 
@@ -137,18 +150,22 @@ These prerequisites ensure that foster selection, search functionality, and mess
 
 **File:** `src/components/fosters/FosterSelector.tsx`
 
+**Note:** This component should follow the same pattern as the animal/group selector components used in the tagging modal (TagSelectionModal.tsx). Reuse the existing `SearchInput` component for search functionality.
+
 **Features:**
 
--   Search/filter fosters by name, availability, experience level
+-   Modal-based selection (similar to animal/group selectors in tagging menu)
+-   Search fosters by name (reuse SearchInput component)
 -   Display foster name, availability status, current assignments count
--   Can be used as dropdown or navigate to selection page
--   Returns selected foster ID
+-   List of fosters with click-to-select behavior
+-   Returns selected foster ID and name
 
 **Props:**
 
--   `onSelect: (fosterId: string) => void`
+-   `isOpen: boolean`
+-   `onClose: () => void`
+-   `onSelect: (fosterId: string, fosterName: string) => void`
 -   `excludeFosterIds?: string[]` - Optional: exclude certain fosters
--   `mode?: 'dropdown' | 'page'` - How to display selector
 
 ### Task 1.3: Update AnimalDetail Page - Assignment UI
 
@@ -248,20 +265,19 @@ These prerequisites ensure that foster selection, search functionality, and mess
 
 **Changes:**
 
--   Add "Request to Foster" button (foster only, only visible if `foster_visibility != 'not_visible'`)
--   Button should be disabled if:
-    -   Animal is already assigned to this foster
-    -   Foster already has pending request for this animal/group
+-   Add "Request to Foster" button (foster only, only visible if `foster_visibility != 'not_visible'` and `foster_visibility != 'foster_pending'`)
+-   Button should be hidden/replaced with "Requested" badge if foster already has pending request
+-   Button should be disabled if animal is already assigned to this foster
 -   When clicked:
     -   Check if animal is in a group
     -   If in group, show dialog: "This animal is part of a group. You'll be requesting the entire group: [Group Name]. Continue?"
     -   Show request dialog with:
         -   Animal/group name
-        -   Text area for custom message (pre-filled with standard template)
-        -   Standard template: "Hi, I'm interested in fostering [Animal/Group Name]. [Custom message]"
-    -   On confirm, create request and update visibility
+        -   Text area for optional custom message (placeholder shows standard template)
+        -   Standard template: "Hi, I'm interested in fostering [Animal/Group Name]."
+    -   On confirm, store `previous_foster_visibility`, create request and update visibility to `foster_pending`
     -   Show success notification
-    -   Update button state (disable, show "Request Pending")
+    -   Replace button with "Requested" badge (clickable to cancel)
 
 ### Task 2.3: Update GroupDetail Page - Request Button (Foster View)
 
@@ -269,20 +285,35 @@ These prerequisites ensure that foster selection, search functionality, and mess
 
 **Changes:**
 
--   Add "Request to Foster" button (foster only, only visible if group visibility != 'not_visible')
+-   Add "Request to Foster" button (foster only, only visible if group visibility != 'not_visible' and != 'foster_pending')
+-   Button hidden/replaced with "Requested" badge if foster already has pending request for this group
 -   Similar behavior to AnimalDetail request button
 -   Show group name and animal count in request dialog
+-   On success, replace button with "Requested" badge (clickable to cancel)
 
-### Task 2.4: Update FostersNeeded Page - Request from Cards
+### Task 2.4: Update Cards - "Requested" Badge for Fosters
 
-**File:** `src/pages/fosters/FostersNeeded.tsx`
+**Files:** `src/components/animals/AnimalCard.tsx`, `src/components/animals/GroupCard.tsx`
+
+**Badge Visibility Logic:**
+
+-   **"Requested" badge**: Only visible to the foster who has a pending request for that animal/group
+-   **"Foster Pending" badge**: Visible to coordinators and other fosters (when `foster_visibility === 'foster_pending'`)
+-   These badges are mutually exclusive from the requester's perspective (requester sees "Requested", others see "Foster Pending")
 
 **Changes:**
 
--   Add "Request" button/icon on AnimalCard and GroupCard (foster only)
--   Button opens same request dialog as detail pages
--   After request, update card to show "Request Pending" state
--   "Foster Pending" badge should be clickable and link to foster's conversation or request status
+-   Add "Requested" badge visible only to the foster who has a pending request for that animal/group
+-   Badge appears in the same location as other visibility badges
+-   Clicking the "Requested" badge opens a cancel confirmation dialog
+-   Cancel dialog shows animal/group name and "Cancel Request" / "Keep Request" buttons
+-   On cancel, request status changes to `cancelled` and visibility reverts to `previous_foster_visibility`
+
+**Props changes:**
+
+-   Add optional `hasPendingRequest?: boolean` prop to indicate if current user has a pending request
+-   Add optional `onCancelRequest?: () => void` callback for cancel action
+-   Add optional `requestId?: string` prop to identify the request for cancellation
 
 ### Task 2.5: Create Request Dialog Component
 
@@ -291,23 +322,40 @@ These prerequisites ensure that foster selection, search functionality, and mess
 **Features:**
 
 -   Shows animal/group information
--   Text area for custom message (pre-filled with standard template)
+-   Text area for optional custom message (placeholder shows default template)
 -   "Submit Request" and "Cancel" buttons
 -   Handles group detection and confirmation
 -   Creates request via `createFosterRequest` utility
+-   Stores `previous_foster_visibility` in request record before updating to `foster_pending`
 -   Updates visibility to `foster_pending`
+
+### Task 2.6: Create Cancel Request Dialog Component
+
+**File:** `src/components/fosters/CancelRequestDialog.tsx`
+
+**Features:**
+
+-   Shows animal/group name
+-   Confirmation message: "Are you sure you want to cancel your request for [Animal/Group Name]?"
+-   "Cancel Request" and "Keep Request" buttons
+-   On cancel, updates request status to `cancelled` and reverts visibility to `previous_foster_visibility`
 
 **Testing:**
 
--   Fosters can request individual animals
--   Fosters can request groups
+-   Fosters can request individual animals from detail pages
+-   Fosters can request groups from detail pages
 -   Requesting animal in group automatically requests entire group
 -   Duplicate requests are prevented
+-   `previous_foster_visibility` stored in request record
 -   Visibility updates to `foster_pending`
--   Message sent to foster's conversation
--   Button states update correctly
+-   Message sent to foster's conversation (default if no custom message)
+-   "Requested" badge appears on cards/detail pages for foster who requested
+-   "Foster Pending" badge appears for coordinators and other fosters
+-   Clicking "Requested" badge opens cancel dialog
+-   Fosters can cancel pending requests via badge click
+-   Cancelled requests revert visibility to `previous_foster_visibility`
 
-**Deliverable:** Fosters can request animals/groups from Fosters Needed page and detail pages with proper validation and messaging.
+**Deliverable:** Fosters can request animals/groups from detail pages with proper validation and messaging. Fosters can cancel requests by clicking the "Requested" badge on cards or detail pages.
 
 ---
 
@@ -397,11 +445,13 @@ These prerequisites ensure that foster selection, search functionality, and mess
 **Features:**
 
 -   Approval dialog: Reuses assignment confirmation dialog with pre-selected foster
+    -   On approval, auto-denies all other pending requests for the same animal/group
+    -   Sends denial message to affected fosters: "Your request for [Animal/Group Name] has not been approved."
 -   Denial dialog:
     -   Shows animal/group and foster information
-    -   Text area for custom message (pre-filled with standard denial template)
+    -   Text area for optional custom message (placeholder shows default denial template)
     -   "Confirm Denial" and "Cancel" buttons
-    -   Updates request status and visibility on confirm
+    -   Updates request status to `denied` and reverts visibility to `previous_foster_visibility`
 
 ### Task 3.6: Update Dashboard - Pending Requests Section
 
@@ -436,7 +486,7 @@ These prerequisites ensure that foster selection, search functionality, and mess
 
 **Goal:** Enable coordinators to unassign animals/groups from fosters with status and visibility control.
 
-**Dependencies:** Phase 1 (Assignment)
+**Dependencies:** Phase 1 (Assignment) - Can be developed in parallel with Phases 2-3
 
 ### Task 4.1: Create Unassignment Utilities
 
@@ -459,10 +509,10 @@ These prerequisites ensure that foster selection, search functionality, and mess
 **Features:**
 
 -   Shows current assignment information (foster name, animal/group name)
--   Status dropdown (pre-selected with current status, can change)
--   Visibility dropdown (pre-selected with current visibility, can change)
--   Text area for custom message (pre-filled with standard template)
--   Standard template: "Hi [Foster Name], [Animal/Group Name] is no longer assigned to you. [Custom message]"
+-   Status dropdown (pre-selected with `in_shelter` as default)
+-   Visibility dropdown (pre-selected with `available_now` as default)
+-   Text area for optional custom message (placeholder shows default template)
+-   Default message sent if no custom message: "Hi [Foster Name], [Animal/Group Name] is no longer assigned to you."
 -   "Confirm Unassignment" and "Cancel" buttons
 -   Warning if unassigning animal in group: "This will unassign the entire group. Continue?"
 
@@ -513,7 +563,7 @@ These prerequisites ensure that foster selection, search functionality, and mess
 
 **Goal:** Improve coordinator navigation and request visibility.
 
-**Dependencies:** Phase 3 (Request Management)
+**Dependencies:** Phases 2-4 (all core functionality complete)
 
 ### Task 5.1: Update NavigationBar - Hamburger Menu for Coordinators
 
@@ -563,9 +613,9 @@ These prerequisites ensure that foster selection, search functionality, and mess
 
 **Changes:**
 
--   Make "Foster Pending" badge clickable (when `foster_visibility === 'foster_pending'`)
--   Link to `/foster-requests` (for coordinators) or foster's conversation (for fosters)
--   Add hover state to indicate clickability
+-   **"Requested" badge** (for foster who requested): Already clickable to open cancel dialog (implemented in Phase 2)
+-   **"Foster Pending" badge** (for coordinators): Make clickable, link to `/foster-requests`
+-   Add hover state to indicate clickability on both badges
 
 **Testing:**
 
@@ -591,6 +641,7 @@ CREATE TABLE foster_requests (
     animal_id UUID REFERENCES animals(id) ON DELETE CASCADE,
     group_id UUID REFERENCES animal_groups(id) ON DELETE CASCADE,
     status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'denied', 'cancelled')),
+    previous_foster_visibility TEXT NOT NULL CHECK (previous_foster_visibility IN ('available_now', 'available_future', 'foster_pending', 'not_visible')),
     message TEXT,
     coordinator_message TEXT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -600,16 +651,26 @@ CREATE TABLE foster_requests (
     CONSTRAINT foster_requests_animal_or_group CHECK (
         (animal_id IS NOT NULL AND group_id IS NULL) OR
         (animal_id IS NULL AND group_id IS NOT NULL)
-    ),
-    CONSTRAINT foster_requests_unique_pending UNIQUE (organization_id, foster_profile_id, animal_id, group_id, status)
-        WHERE status = 'pending'
+    )
 );
 
+-- Indexes for query performance
 CREATE INDEX idx_foster_requests_organization ON foster_requests(organization_id);
 CREATE INDEX idx_foster_requests_foster ON foster_requests(foster_profile_id);
 CREATE INDEX idx_foster_requests_animal ON foster_requests(animal_id) WHERE animal_id IS NOT NULL;
 CREATE INDEX idx_foster_requests_group ON foster_requests(group_id) WHERE group_id IS NOT NULL;
 CREATE INDEX idx_foster_requests_status ON foster_requests(status);
+
+-- Partial unique index: only one pending request per foster per animal/group
+-- Note: UNIQUE constraint syntax with WHERE clause is not valid in PostgreSQL.
+-- Must use CREATE UNIQUE INDEX with WHERE clause instead.
+CREATE UNIQUE INDEX idx_foster_requests_unique_pending_animal
+    ON foster_requests(organization_id, foster_profile_id, animal_id)
+    WHERE status = 'pending' AND animal_id IS NOT NULL;
+
+CREATE UNIQUE INDEX idx_foster_requests_unique_pending_group
+    ON foster_requests(organization_id, foster_profile_id, group_id)
+    WHERE status = 'pending' AND group_id IS NOT NULL;
 ```
 
 ### RLS Policies
@@ -717,6 +778,12 @@ Thank you for your interest in fostering [Animal/Group Name]. Unfortunately, we'
 Hi [Foster Name], [Animal/Group Name] is no longer assigned to you. [Custom message]
 ```
 
+### Auto-Denial Message (System → Foster)
+
+```
+Your request for [Animal/Group Name] has not been approved.
+```
+
 ---
 
 ## Testing Checklist
@@ -732,22 +799,28 @@ Hi [Foster Name], [Animal/Group Name] is no longer assigned to you. [Custom mess
 
 ### Phase 2: Foster Requests
 
--   [ ] Fosters can request individual animals
--   [ ] Fosters can request groups
+-   [ ] Fosters can request individual animals from detail pages
+-   [ ] Fosters can request groups from detail pages
 -   [ ] Requesting animal in group automatically requests entire group
 -   [ ] Duplicate requests are prevented
+-   [ ] `previous_foster_visibility` stored in request record
 -   [ ] Visibility updates to `foster_pending` on request
--   [ ] Message sent to foster's conversation
--   [ ] Button states update correctly
+-   [ ] Message sent to foster's conversation (default if no custom message)
+-   [ ] "Requested" badge appears on cards for foster who requested
+-   [ ] Clicking "Requested" badge opens cancel dialog
+-   [ ] Fosters can cancel pending requests via badge
+-   [ ] Cancelled requests revert visibility to `previous_foster_visibility`
 
 ### Phase 3: Coordinator Request Management
 
 -   [ ] Coordinators can view all pending requests
 -   [ ] Can approve requests (assigns foster and updates status/visibility)
--   [ ] Can deny requests (updates status and visibility)
--   [ ] Messages sent with animal/group tags
+-   [ ] Can deny requests (reverts visibility to `previous_foster_visibility`)
+-   [ ] Messages sent with animal/group tags (default if no custom message)
 -   [ ] Dashboard shows pending requests
 -   [ ] Request cards display correctly
+-   [ ] Approving one request auto-denies other pending requests for same animal/group
+-   [ ] Auto-denied requests receive denial message
 
 ### Phase 4: Unassignment
 
@@ -770,7 +843,7 @@ Hi [Foster Name], [Animal/Group Name] is no longer assigned to you. [Custom mess
 
 ## Implementation Order Summary
 
-1. **Prerequisites** (Complete before Phase 1):
+1. **Prerequisites** (Complete before Phase 1): ✅ DONE
 
     - Reusable Search & Filter Component
     - Message Tagging for Animals/Groups
@@ -784,7 +857,8 @@ Hi [Foster Name], [Animal/Group Name] is no longer assigned to you. [Custom mess
 3. **Phase 2: Foster Requests** (Builds on Phase 1)
 
     - Request utilities
-    - Request UI for fosters
+    - Request UI on detail pages for fosters
+    - "Requested" badge on cards with cancel functionality
     - Request creation flow
 
 4. **Phase 3: Coordinator Request Management** (Builds on Phase 2)
@@ -792,16 +866,19 @@ Hi [Foster Name], [Animal/Group Name] is no longer assigned to you. [Custom mess
     - Requests page
     - Approval/denial workflows
     - Dashboard integration
+    - Auto-deny conflicting requests on approval
 
-5. **Phase 4: Unassignment** (Builds on Phase 1)
+5. **Phase 4: Unassignment** (Can be done in parallel with Phases 2-3, only depends on Phase 1)
 
     - Unassignment utilities
     - Unassignment UI
 
-6. **Phase 5: UI Improvements** (Enhancement)
+6. **Phase 5: UI Improvements** (Enhancement, after Phases 2-4)
     - Hamburger menu
     - Navigation updates
     - Badge links
+
+**Parallel Development Note:** Phase 4 only depends on Phase 1, so it can be developed in parallel with Phases 2-3 to speed up overall delivery.
 
 ---
 

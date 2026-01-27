@@ -15,6 +15,7 @@ import GroupCard from "../animals/GroupCard";
 import Pagination from "../shared/Pagination";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { TAG_TYPES } from "../../types";
+import { PAGE_SIZES } from "../../lib/paginationConfig";
 
 interface TagSelectionModalProps {
 	isOpen: boolean;
@@ -24,7 +25,7 @@ interface TagSelectionModalProps {
 	maxTags: number;
 }
 
-const PAGE_SIZE = 40;
+const PAGE_SIZE = PAGE_SIZES.TAG_SELECTION;
 
 export default function TagSelectionModal({
 	isOpen,

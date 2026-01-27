@@ -15,6 +15,7 @@ import { uploadGroupPhoto } from "../../lib/photoUtils";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import type { TimestampedPhoto } from "../../types";
 import type { AnimalFilters } from "../../components/animals/AnimalFilters";
+import { PAGE_SIZES } from "../../lib/paginationConfig";
 
 export default function NewGroup() {
 	const navigate = useNavigate();
@@ -50,7 +51,7 @@ export default function NewGroup() {
 
 	// Pagination state for animal selection
 	const [animalPage, setAnimalPage] = useState(1);
-	const [animalPageSize] = useState(40);
+	const animalPageSize = PAGE_SIZES.GROUP_ANIMAL_SELECTION;
 
 	// Empty group confirmation modal state
 	const [showEmptyGroupConfirm, setShowEmptyGroupConfirm] = useState(false);

@@ -21,6 +21,7 @@ import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import type { Animal, TimestampedPhoto } from "../../types";
 import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
 import type { AnimalFilters } from "../../components/animals/AnimalFilters";
+import { PAGE_SIZES } from "../../lib/paginationConfig";
 
 export default function EditGroup() {
 	const { id } = useParams<{ id: string }>();
@@ -51,7 +52,7 @@ export default function EditGroup() {
 
 	// Pagination state for animal selection
 	const [animalPage, setAnimalPage] = useState(1);
-	const [animalPageSize] = useState(40);
+	const animalPageSize = PAGE_SIZES.GROUP_ANIMAL_SELECTION;
 
 	// If filters or search are active, we need all animals for client-side filtering
 	// Otherwise, use server-side pagination
