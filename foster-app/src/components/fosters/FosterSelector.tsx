@@ -1,13 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { fetchFosters, fetchFostersCount } from "../../lib/fosterQueries";
+import { fetchAnimals } from "../../lib/animalQueries";
+import { fetchGroups } from "../../lib/groupQueries";
 import { supabase } from "../../lib/supabase";
 import SearchInput from "../shared/SearchInput";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import Pagination from "../shared/Pagination";
+import { FilterChip } from "../shared/Filters";
 import { PAGE_SIZES } from "../../lib/paginationConfig";
-import { FosterFiltersContent, type FosterFilters } from "./FosterFilters";
+import FosterFilters, {
+	type FosterFilters as FosterFiltersType,
+} from "./FosterFilters";
 
 interface FosterSelectorProps {
 	isOpen: boolean;
@@ -27,7 +32,7 @@ export default function FosterSelector({
 	const { profile } = useProtectedAuth();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [page, setPage] = useState(1);
-	const [filters, setFilters] = useState<FosterFilters>({});
+	const [filters, setFilters] = useState<FosterFiltersType>({});
 
 	// Close on Escape key
 	useEffect(() => {
@@ -43,56 +48,141 @@ export default function FosterSelector({
 		return () => document.removeEventListener("keydown", handleEscape);
 	}, [isOpen, onClose]);
 
-	// Fetch fosters
+	// If "currently fostering" filter is active, we need all fosters for client-side filtering
+	// Otherwise, we can use server-side pagination
+	const needsAllFosters = filters.currentlyFostering === true;
 	const offset = (page - 1) * PAGE_SIZE;
-	const { data: fosters = [], isLoading: isLoadingFosters } = useQuery({
+
+	// Fetch fosters
+	const { data: allFosters = [], isLoading: isLoadingFosters } = useQuery({
 		queryKey: [
 			"foster-selector",
 			profile.organization_id,
 			searchTerm,
-			filters.isCoordinator,
-			page,
+			filters,
+			needsAllFosters ? "all" : page,
+			needsAllFosters ? "all" : PAGE_SIZE,
 		],
 		queryFn: async () => {
-			const allFosters = await fetchFosters(profile.organization_id, {
-				fields: ["id", "email", "full_name", "availability", "role"],
-				orderBy: "full_name",
-				orderDirection: "asc",
-				limit: PAGE_SIZE,
-				offset,
-				searchTerm,
-				includeCoordinators: true, // Include both fosters and coordinators by default
-				filters, // Apply coordinator filter
-			});
-
-			// Filter out excluded fosters
-			return allFosters.filter(
-				(foster) => !excludeFosterIds.includes(foster.id)
-			);
+			// When "currently fostering" filter is active, fetch all fosters for client-side filtering
+			// Otherwise, use server-side pagination
+			if (needsAllFosters) {
+				const allFosters = await fetchFosters(profile.organization_id, {
+					fields: ["id", "email", "full_name", "availability", "role"],
+					orderBy: "full_name",
+					orderDirection: "asc",
+					checkOffline: true,
+					includeCoordinators: true,
+					searchTerm,
+					filters,
+				});
+				return allFosters.filter(
+					(foster) => !excludeFosterIds.includes(foster.id)
+				);
+			} else {
+				const allFosters = await fetchFosters(profile.organization_id, {
+					fields: ["id", "email", "full_name", "availability", "role"],
+					orderBy: "full_name",
+					orderDirection: "asc",
+					checkOffline: true,
+					includeCoordinators: true,
+					limit: PAGE_SIZE,
+					offset,
+					searchTerm,
+					filters,
+				});
+				return allFosters.filter(
+					(foster) => !excludeFosterIds.includes(foster.id)
+				);
+			}
 		},
 		enabled: isOpen,
 	});
 
-	// Fetch foster count
+	// Fetch animals and groups to check "currently fostering" filter
+	// Only fetch if the filter is active
+	const { data: animalsData = [] } = useQuery({
+		queryKey: ["animals-for-foster-selector", profile.organization_id],
+		queryFn: () => {
+			return fetchAnimals(profile.organization_id, {
+				fields: ["id", "current_foster_id"],
+			});
+		},
+		enabled: isOpen && filters.currentlyFostering === true,
+	});
+
+	const { data: groupsData = [] } = useQuery({
+		queryKey: ["groups-for-foster-selector", profile.organization_id],
+		queryFn: () => {
+			return fetchGroups(profile.organization_id, {
+				fields: ["id", "current_foster_id"],
+			});
+		},
+		enabled: isOpen && filters.currentlyFostering === true,
+	});
+
+	// Filter fosters by "currently fostering" if filter is active
+	const filteredFosters = useMemo(() => {
+		if (filters.currentlyFostering !== true) {
+			return allFosters;
+		}
+
+		// Create a set of foster IDs that have animals or groups assigned
+		const fosteringFosterIds = new Set<string>();
+		animalsData.forEach((animal) => {
+			if (animal.current_foster_id) {
+				fosteringFosterIds.add(animal.current_foster_id);
+			}
+		});
+		groupsData.forEach((group) => {
+			if (group.current_foster_id) {
+				fosteringFosterIds.add(group.current_foster_id);
+			}
+		});
+
+		// Filter fosters to only those in the set
+		return allFosters.filter((foster) => fosteringFosterIds.has(foster.id));
+	}, [allFosters, filters.currentlyFostering, animalsData, groupsData]);
+
+	// Paginate the filtered fosters (client-side pagination when "currently fostering" is active)
+	const fosters = useMemo(() => {
+		if (needsAllFosters) {
+			// Client-side pagination
+			const startIndex = (page - 1) * PAGE_SIZE;
+			const endIndex = startIndex + PAGE_SIZE;
+			return filteredFosters.slice(startIndex, endIndex);
+		}
+		return filteredFosters;
+	}, [filteredFosters, needsAllFosters, page]);
+
+	// Fetch foster count for pagination (with search, but "currently fostering" handled client-side)
 	const { data: totalCount = 0 } = useQuery({
 		queryKey: [
 			"foster-selector-count",
 			profile.organization_id,
 			searchTerm,
-			filters.isCoordinator,
+			filters,
 		],
 		queryFn: async () => {
 			const count = await fetchFostersCount(
 				profile.organization_id,
 				true, // Include coordinators in count
 				searchTerm,
-				filters // Apply coordinator filter
+				filters // Apply filters
 			);
 			// Subtract excluded fosters from count
 			return Math.max(0, count - excludeFosterIds.length);
 		},
-		enabled: isOpen,
+		enabled: isOpen && !needsAllFosters,
 	});
+
+	// Calculate total count - use filtered count if "currently fostering" is active
+	const adjustedTotalCount = useMemo(() => {
+		if (filters.currentlyFostering === true) {
+			return filteredFosters.length;
+		}
+		return totalCount;
+	}, [filters.currentlyFostering, totalCount, filteredFosters.length]);
 
 	// Fetch current assignments count for each foster
 	const { data: assignmentsMap = new Map() } = useQuery({
@@ -152,7 +242,7 @@ export default function FosterSelector({
 		setPage(1); // Reset to page 1 when search changes
 	};
 
-	const handleFiltersChange = (newFilters: FosterFilters) => {
+	const handleFiltersChange = (newFilters: FosterFiltersType) => {
 		setFilters(newFilters);
 		setPage(1); // Reset to page 1 when filter changes
 	};
@@ -162,9 +252,56 @@ export default function FosterSelector({
 		onClose();
 	};
 
+	// Generate active filter chips
+	const activeFilterChips = useMemo(() => {
+		const chips: Array<{ label: string; onRemove: () => void }> = [];
+
+		if (filters.currentlyFostering === true) {
+			chips.push({
+				label: "Currently Fostering",
+				onRemove: () =>
+					handleFiltersChange({
+						...filters,
+						currentlyFostering: undefined,
+					}),
+			});
+		}
+
+		if (filters.isCoordinator !== undefined) {
+			chips.push({
+				label:
+					filters.isCoordinator === true
+						? "Coordinators Only"
+						: "Fosters Only",
+				onRemove: () =>
+					handleFiltersChange({
+						...filters,
+						isCoordinator: undefined,
+					}),
+			});
+		}
+
+		if (filters.sortByCreatedAt) {
+			chips.push({
+				label: `Sort: ${
+					filters.sortByCreatedAt === "oldest"
+						? "Oldest First"
+						: "Newest First"
+				}`,
+				onRemove: () =>
+					handleFiltersChange({
+						...filters,
+						sortByCreatedAt: undefined,
+					}),
+			});
+		}
+
+		return chips;
+	}, [filters]);
+
 	if (!isOpen) return null;
 
-	const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+	const totalPages = Math.ceil(adjustedTotalCount / PAGE_SIZE);
 
 	return (
 		<>
@@ -188,7 +325,7 @@ export default function FosterSelector({
 					{/* Header */}
 					<div className="p-4 border-b border-gray-200 flex items-center justify-between">
 						<h3 className="text-lg font-semibold text-gray-900">
-							Select Foster or Coordinator
+							Select Foster
 						</h3>
 						<button
 							type="button"
@@ -201,19 +338,33 @@ export default function FosterSelector({
 
 					{/* Content */}
 					<div className="flex-1 overflow-y-auto p-4">
-						{/* Search and Filter */}
-						<div className="mb-4 space-y-3">
-							<SearchInput
-								value={searchTerm}
-								onSearch={handleSearch}
-								placeholder="Search by name..."
-							/>
-							{/* Coordinator Filters */}
-							<FosterFiltersContent
-								filters={filters}
-								onFiltersChange={handleFiltersChange}
-							/>
+						{/* Search Input and Filters - Inline Layout */}
+						<div className="mb-4">
+							<div className="flex items-center gap-2">
+								<SearchInput
+									value={searchTerm}
+									onSearch={handleSearch}
+									placeholder="Search by name..."
+								/>
+								<FosterFilters
+									filters={filters}
+									onFiltersChange={handleFiltersChange}
+								/>
+							</div>
 						</div>
+
+						{/* Active Filter Chips */}
+						{activeFilterChips.length > 0 && (
+							<div className="mb-4 flex flex-wrap gap-2">
+								{activeFilterChips.map((chip, index) => (
+									<FilterChip
+										key={index}
+										label={chip.label}
+										onRemove={chip.onRemove}
+									/>
+								))}
+							</div>
+						)}
 
 						{/* Loading State */}
 						{isLoadingFosters && (
@@ -306,7 +457,7 @@ export default function FosterSelector({
 											currentPage={page}
 											totalPages={totalPages}
 											onPageChange={setPage}
-											totalItems={totalCount}
+											totalItems={adjustedTotalCount}
 											itemsPerPage={PAGE_SIZE}
 										/>
 									</div>

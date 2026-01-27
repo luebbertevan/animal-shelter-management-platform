@@ -92,6 +92,19 @@ export default function FosterFilters({
 			<div className="space-y-2">
 				{/* All toggle filters in one container for alignment */}
 				<div className="flex flex-col space-y-2">
+					{/* Coordinator Filters - Two toggles, only one can be active */}
+					<ToggleFilter
+						label="Fosters Only"
+						value={filters.isCoordinator === false}
+						onChange={() => handleCoordinatorToggle(false)}
+						compact={true}
+					/>
+					<ToggleFilter
+						label="Coordinators Only"
+						value={filters.isCoordinator === true}
+						onChange={() => handleCoordinatorToggle(true)}
+						compact={true}
+					/>
 					{/* Currently Fostering Filter */}
 					<ToggleFilter
 						label="Currently Fostering"
@@ -99,20 +112,6 @@ export default function FosterFilters({
 						onChange={(value) =>
 							handleFilterChange("currentlyFostering", value)
 						}
-						compact={true}
-					/>
-
-					{/* Coordinator Filters - Two toggles, only one can be active */}
-					<ToggleFilter
-						label="Coordinators Only"
-						value={filters.isCoordinator === true}
-						onChange={() => handleCoordinatorToggle(true)}
-						compact={true}
-					/>
-					<ToggleFilter
-						label="Fosters Only"
-						value={filters.isCoordinator === false}
-						onChange={() => handleCoordinatorToggle(false)}
 						compact={true}
 					/>
 				</div>
@@ -186,6 +185,18 @@ export function FosterFiltersContent({
 
 	return (
 		<div className="flex flex-col space-y-2">
+			<ToggleFilter
+				label="Fosters Only"
+				value={filters.isCoordinator === false}
+				onChange={() => handleCoordinatorToggle(false)}
+				compact={true}
+			/>
+			<ToggleFilter
+				label="Coordinators Only"
+				value={filters.isCoordinator === true}
+				onChange={() => handleCoordinatorToggle(true)}
+				compact={true}
+			/>
 			{showCurrentlyFostering && (
 				<ToggleFilter
 					label="Currently Fostering"
@@ -196,18 +207,6 @@ export function FosterFiltersContent({
 					compact={true}
 				/>
 			)}
-			<ToggleFilter
-				label="Coordinators Only"
-				value={filters.isCoordinator === true}
-				onChange={() => handleCoordinatorToggle(true)}
-				compact={true}
-			/>
-			<ToggleFilter
-				label="Fosters Only"
-				value={filters.isCoordinator === false}
-				onChange={() => handleCoordinatorToggle(false)}
-				compact={true}
-			/>
 			{showSort && (
 				<SortFilter
 					value={filters.sortByCreatedAt ?? "newest"}
