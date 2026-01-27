@@ -1,14 +1,17 @@
 import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { AnimalGroup, Animal } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
 import AnimalCard from "../../components/animals/AnimalCard";
 import FieldDisplay from "../../components/animals/FieldDisplay";
+import FosterSelector from "../../components/fosters/FosterSelector";
+import AssignmentConfirmationDialog from "../../components/animals/AssignmentConfirmationDialog";
 import { fetchGroupById } from "../../lib/groupQueries";
 import { fetchAnimalsByIds } from "../../lib/animalQueries";
+import { assignGroupToFoster } from "../../lib/assignmentUtils";
 import { isOffline } from "../../lib/errorUtils";
 import {
 	formatDateForDisplay,
@@ -21,8 +24,19 @@ import { fetchFosterById } from "../../lib/fosterQueries";
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
 	const { user, profile, isCoordinator } = useProtectedAuth();
+	const queryClient = useQueryClient();
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(0);
+	const [isFosterSelectorOpen, setIsFosterSelectorOpen] = useState(false);
+	const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] =
+		useState(false);
+	const [selectedFosterId, setSelectedFosterId] = useState<string | null>(
+		null
+	);
+	const [selectedFosterName, setSelectedFosterName] = useState<string | null>(
+		null
+	);
+	const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
 	const {
 		data: group,
@@ -112,6 +126,55 @@ export default function GroupDetail() {
 	const handlePhotoClick = (index: number) => {
 		setLightboxIndex(index);
 		setLightboxOpen(true);
+	};
+
+	// Handle foster selection
+	const handleFosterSelect = (fosterId: string, fosterName: string) => {
+		setSelectedFosterId(fosterId);
+		setSelectedFosterName(fosterName);
+		setIsFosterSelectorOpen(false);
+		setIsConfirmationDialogOpen(true);
+		setAssignmentError(null);
+	};
+
+	// Handle assignment confirmation
+	const handleAssignmentConfirm = async (message: string) => {
+		if (!selectedFosterId || !id) {
+			return;
+		}
+
+		setAssignmentError(null);
+
+		try {
+			await assignGroupToFoster(
+				id,
+				selectedFosterId,
+				profile.organization_id,
+				message
+			);
+
+			// Invalidate queries to refresh data
+			await queryClient.invalidateQueries({
+				queryKey: ["groups", user.id, profile.organization_id, id],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["foster", selectedFosterId],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["group-animals", user.id, profile.organization_id],
+			});
+
+			// Close dialog and reset state
+			setIsConfirmationDialogOpen(false);
+			setSelectedFosterId(null);
+			setSelectedFosterName(null);
+		} catch (error) {
+			setAssignmentError(
+				error instanceof Error
+					? error.message
+					: "Failed to assign group. Please try again."
+			);
+		}
 	};
 
 	const isLoading = isLoadingGroup || isLoadingAnimals;
@@ -326,30 +389,56 @@ export default function GroupDetail() {
 
 					{/* Metadata Section (coordinators only) */}
 					{isCoordinator && (
-						<div className="pt-6 border-t border-gray-200 space-y-2 text-base">
-							{group.current_foster_id && (
-								<div>
-									<span className="text-gray-500">
-										Current foster:{" "}
-									</span>
-									{isLoadingFosterName ? (
-										<span className="text-gray-400">
-											Loading...
+						<div className="pt-6 border-t border-gray-200 space-y-4 text-base">
+							{/* Assignment Section */}
+							<div className="space-y-2">
+								{group.current_foster_id && (
+									<div>
+										<span className="text-gray-500">
+											Current foster:{" "}
 										</span>
-									) : fosterName ? (
-										<Link
-											to={`/fosters/${group.current_foster_id}`}
-											className="text-pink-600 hover:text-pink-700 hover:underline"
-										>
-											{fosterName}
-										</Link>
-									) : (
-										<span className="text-gray-400">
-											Unknown
-										</span>
-									)}
-								</div>
-							)}
+										{isLoadingFosterName ? (
+											<span className="text-gray-400">
+												Loading...
+											</span>
+										) : fosterName ? (
+											<Link
+												to={`/fosters/${group.current_foster_id}`}
+												className="text-pink-600 hover:text-pink-700 hover:underline"
+											>
+												{fosterName}
+											</Link>
+										) : (
+											<span className="text-gray-400">
+												Unknown
+											</span>
+										)}
+									</div>
+								)}
+
+								{/* Assign Foster Button */}
+								<button
+									type="button"
+									onClick={() => {
+										setIsFosterSelectorOpen(true);
+										setAssignmentError(null);
+									}}
+									className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								>
+									{group.current_foster_id
+										? "Reassign Foster"
+										: "Assign Foster"}
+								</button>
+
+								{/* Assignment Error */}
+								{assignmentError && (
+									<div className="p-3 bg-red-50 border border-red-200 rounded-md">
+										<p className="text-sm text-red-800">
+											{assignmentError}
+										</p>
+									</div>
+								)}
+							</div>
 							<div>
 								<span className="text-gray-500">
 									Created at:{" "}
@@ -386,6 +475,34 @@ export default function GroupDetail() {
 					initialIndex={lightboxIndex}
 					isOpen={lightboxOpen}
 					onClose={() => setLightboxOpen(false)}
+				/>
+			)}
+
+			{/* Foster Selector */}
+			<FosterSelector
+				isOpen={isFosterSelectorOpen}
+				onClose={() => setIsFosterSelectorOpen(false)}
+				onSelect={handleFosterSelect}
+				excludeFosterIds={
+					group?.current_foster_id ? [group.current_foster_id] : []
+				}
+			/>
+
+			{/* Assignment Confirmation Dialog */}
+			{selectedFosterId && selectedFosterName && group && (
+				<AssignmentConfirmationDialog
+					isOpen={isConfirmationDialogOpen}
+					onClose={() => {
+						setIsConfirmationDialogOpen(false);
+						setSelectedFosterId(null);
+						setSelectedFosterName(null);
+						setAssignmentError(null);
+					}}
+					onConfirm={handleAssignmentConfirm}
+					fosterName={selectedFosterName}
+					animalOrGroupName={group.name || "Unnamed Group"}
+					isGroup={true}
+					animalCount={animals.length}
 				/>
 			)}
 		</div>

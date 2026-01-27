@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Animal, SexSpayNeuterStatus, LifeStage } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import FieldDisplay from "../../components/animals/FieldDisplay";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
+import FosterSelector from "../../components/fosters/FosterSelector";
+import AssignmentConfirmationDialog from "../../components/animals/AssignmentConfirmationDialog";
 import { fetchAnimalById } from "../../lib/animalQueries";
 import { fetchFosterById } from "../../lib/fosterQueries";
+import { assignAnimalToFoster } from "../../lib/assignmentUtils";
 import { isOffline } from "../../lib/errorUtils";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 import { supabase } from "../../lib/supabase";
@@ -109,8 +112,19 @@ function formatAgeForDisplay(
 export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
 	const { user, profile, isCoordinator } = useProtectedAuth();
+	const queryClient = useQueryClient();
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(0);
+	const [isFosterSelectorOpen, setIsFosterSelectorOpen] = useState(false);
+	const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] =
+		useState(false);
+	const [selectedFosterId, setSelectedFosterId] = useState<string | null>(
+		null
+	);
+	const [selectedFosterName, setSelectedFosterName] = useState<string | null>(
+		null
+	);
+	const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
 	const {
 		data: animal,
@@ -244,6 +258,55 @@ export default function AnimalDetail() {
 	// Calculate age for display
 	// Note: age is calculated from DOB only (age_value and age_unit are not stored in Animal type)
 	const ageDisplay = formatAgeForDisplay(animal.date_of_birth);
+
+	// Handle foster selection
+	const handleFosterSelect = (fosterId: string, fosterName: string) => {
+		setSelectedFosterId(fosterId);
+		setSelectedFosterName(fosterName);
+		setIsFosterSelectorOpen(false);
+		setIsConfirmationDialogOpen(true);
+		setAssignmentError(null);
+	};
+
+	// Handle assignment confirmation
+	const handleAssignmentConfirm = async (message: string) => {
+		if (!selectedFosterId || !id) {
+			return;
+		}
+
+		setAssignmentError(null);
+
+		try {
+			await assignAnimalToFoster(
+				id,
+				selectedFosterId,
+				profile.organization_id,
+				message
+			);
+
+			// Invalidate queries to refresh data
+			await queryClient.invalidateQueries({
+				queryKey: ["animals", user.id, profile.organization_id, id],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["foster", selectedFosterId],
+			});
+
+			// Close dialog and reset state
+			setIsConfirmationDialogOpen(false);
+			setSelectedFosterId(null);
+			setSelectedFosterName(null);
+		} catch (error) {
+			setAssignmentError(
+				error instanceof Error
+					? error.message
+					: "Failed to assign animal. Please try again."
+			);
+		}
+	};
+
+	// Check if animal is in a group (for blocking individual assignment)
+	const isInGroup = !!animal.group_id;
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
@@ -427,30 +490,71 @@ export default function AnimalDetail() {
 
 						{/* Metadata Section (coordinators only) */}
 						{isCoordinator && (
-							<div className="pt-6 border-t border-gray-200 space-y-2 text-base">
-								{animal.current_foster_id && (
-									<div>
-										<span className="text-gray-500">
-											Current foster:{" "}
-										</span>
-										{isLoadingFosterName ? (
-											<span className="text-gray-400">
-												Loading...
+							<div className="pt-6 border-t border-gray-200 space-y-4 text-base">
+								{/* Assignment Section */}
+								<div className="space-y-2">
+									{animal.current_foster_id && (
+										<div>
+											<span className="text-gray-500">
+												Current foster:{" "}
 											</span>
-										) : fosterName ? (
-											<Link
-												to={`/fosters/${animal.current_foster_id}`}
-												className="text-pink-600 hover:text-pink-700 hover:underline"
-											>
-												{fosterName}
-											</Link>
-										) : (
-											<span className="text-gray-400">
-												Unknown
-											</span>
-										)}
-									</div>
-								)}
+											{isLoadingFosterName ? (
+												<span className="text-gray-400">
+													Loading...
+												</span>
+											) : fosterName ? (
+												<Link
+													to={`/fosters/${animal.current_foster_id}`}
+													className="text-pink-600 hover:text-pink-700 hover:underline"
+												>
+													{fosterName}
+												</Link>
+											) : (
+												<span className="text-gray-400">
+													Unknown
+												</span>
+											)}
+										</div>
+									)}
+
+									{/* Assign Foster Button */}
+									{isInGroup ? (
+										<div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+											<p className="text-sm text-yellow-800">
+												This animal is in a group. Please{" "}
+												<Link
+													to={`/groups/${animal.group_id}`}
+													className="font-medium underline hover:text-yellow-900"
+												>
+													assign the entire group
+												</Link>{" "}
+												instead.
+											</p>
+										</div>
+									) : (
+										<button
+											type="button"
+											onClick={() => {
+												setIsFosterSelectorOpen(true);
+												setAssignmentError(null);
+											}}
+											className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+										>
+											{animal.current_foster_id
+												? "Reassign Foster"
+												: "Assign Foster"}
+										</button>
+									)}
+
+									{/* Assignment Error */}
+									{assignmentError && (
+										<div className="p-3 bg-red-50 border border-red-200 rounded-md">
+											<p className="text-sm text-red-800">
+												{assignmentError}
+											</p>
+										</div>
+									)}
+								</div>
 								<div>
 									<span className="text-gray-500">
 										Created at:{" "}
@@ -490,6 +594,35 @@ export default function AnimalDetail() {
 					initialIndex={lightboxIndex}
 					isOpen={lightboxOpen}
 					onClose={() => setLightboxOpen(false)}
+				/>
+			)}
+
+			{/* Foster Selector */}
+			<FosterSelector
+				isOpen={isFosterSelectorOpen}
+				onClose={() => setIsFosterSelectorOpen(false)}
+				onSelect={handleFosterSelect}
+				excludeFosterIds={
+					animal.current_foster_id
+						? [animal.current_foster_id]
+						: []
+				}
+			/>
+
+			{/* Assignment Confirmation Dialog */}
+			{selectedFosterId && selectedFosterName && (
+				<AssignmentConfirmationDialog
+					isOpen={isConfirmationDialogOpen}
+					onClose={() => {
+						setIsConfirmationDialogOpen(false);
+						setSelectedFosterId(null);
+						setSelectedFosterName(null);
+						setAssignmentError(null);
+					}}
+					onConfirm={handleAssignmentConfirm}
+					fosterName={selectedFosterName}
+					animalOrGroupName={animal.name || "Unnamed Animal"}
+					isGroup={false}
 				/>
 			)}
 		</div>

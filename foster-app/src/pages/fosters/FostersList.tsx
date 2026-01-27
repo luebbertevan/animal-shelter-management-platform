@@ -28,18 +28,12 @@ async function fetchFosterConversation(userId: string, organizationId: string) {
 		.eq("type", "foster_chat")
 		.eq("foster_profile_id", userId)
 		.eq("organization_id", organizationId)
-		.single();
+		.maybeSingle();
 
 	if (error) {
-		if (error.code === "PGRST116") {
-			return null;
-		}
-		throw new Error(
-			getErrorMessage(
-				error,
-				"Failed to load conversation. Please try again."
-			)
-		);
+		// Log error but don't fail - return null gracefully
+		console.error("Error fetching foster conversation:", error);
+		return null;
 	}
 
 	return data?.id || null;
@@ -51,18 +45,12 @@ async function fetchCoordinatorGroupChat(organizationId: string) {
 		.select("id")
 		.eq("type", "coordinator_group")
 		.eq("organization_id", organizationId)
-		.single();
+		.maybeSingle();
 
 	if (error) {
-		if (error.code === "PGRST116") {
-			return null;
-		}
-		throw new Error(
-			getErrorMessage(
-				error,
-				"Failed to load conversation. Please try again."
-			)
-		);
+		// Log error but don't fail - return null gracefully
+		console.error("Error fetching coordinator group chat:", error);
+		return null;
 	}
 
 	return data?.id || null;

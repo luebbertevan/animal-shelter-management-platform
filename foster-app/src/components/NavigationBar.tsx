@@ -12,19 +12,12 @@ async function fetchFosterConversation(userId: string, organizationId: string) {
 		.eq("type", "foster_chat")
 		.eq("foster_profile_id", userId)
 		.eq("organization_id", organizationId)
-		.single();
+		.maybeSingle();
 
 	if (error) {
-		// If no conversation found, return null
-		if (error.code === "PGRST116") {
-			return null;
-		}
-		throw new Error(
-			getErrorMessage(
-				error,
-				"Failed to load conversation. Please try again."
-			)
-		);
+		// Log error but don't fail - return null gracefully
+		console.error("Error fetching foster conversation:", error);
+		return null;
 	}
 
 	return data?.id || null;
