@@ -14,7 +14,7 @@ import { FilterChip } from "../../components/shared/Filters";
 import { fetchFosters, fetchFostersCount } from "../../lib/fosterQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroups } from "../../lib/groupQueries";
-import { isOffline, getErrorMessage } from "../../lib/errorUtils";
+import { isOffline } from "../../lib/errorUtils";
 import {
 	queryParamsToFilters,
 	filtersToQueryParams,
@@ -291,9 +291,19 @@ export default function FostersList() {
 
 	// Fetch total count for pagination (with search, but "currently fostering" handled client-side)
 	const { data: totalCount = 0 } = useQuery({
-		queryKey: ["fosters-count", profile.organization_id, searchTerm],
+		queryKey: [
+			"fosters-count",
+			profile.organization_id,
+			searchTerm,
+			filters,
+		],
 		queryFn: () =>
-			fetchFostersCount(profile.organization_id, true, searchTerm),
+			fetchFostersCount(
+				profile.organization_id,
+				true,
+				searchTerm,
+				filters
+			),
 		enabled: isCoordinator && !needsAllFosters,
 	});
 
@@ -346,6 +356,20 @@ export default function FostersList() {
 					handleFiltersChange({
 						...filters,
 						currentlyFostering: undefined,
+					}),
+			});
+		}
+
+		if (filters.isCoordinator !== undefined) {
+			chips.push({
+				label:
+					filters.isCoordinator === true
+						? "Coordinators Only"
+						: "Fosters Only",
+				onRemove: () =>
+					handleFiltersChange({
+						...filters,
+						isCoordinator: undefined,
 					}),
 			});
 		}

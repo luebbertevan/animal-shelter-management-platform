@@ -73,21 +73,33 @@ export async function fetchFosters(
 			.eq("organization_id", organizationId);
 
 		// Filter by role - either just fosters or both fosters and coordinators
-		if (includeCoordinators) {
+		// Priority: filters.isCoordinator > includeCoordinators
+		if (filters?.isCoordinator !== undefined) {
+			// Filter is explicitly set
+			if (filters.isCoordinator === true) {
+				// Show only coordinators
+				query = query.eq("role", "coordinator");
+			} else {
+				// Show only fosters
+				query = query.eq("role", "foster");
+			}
+		} else if (includeCoordinators) {
+			// Default behavior: include both if includeCoordinators is true
 			query = query.in("role", ["foster", "coordinator"]);
 		} else {
+			// Default: only fosters
 			query = query.eq("role", "foster");
 		}
 
 		// Apply search by full_name
-		query = applyNameSearch(query, searchTerm, "full_name") as any;
+		query = applyNameSearch(query, searchTerm, "full_name");
 
 		// Apply sorting - use sortByCreatedAt from filters if available, otherwise use orderBy/orderDirection
 		if (filters?.sortByCreatedAt) {
 			query = applySortByCreatedAt(
 				query,
 				filters.sortByCreatedAt
-			) as any;
+			);
 		} else if (orderBy) {
 			query = query.order(orderBy, {
 				ascending: orderDirection === "asc",
@@ -187,7 +199,8 @@ export async function fetchFosterById(
 export async function fetchFostersCount(
 	organizationId: string,
 	includeCoordinators: boolean = false,
-	searchTerm: string = ""
+	searchTerm: string = "",
+	filters?: FosterFilters
 ): Promise<number> {
 	try {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -196,15 +209,26 @@ export async function fetchFostersCount(
 			.select("*", { count: "exact", head: true })
 			.eq("organization_id", organizationId);
 
-		// Filter by role
-		if (includeCoordinators) {
+		// Filter by role - Priority: filters.isCoordinator > includeCoordinators
+		if (filters?.isCoordinator !== undefined) {
+			// Filter is explicitly set
+			if (filters.isCoordinator === true) {
+				// Show only coordinators
+				query = query.eq("role", "coordinator");
+			} else {
+				// Show only fosters
+				query = query.eq("role", "foster");
+			}
+		} else if (includeCoordinators) {
+			// Default behavior: include both if includeCoordinators is true
 			query = query.in("role", ["foster", "coordinator"]);
 		} else {
+			// Default: only fosters
 			query = query.eq("role", "foster");
 		}
 
 		// Apply search by full_name
-		query = applyNameSearch(query, searchTerm, "full_name") as any;
+		query = applyNameSearch(query, searchTerm, "full_name");
 
 		const { count, error } = await query;
 

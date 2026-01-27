@@ -51,17 +51,12 @@ export default function FostersNeeded() {
 		page,
 		pageSize,
 	} = useMemo(() => {
-		return queryParamsToFilters<FostersNeededFiltersType>(searchParams, {
-			type: "both",
-		});
+		return queryParamsToFilters<FostersNeededFiltersType>(searchParams, {});
 	}, [searchParams]);
 
-	// Ensure type defaults to "both" if not specified
+	// Type filter: undefined = both, "groups" = groups only, "singles" = singles only
 	const filters = useMemo(() => {
-		return {
-			...parsedFilters,
-			type: parsedFilters.type || "both",
-		};
+		return parsedFilters;
 	}, [parsedFilters]);
 
 	// Single fetch for all animals with all needed fields
@@ -205,13 +200,14 @@ export default function FostersNeeded() {
 		const shouldHideGroups = !!filters.sex;
 
 		// Determine type filter, but override to hide groups if sex filter is active
-		let typeFilter = filters.type || "both";
+		// undefined means "both", "groups" means groups only, "singles" means singles only
+		let typeFilter = filters.type; // undefined = both
 		if (shouldHideGroups) {
 			typeFilter = "singles"; // Force to singles only when groups should be hidden
 		}
 
 		// Add animals (singles only - not in groups)
-		if (typeFilter === "both" || typeFilter === "singles") {
+		if (typeFilter === undefined || typeFilter === "singles") {
 			animalsData.forEach((animal) => {
 				// Apply filters to animals
 				if (filters.priority === true && !animal.priority) return;
@@ -253,7 +249,7 @@ export default function FostersNeeded() {
 		// Add groups (only if not hidden by sex filter)
 		if (
 			!shouldHideGroups &&
-			(typeFilter === "both" || typeFilter === "groups")
+			(typeFilter === undefined || typeFilter === "groups")
 		) {
 			groupsWithVisibility.forEach(({ group, foster_visibility }) => {
 				if (!foster_visibility) return;
@@ -363,16 +359,12 @@ export default function FostersNeeded() {
 		const chips: Array<{ label: string; onRemove: () => void }> = [];
 
 		const createRemoveHandler =
-			(key: keyof FostersNeededFiltersType, value: undefined | "both") =>
+			(key: keyof FostersNeededFiltersType, value: undefined) =>
 			() => {
-				if (key === "type" && value === "both") {
-					handleFiltersChange({ ...filters, [key]: "both" });
-				} else {
-					handleFiltersChange({
-						...filters,
-						[key]: value as undefined,
-					});
-				}
+				handleFiltersChange({
+					...filters,
+					[key]: value,
+				});
 			};
 
 		if (filters.priority === true) {
@@ -382,14 +374,14 @@ export default function FostersNeeded() {
 			});
 		}
 
-		if (filters.type && filters.type !== "both") {
+		if (filters.type) {
 			const typeLabels: Record<string, string> = {
 				groups: "Groups Only",
 				singles: "Singles Only",
 			};
 			chips.push({
 				label: typeLabels[filters.type] || filters.type,
-				onRemove: createRemoveHandler("type", "both"),
+				onRemove: createRemoveHandler("type", undefined),
 			});
 		}
 
@@ -460,7 +452,7 @@ export default function FostersNeeded() {
 		if (filters.sex) count++;
 		if (filters.life_stage) count++;
 		if (filters.availability) count++;
-		if (filters.type && filters.type !== "both") count++;
+		if (filters.type) count++;
 		if (filters.sortByCreatedAt) count++;
 		return count;
 	}

@@ -196,6 +196,7 @@ export function countActiveFosterFilters(filters: FosterFilters): number {
 	let count = 0;
 	if (filters.currentlyFostering === true) count++;
 	if (filters.sortByCreatedAt) count++;
+	if (filters.isCoordinator !== undefined) count++;
 	return count;
 }
 

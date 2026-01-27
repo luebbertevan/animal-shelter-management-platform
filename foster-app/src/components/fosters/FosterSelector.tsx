@@ -7,6 +7,7 @@ import SearchInput from "../shared/SearchInput";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import Pagination from "../shared/Pagination";
 import { PAGE_SIZES } from "../../lib/paginationConfig";
+import { FosterFiltersContent, type FosterFilters } from "./FosterFilters";
 
 interface FosterSelectorProps {
 	isOpen: boolean;
@@ -26,6 +27,7 @@ export default function FosterSelector({
 	const { profile } = useProtectedAuth();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [page, setPage] = useState(1);
+	const [filters, setFilters] = useState<FosterFilters>({});
 
 	// Close on Escape key
 	useEffect(() => {
@@ -48,6 +50,7 @@ export default function FosterSelector({
 			"foster-selector",
 			profile.organization_id,
 			searchTerm,
+			filters.isCoordinator,
 			page,
 		],
 		queryFn: async () => {
@@ -58,7 +61,8 @@ export default function FosterSelector({
 				limit: PAGE_SIZE,
 				offset,
 				searchTerm,
-				includeCoordinators: true, // Include both fosters and coordinators
+				includeCoordinators: true, // Include both fosters and coordinators by default
+				filters, // Apply coordinator filter
 			});
 
 			// Filter out excluded fosters
@@ -75,12 +79,14 @@ export default function FosterSelector({
 			"foster-selector-count",
 			profile.organization_id,
 			searchTerm,
+			filters.isCoordinator,
 		],
 		queryFn: async () => {
 			const count = await fetchFostersCount(
 				profile.organization_id,
 				true, // Include coordinators in count
-				searchTerm
+				searchTerm,
+				filters // Apply coordinator filter
 			);
 			// Subtract excluded fosters from count
 			return Math.max(0, count - excludeFosterIds.length);
@@ -146,6 +152,11 @@ export default function FosterSelector({
 		setPage(1); // Reset to page 1 when search changes
 	};
 
+	const handleFiltersChange = (newFilters: FosterFilters) => {
+		setFilters(newFilters);
+		setPage(1); // Reset to page 1 when filter changes
+	};
+
 	const handleSelect = (fosterId: string, fosterName: string) => {
 		onSelect(fosterId, fosterName);
 		onClose();
@@ -190,12 +201,17 @@ export default function FosterSelector({
 
 					{/* Content */}
 					<div className="flex-1 overflow-y-auto p-4">
-						{/* Search */}
-						<div className="mb-4">
+						{/* Search and Filter */}
+						<div className="mb-4 space-y-3">
 							<SearchInput
 								value={searchTerm}
 								onSearch={handleSearch}
 								placeholder="Search by name..."
+							/>
+							{/* Coordinator Filters */}
+							<FosterFiltersContent
+								filters={filters}
+								onFiltersChange={handleFiltersChange}
 							/>
 						</div>
 

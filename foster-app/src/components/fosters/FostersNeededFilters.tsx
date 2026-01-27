@@ -10,6 +10,7 @@ import {
 	SelectFilter,
 	SortFilter,
 	FilterButton,
+	ToggleFilter,
 } from "../shared/Filters";
 import Button from "../ui/Button";
 
@@ -20,7 +21,7 @@ export interface FostersNeededFilters extends Record<string, unknown> {
 	availability?: FosterVisibility; // Renamed from foster_visibility for UI clarity
 	status?: AnimalStatus; // Only visible to coordinators
 	sortByCreatedAt?: "newest" | "oldest";
-	type?: "groups" | "singles" | "both"; // New filter: groups only, singles only, or both
+	type?: "groups" | "singles"; // groups only or singles only (undefined = both)
 }
 
 interface FostersNeededFiltersProps {
@@ -59,12 +60,7 @@ const statusOptions: { value: AnimalStatus; label: string }[] = [
 	{ value: "transferring", label: "Transferring" },
 ];
 
-// Type options (groups/singles/both)
-const typeOptions: { value: "groups" | "singles" | "both"; label: string }[] = [
-	{ value: "both", label: "Both" },
-	{ value: "groups", label: "Groups Only" },
-	{ value: "singles", label: "Singles Only" },
-];
+// Type options removed - now using toggles instead
 
 // Sort options
 const sortOptions: { value: "newest" | "oldest"; label: string }[] = [
@@ -80,14 +76,14 @@ function countActiveFilters(filters: FostersNeededFilters): number {
 	if (filters.life_stage) count++;
 	if (filters.availability) count++;
 	if (filters.status) count++;
-	if (filters.type && filters.type !== "both") count++; // Only count if not default
+	if (filters.type) count++; // Count if groups or singles is selected
 	if (filters.sortByCreatedAt) count++;
 	return count;
 }
 
 // Helper function to clear all filters
 function clearFilters(): FostersNeededFilters {
-	return { type: "both" }; // Default type is "both"
+	return {}; // Default type is undefined (both)
 }
 
 export default function FostersNeededFilters({
@@ -113,17 +109,22 @@ export default function FostersNeededFilters({
 			normalizedValue = value;
 		}
 
-		const updatedFilters = {
+		onFiltersChange({
 			...filters,
 			[key]: normalizedValue,
-		};
+		});
+	};
 
-		// Ensure type defaults to "both" if undefined
-		if (updatedFilters.type === undefined) {
-			updatedFilters.type = "both";
+	const handleTypeToggle = (type: "groups" | "singles") => {
+		// If toggling on, set the value and turn off the other
+		// If toggling off, clear the filter (set to undefined)
+		if (filters.type === type) {
+			// Toggling off the currently active one
+			handleFilterChange("type", undefined);
+		} else {
+			// Toggling on a new one (or switching from one to the other)
+			handleFilterChange("type", type);
 		}
-
-		onFiltersChange(updatedFilters);
 	};
 
 	const handleClearFilters = () => {
@@ -137,29 +138,33 @@ export default function FostersNeededFilters({
 			defaultOpen={false}
 			storageKey="fosters-needed-filters-open"
 		>
-			<div className="space-y-3">
-				{/* Priority Filter - on its own line */}
-				<PriorityFilter
-					value={filters.priority || false}
-					onChange={(value) => handleFilterChange("priority", value)}
-					compact={true}
-				/>
+			<div className="space-y-2">
+				{/* All toggle filters in one container for alignment */}
+				<div className="flex flex-col space-y-2">
+					{/* Priority Filter */}
+					<PriorityFilter
+						value={filters.priority || false}
+						onChange={(value) => handleFilterChange("priority", value)}
+						compact={true}
+					/>
+
+					{/* Type Filters - Two toggles, only one can be active */}
+					<ToggleFilter
+						label="Groups Only"
+						value={filters.type === "groups"}
+						onChange={() => handleTypeToggle("groups")}
+						compact={true}
+					/>
+					<ToggleFilter
+						label="Singles Only"
+						value={filters.type === "singles"}
+						onChange={() => handleTypeToggle("singles")}
+						compact={true}
+					/>
+				</div>
 
 				{/* Dropdown filters - stacked vertically */}
 				<div className="space-y-2.5 w-fit">
-					{/* Type Filter - Groups/Singles/Both */}
-					<SelectFilter
-						value={filters.type || "both"}
-						onChange={(value) =>
-							handleFilterChange(
-								"type",
-								value as "groups" | "singles" | "both"
-							)
-						}
-						options={typeOptions}
-						placeholder="Include Groups"
-						compact={true}
-					/>
 
 					{/* Sex Filter */}
 					<SelectFilter

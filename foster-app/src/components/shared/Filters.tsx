@@ -24,7 +24,7 @@ export function PriorityFilter({
 }: PriorityFilterProps) {
 	if (compact) {
 		return (
-			<div className="flex items-center gap-2">
+			<div className="flex items-center justify-between gap-4 w-full">
 				<label className="text-sm font-medium text-gray-700 whitespace-nowrap">
 					High Priority:
 				</label>
@@ -100,7 +100,7 @@ export function ToggleFilter({
 }: ToggleFilterProps) {
 	if (compact) {
 		return (
-			<div className="flex items-center gap-2">
+			<div className="flex items-center justify-between gap-4 w-full">
 				<label className="text-sm font-medium text-gray-700 whitespace-nowrap">
 					{label}:
 				</label>
