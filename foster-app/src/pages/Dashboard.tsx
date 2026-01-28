@@ -8,7 +8,14 @@ import AnimalCard from "../components/animals/AnimalCard";
 import GroupCard from "../components/animals/GroupCard";
 import { fetchAssignedAnimals, fetchAnimals } from "../lib/animalQueries";
 import { fetchAssignedGroups } from "../lib/groupQueries";
-import type { Animal, LifeStage, PhotoMetadata } from "../types";
+import { fetchMyPendingRequests } from "../lib/fosterRequestQueries";
+import type {
+	Animal,
+	AnimalGroup,
+	LifeStage,
+	PhotoMetadata,
+	FosterRequest,
+} from "../types";
 
 export default function Dashboard() {
 	const navigate = useNavigate();
@@ -130,6 +137,86 @@ export default function Dashboard() {
 		return map;
 	}, [allAnimalsData]);
 
+	// Fetch pending requests for this foster
+	const {
+		data: pendingRequests = [],
+		isLoading: isLoadingPendingRequests,
+	} = useQuery<FosterRequest[], Error>({
+		queryKey: ["pending-requests", user.id, profile.organization_id],
+		queryFn: () => fetchMyPendingRequests(user.id, profile.organization_id),
+	});
+
+	// Derive pending animal and group IDs
+	const pendingAnimalIds = useMemo(
+		() =>
+			pendingRequests
+				.map((r) => r.animal_id)
+				.filter((id): id is string => !!id),
+		[pendingRequests]
+	);
+
+	const pendingGroupIds = useMemo(
+		() =>
+			pendingRequests
+				.map((r) => r.group_id)
+				.filter((id): id is string => !!id),
+		[pendingRequests]
+	);
+
+	// Fetch animals for pending requests
+	const { data: pendingAnimals = [] } = useQuery<Animal[], Error>({
+		queryKey: [
+			"pending-animals",
+			user.id,
+			profile.organization_id,
+			pendingAnimalIds,
+		],
+		queryFn: async () => {
+			if (pendingAnimalIds.length === 0) return [];
+			const { data, error } = await supabase
+				.from("animals")
+				.select(
+					"id, name, status, sex_spay_neuter_status, priority, group_id, photos, date_of_birth"
+				)
+				.in("id", pendingAnimalIds)
+				.eq("organization_id", profile.organization_id);
+
+			if (error) {
+				throw error;
+			}
+
+			return (data as Animal[]) || [];
+		},
+		enabled: pendingAnimalIds.length > 0,
+	});
+
+	// Fetch groups for pending requests
+	const { data: pendingGroups = [] } = useQuery<AnimalGroup[], Error>({
+		queryKey: [
+			"pending-groups",
+			user.id,
+			profile.organization_id,
+			pendingGroupIds,
+		],
+		queryFn: async () => {
+			if (pendingGroupIds.length === 0) return [];
+			const { data, error } = await supabase
+				.from("animal_groups")
+				.select(
+					"id, name, description, animal_ids, priority, group_photos"
+				)
+				.in("id", pendingGroupIds)
+				.eq("organization_id", profile.organization_id);
+
+			if (error) {
+				throw error;
+			}
+
+			return (data as AnimalGroup[]) || [];
+		},
+		enabled: pendingGroupIds.length > 0,
+	});
+
 	const isLoadingFostering = isLoadingAnimals || isLoadingGroups;
 
 	// Group prioritization logic: Create a Set of assigned group IDs for quick lookup
@@ -154,6 +241,11 @@ export default function Dashboard() {
 	// Check if there are any items to display (after filtering)
 	const hasAssignedItems =
 		filteredAnimals.length > 0 || assignedGroups.length > 0;
+
+	// Pending requests section visibility
+	const hasPendingItems =
+		pendingAnimals.length > 0 || pendingGroups.length > 0;
+	const showPendingSection = isLoadingPendingRequests || hasPendingItems;
 
 	// Only show section if loading (we don't know yet if there are items) or if there are items
 	// After loading completes, if there are no items, the section will not appear
@@ -180,6 +272,33 @@ export default function Dashboard() {
 					<h1 className="text-3xl font-semibold text-pink-600 mb-4">
 						{profile.organization_name}
 					</h1>
+				)}
+
+				{showPendingSection && (
+					<div className="mb-4">
+						<h2 className="text-lg font-semibold text-gray-900 mb-4">
+							Pending Requests
+						</h2>
+						{isLoadingPendingRequests ? (
+							<LoadingSpinner message="Loading pending requests..." />
+						) : (
+							<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+								{pendingGroups.map((group) => (
+									<GroupCard
+										key={group.id}
+										group={group}
+										animalData={animalDataMap}
+									/>
+								))}
+								{pendingAnimals.map((animal) => (
+									<AnimalCard
+										key={animal.id}
+										animal={animal}
+									/>
+								))}
+							</div>
+						)}
+					</div>
 				)}
 
 				{showFosteringSection && (

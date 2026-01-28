@@ -60,10 +60,12 @@ function FosterCard({
 	foster,
 	currentUserId,
 	organizationId,
+	pendingRequestCount,
 }: {
 	foster: User;
 	currentUserId: string;
 	organizationId: string;
+	pendingRequestCount?: number;
 }) {
 	// Fetch conversation ID for this foster
 	const { data: conversationId } = useQuery<string | null>({
@@ -95,6 +97,16 @@ function FosterCard({
 					</h2>
 				</Link>
 				<div className="flex items-center gap-2 ml-2">
+					{typeof pendingRequestCount === "number" &&
+						pendingRequestCount > 0 &&
+						foster.role === "foster" && (
+							<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+								{pendingRequestCount}{" "}
+								{pendingRequestCount === 1
+									? "pending request"
+									: "pending requests"}
+							</span>
+						)}
 					{foster.role === "coordinator" && (
 						<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
 							Coordinator
@@ -288,6 +300,49 @@ export default function FostersList() {
 		}
 		return filteredFosters;
 	}, [filteredFosters, needsAllFosters, page, pageSize]);
+
+	// Fetch pending request counts for fosters on the current page
+	const fosterIdsOnPage = useMemo(
+		() => fosters.map((foster) => foster.id),
+		[fosters]
+	);
+
+	const { data: pendingCounts = new Map<string, number>() } = useQuery<
+		Map<string, number>,
+		Error
+	>({
+		queryKey: [
+			"foster-pending-counts",
+			profile.organization_id,
+			fosterIdsOnPage,
+		],
+		queryFn: async () => {
+			if (fosterIdsOnPage.length === 0) {
+				return new Map<string, number>();
+			}
+
+			const { data, error } = await supabase
+				.from("foster_requests")
+				.select("foster_profile_id")
+				.eq("organization_id", profile.organization_id)
+				.eq("status", "pending")
+				.in("foster_profile_id", fosterIdsOnPage);
+
+			if (error) {
+				throw error;
+			}
+
+			const map = new Map<string, number>();
+			(data as Array<{ foster_profile_id: string }>).forEach((row) => {
+				const id = row.foster_profile_id;
+				if (!id) return;
+				map.set(id, (map.get(id) ?? 0) + 1);
+			});
+
+			return map;
+		},
+		enabled: fosterIdsOnPage.length > 0,
+	});
 
 	// Fetch total count for pagination (with search, but "currently fostering" handled client-side)
 	const { data: totalCount = 0 } = useQuery({
@@ -544,6 +599,9 @@ export default function FostersList() {
 											currentUserId={user.id}
 											organizationId={
 												profile.organization_id
+											}
+											pendingRequestCount={
+												pendingCounts.get(foster.id)
 											}
 										/>
 									))}

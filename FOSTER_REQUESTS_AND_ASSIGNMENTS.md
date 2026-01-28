@@ -361,124 +361,287 @@ These prerequisites ensure that foster selection, search functionality, and mess
 
 ## Phase 3: Coordinator Request Management
 
-**Goal:** Enable coordinators to view, manage, and respond to foster requests.
+**Goal:** Enable coordinators to view, manage, and respond to foster requests in a way that keeps assignments, visibility, and messaging consistent and auditable.
 
-**Dependencies:** Phase 2 (Foster Requests)
+**Dependencies:** Phase 2 (Foster Requests), Phase 1 (Assignment utilities)
 
-### Task 3.1: Create Foster Requests Page
+### Additional Design Decisions for Phase 3
+
+-   **Single source of truth for request state-changes:**  
+    All approve/deny operations should go through **server-side functions (RPCs)** so that:
+    -   Assignment, request status, visibility, and messaging stay in sync
+    -   RLS is respected and concurrency is handled atomically
+
+-   **Scope of coordinator views:**
+    -   Detail pages (Animal/Group) show **pending requests only** for direct action
+    -   The central Foster Requests page can filter by `pending`, `approved`, `denied` for history/audit
+
+-   **Group vs single animal behavior:**
+    -   If an animal is in a group, requests are managed **at the group level**
+    -   Animal detail surfaces that group requests exist but does not duplicate actions that belong on the group
+
+-   **Dashboard behavior:**
+    -   Fosters see **their own** pending requests (implemented in Phase 2+)
+    -   Coordinators see an **org-wide Pending Foster Requests** summary with a link to the full Foster Requests page
+
+---
+
+### Task 3.1: Backend Request State-Change Utilities (RPCs)
+
+**File:** `supabase/migrations/*_foster_request_transitions.sql`  
+**Backend functions (Postgres, exposed via Supabase RPC):**
+
+-   `approve_foster_request(p_organization_id, p_request_id, p_coordinator_id, p_message TEXT DEFAULT NULL)`
+
+    -   Preconditions:
+        -   Request exists, belongs to `p_organization_id`, and has `status = 'pending'`
+        -   Caller is a coordinator in the same organization (enforced via function body / RLS-safe wrapper)
+    -   Behavior:
+        -   If request is for an **animal**:
+            -   Uses `assignAnimalToFoster` (from `assignmentUtils`) to assign the animal to `foster_profile_id`
+        -   If request is for a **group**:
+            -   Uses `assignGroupToFoster` to assign the group and all animals to `foster_profile_id`
+        -   Updates the approved request:
+            -   `status = 'approved'`
+            -   `resolved_at = NOW()`
+            -   `resolved_by = p_coordinator_id`
+            -   `coordinator_message = p_message` (trimmed, nullable)
+        -   **Auto-denies other pending requests** for the same animal/group:
+            -   Sets `status = 'denied'`, `resolved_at = NOW()`, `resolved_by = p_coordinator_id`
+            -   Leaves `previous_foster_visibility` unchanged (already holds the pre-request visibility)
+            -   Sends denial messages using the auto-denial template:
+                -   "Your request for [Animal/Group Name] has not been approved."
+        -   Sends an **assignment message** to the approved foster using the standard assignment template, including any custom coordinator message
+
+-   `deny_foster_request(p_organization_id, p_request_id, p_coordinator_id, p_message TEXT DEFAULT NULL)`
+
+    -   Preconditions:
+        -   Request exists, belongs to `p_organization_id`, and has `status = 'pending'`
+        -   Caller is a coordinator in the same organization
+    -   Behavior:
+        -   Sets:
+            -   `status = 'denied'`
+            -   `resolved_at = NOW()`
+            -   `resolved_by = p_coordinator_id`
+            -   `coordinator_message = p_message` (trimmed, nullable)
+        -   Reverts `foster_visibility` for the underlying animal/group back to `previous_foster_visibility`
+        -   Sends a denial message using the standard denial template:
+            -   "Thank you for your interest in fostering [Animal/Group Name]. Unfortunately, we're unable to assign them to you at this time. [Custom message]"
+
+**Notes:**
+
+-   Both functions should **gracefully handle race conditions**:
+    -   If the request is no longer `pending` (already approved/denied/cancelled), raise a clear error so the UI can show a simple "This request is no longer pending" message and refetch.
+-   Both functions should be declared as `SECURITY DEFINER` with tight checks that:
+    -   The caller belongs to the organization
+    -   The caller is a coordinator
+
+---
+
+### Task 3.2: Create Foster Requests Page (Coordinator View)
 
 **File:** `src/pages/fosters/FosterRequests.tsx`
 
 **Features:**
 
--   List of all pending foster requests
--   Display as cards (similar to FostersNeeded page)
--   Each card shows:
-    -   Animal/group card (reuse AnimalCard/GroupCard)
-    -   "Requested by" badge with foster name (link to foster detail)
-    -   Request date
-    -   Custom message from foster (if provided)
-    -   "Approve" and "Deny" buttons
--   Filter by status (pending, approved, denied)
--   Sort by request date (oldest first) or priority
--   Empty state when no requests
+-   Coordinator-only page listing foster requests for the organization
+-   Supports:
+    -   Filter by **status**: `pending`, `approved`, `denied` (default: `pending`)
+    -   Sort by:
+        -   Request date (oldest first / newest first)
+        -   Optionally by priority (e.g., high-priority animals/groups first)
+    -   Pagination for large orgs
+-   Each request rendered as a `FosterRequestCard` (see Task 3.3)
+    -   Wraps `AnimalCard` / `GroupCard` to show key animal/group info
+    -   Shows:
+        -   "Requested by [Foster Name]" badge (links to FosterDetail)
+        -   Request date
+        -   Custom message from foster (if provided)
+        -   Status pill (`Pending`, `Approved`, `Denied`)
+        -   "Approve" and "Deny" buttons for `pending` requests
+-   Empty state when no matching requests:
+    -   Example: "No pending foster requests."
+
+**Data utilities:**
+
+-   Add `fetchFosterRequests` and `fetchFosterRequestsCount` to `src/lib/fosterRequestQueries.ts`:
+    -   Accept filters `{ status?, sortBy?, sortDirection?, limit?, offset? }`
+    -   **For coordinators only** (RLS enforces org/role)
 
 **Layout:**
 
--   Grid layout similar to FostersNeeded page
--   Coordinator-only access
--   Link from navigation bar
+-   Grid layout similar to `FostersNeeded` page
+-   Coordinator-only route and navigation entry
 
-### Task 3.2: Create Request Card Component
+---
+
+### Task 3.3: Create Request Card Component
 
 **File:** `src/components/fosters/FosterRequestCard.tsx`
 
 **Features:**
 
--   Wraps AnimalCard or GroupCard
--   Adds "Requested by [Foster Name]" badge
--   Shows request message (if provided)
--   Shows request date
--   Action buttons: "Approve" and "Deny"
--   Clicking card navigates to animal/group detail page
+-   Wraps `AnimalCard` or `GroupCard` as the visual core
+-   Above/beside the card, displays request metadata:
+    -   "Requested by [Foster Name]" badge (clickable, links to foster detail)
+    -   Request date (relative or absolute)
+    -   Foster’s message (if provided)
+    -   Current request status
+-   Action buttons for `pending` requests:
+    -   "Approve" → opens `RequestApprovalDialog` (Task 3.5) with the request pre-selected
+    -   "Deny" → opens `RequestDenialDialog` with the request pre-selected
+-   Clicking the underlying animal/group card navigates to the appropriate detail page
 
-### Task 3.3: Update AnimalDetail Page - Request Management
+---
+
+### Task 3.4: Update AnimalDetail Page – Request Management
 
 **File:** `src/pages/animals/AnimalDetail.tsx`
 
-**Changes:**
+**Changes (coordinator-only UI):**
 
--   Display pending requests for this animal (coordinator only)
--   Show list of fosters who have requested this animal
--   For each request:
-    -   Foster name (link to foster detail)
-    -   Request date
-    -   Custom message (if provided)
-    -   "Approve" and "Deny" buttons
--   If animal is in a group, show requests for the group
--   "Approve" button:
-    -   Opens assignment confirmation dialog (reuse from Phase 1)
-    -   Pre-selects the requesting foster
-    -   Allows custom message
-    -   On confirm, assigns foster and approves request
--   "Deny" button:
-    -   Opens denial dialog with:
-        -   Option to add custom message (pre-filled with standard template)
-        -   Standard template: "Thank you for your interest in fostering [Animal/Group Name]. Unfortunately, we're unable to assign them to you at this time. [Custom message]"
-    -   On confirm, denies request and updates visibility
+-   Add a **"Requests"** section for this animal:
+    -   Shows **pending requests** for:
+        -   This animal directly, if it is **not in a group**
+        -   The **group** instead, if the animal is in a group (with a note like "Requests for this animal are managed at the group level.")
+    -   For each request:
+        -   Foster name (link to foster detail)
+        -   Request date
+        -   Custom message from foster (if provided)
+        -   Status pill (for future support of non-pending views)
+        -   "Approve" and "Deny" buttons for `pending` requests
+-   Actions:
+    -   "Approve":
+        -   Opens `RequestApprovalDialog`:
+            -   Pre-selects the requesting foster and animal/group
+            -   Shows default approval/assignment message template with optional custom text
+        -   On confirm, calls the `approve_foster_request` RPC
+    -   "Deny":
+        -   Opens `RequestDenialDialog`:
+            -   Shows animal/group + foster info
+            -   Uses default denial template with optional custom text
+        -   On confirm, calls the `deny_foster_request` RPC
+-   After any approve/deny:
+    -   Invalidate relevant React Query caches:
+        -   Animal detail
+        -   Group detail (if applicable)
+        -   Foster detail for the affected foster
+        -   Foster Requests page queries
+        -   Dashboard coordinator pending requests section
 
-### Task 3.4: Update GroupDetail Page - Request Management
+---
+
+### Task 3.5: Update GroupDetail Page – Request Management
 
 **File:** `src/pages/animals/GroupDetail.tsx`
 
-**Changes:**
+**Changes (coordinator-only UI):**
 
--   Similar to AnimalDetail request management
--   Shows requests for the group
--   Approve/deny functionality for group requests
+-   Add a **"Requests"** section for this group:
+    -   Lists all **pending requests** for the group
+    -   For each request:
+        -   Foster name (link to foster detail)
+        -   Request date
+        -   Custom message from foster (if provided)
+        -   "Approve" and "Deny" buttons
+-   Actions:
+    -   "Approve":
+        -   Opens `RequestApprovalDialog` with the group + requesting foster
+        -   On confirm, calls `approve_foster_request` which:
+            -   Assigns the group and all animals
+            -   Auto-denies other pending requests for this group
+    -   "Deny":
+        -   Opens `RequestDenialDialog`
+        -   On confirm, calls `deny_foster_request`
+-   Cache invalidation identical to AnimalDetail (group, animals, foster, requests page, dashboard)
 
-### Task 3.5: Create Request Approval/Denial Dialogs
+---
 
-**File:** `src/components/fosters/RequestApprovalDialog.tsx`
-**File:** `src/components/fosters/RequestDenialDialog.tsx`
+### Task 3.6: Create Request Approval/Denial Dialogs
 
-**Features:**
+**Files:**
 
--   Approval dialog: Reuses assignment confirmation dialog with pre-selected foster
-    -   On approval, auto-denies all other pending requests for the same animal/group
-    -   Sends denial message to affected fosters: "Your request for [Animal/Group Name] has not been approved."
--   Denial dialog:
-    -   Shows animal/group and foster information
-    -   Text area for optional custom message (placeholder shows default denial template)
-    -   "Confirm Denial" and "Cancel" buttons
-    -   Updates request status to `denied` and reverts visibility to `previous_foster_visibility`
+-   `src/components/fosters/RequestApprovalDialog.tsx`
+-   `src/components/fosters/RequestDenialDialog.tsx`
 
-### Task 3.6: Update Dashboard - Pending Requests Section
+**RequestApprovalDialog Features:**
+
+-   Reuses the assignment confirmation dialog pattern from Phase 1:
+    -   Shows foster name, animal/group name, and group animal count (if applicable)
+    -   Textarea for optional custom message:
+        -   Placeholder shows the **standard assignment/approval template**
+        -   Helper text:
+            -   Line 1: "Add any additional context or next steps for the foster (optional)."
+            -   Line 2: "If no message is provided, the default message will be sent."
+    -   On confirm:
+        -   Calls `approve_foster_request`
+        -   Shows success notification on completion
+
+**RequestDenialDialog Features:**
+
+-   Shows:
+    -   Animal/group name
+    -   Foster name
+    -   Request date
+-   Textarea for optional custom message:
+    -   Placeholder uses the standard denial template:
+        -   "Thank you for your interest in fostering [Animal/Group Name]. Unfortunately, we're unable to assign them to you at this time. [Custom message]"
+    -   Helper text:
+        -   Line 1: "Add any information about why you’re denying this request (optional)."
+        -   Line 2: "If no message is provided, the default message will be sent."
+-   On confirm:
+    -   Calls `deny_foster_request`
+    -   Shows success notification
+
+---
+
+### Task 3.7: Update Dashboard – Coordinator Pending Requests Section
 
 **File:** `src/pages/Dashboard.tsx`
 
-**Changes:**
+**Changes (coordinator-only view):**
 
--   Add "Pending Foster Requests" section (coordinator only)
--   Show count of pending requests
--   Display up to 5 most recent/urgent requests as cards
--   Each card shows:
-    -   Animal/group name and photo
-    -   Foster name who requested
-    -   Request date
-    -   Link to full requests page
--   "View All Requests" link to Foster Requests page
+-   Add an **org-wide "Pending Foster Requests" section** (only when `isCoordinator`):
+    -   Shows:
+        -   Total count of pending requests (e.g., "5 pending foster requests")
+        -   Up to 5 most recent or highest-priority pending requests as compact cards:
+            -   Animal/group name + photo
+            -   Foster name who requested
+            -   Request date
+            -   Status pill (Pending)
+    -   Includes a "View All Requests" link to the full `FosterRequests` page
+-   Data:
+    -   Uses a coordinator-only query (e.g., `fetchOrgPendingRequests({ limit: 5 })`) backed by the same `foster_requests` utilities introduced in Task 3.2
+-   Behavior:
+    -   Section is hidden when there are **no pending requests** and not loading
+    -   On approve/deny from any entry point, this section refreshes via React Query cache invalidation
 
-**Testing:**
+**Note:**  
+For foster users, keep the existing **"Pending Requests"** (my requests) and **"Currently Fostering"** sections added in Phase 2+. Coordinators see the org-wide section instead of the foster-centric pending list.
 
--   Coordinators can view all pending requests
--   Can approve requests (assigns foster and updates status/visibility)
--   Can deny requests (updates status and visibility)
--   Messages sent with animal/group tags
--   Dashboard shows pending requests
--   Request cards display correctly
+---
 
-**Deliverable:** Coordinators can view, approve, and deny foster requests with proper messaging and assignment integration.
+**Testing (Phase 3):**
+
+-   Coordinators can:
+    -   View all pending requests on the Foster Requests page
+    -   Filter/sort requests by status and date/priority
+    -   Approve a request and see:
+        -   Animal/group assignment updated
+        -   Request status → `approved`
+        -   Other pending requests for that animal/group auto-denied with messages
+    -   Deny a request and see:
+        -   Request status → `denied`
+        -   `foster_visibility` reverted to `previous_foster_visibility`
+        -   Denial message sent
+    -   Manage requests from AnimalDetail / GroupDetail pages
+    -   See a concise pending-requests summary on the Dashboard (coordinator-only)
+-   Messages:
+    -   All approvals/denials send messages with appropriate animal/group tags
+    -   Default templates are used when no custom message is provided
+
+**Deliverable:**  
+Coordinators can reliably view, approve, and deny foster requests using a single, consistent backend for request state-changes, with clear messaging and accurate assignment/visibility updates across all coordinator entry points.
 
 ---
 
