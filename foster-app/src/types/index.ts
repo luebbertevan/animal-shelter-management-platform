@@ -29,6 +29,9 @@ export type PlacementRequestStatus =
 	| "fulfilled"
 	| "cancelled";
 
+// Foster request status for request workflow
+export type FosterRequestStatus = "pending" | "approved" | "denied" | "cancelled";
+
 // Tags for filtering and categorization (can be expanded later)
 export type AnimalTag =
 	| "fine_with_dogs"
@@ -314,3 +317,20 @@ export type MessageWithMetadata = Message & {
 	sender_name: string;
 	tags: Array<MessageTagWithEntity>;
 };
+
+// Foster Request for tracking foster request workflow
+export interface FosterRequest {
+	id: string;
+	organization_id: string;
+	foster_profile_id: string;
+	animal_id?: string | null;
+	group_id?: string | null;
+	status: FosterRequestStatus;
+	previous_foster_visibility: FosterVisibility;
+	message?: string | null;
+	coordinator_message?: string | null;
+	created_at: string;
+	updated_at: string;
+	resolved_at?: string | null;
+	resolved_by?: string | null;
+}

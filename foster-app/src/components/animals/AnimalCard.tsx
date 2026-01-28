@@ -86,6 +86,12 @@ interface AnimalCardProps {
 	};
 	hideGroupIndicator?: boolean; // If true, hide the "In group" indicator
 	foster_visibility?: FosterVisibility; // Optional visibility badge for Fosters Needed page
+	/** If true, shows "Requested" badge instead of "Foster Pending" (for current user's pending request) */
+	hasPendingRequest?: boolean;
+	/** Request ID for cancellation (needed when hasPendingRequest is true) */
+	requestId?: string;
+	/** Callback when cancel request badge is clicked */
+	onCancelRequest?: () => void;
 }
 
 // Helper function to get visibility badge text and styling
@@ -125,6 +131,8 @@ export default function AnimalCard({
 	animal,
 	hideGroupIndicator = false,
 	foster_visibility,
+	hasPendingRequest = false,
+	onCancelRequest,
 }: AnimalCardProps) {
 	const navigate = useNavigate();
 	const slug = createSlug(animal.name);
@@ -134,7 +142,10 @@ export default function AnimalCard({
 	const sexDisplay = animal.sex_spay_neuter_status
 		? formatSexSpayNeuterStatus(animal.sex_spay_neuter_status)
 		: null;
-	const visibilityBadge = getVisibilityBadge(foster_visibility);
+	// If user has a pending request, show "Requested" badge instead of visibility badge
+	const visibilityBadge = hasPendingRequest
+		? null
+		: getVisibilityBadge(foster_visibility);
 
 	// Build compact info string: "12 week old male" or just "male" if no age
 	const infoParts: string[] = [];
@@ -183,19 +194,33 @@ export default function AnimalCard({
 						/>
 					</svg>
 				)}
-				{/* Badges overlay - priority and visibility */}
+				{/* Badges overlay - priority, visibility, and request status */}
 				<div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
 					{animal.priority && (
 						<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
 							High Priority
 						</span>
 					)}
-					{visibilityBadge && (
-						<span
-							className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${visibilityBadge.className}`}
+					{hasPendingRequest ? (
+						<button
+							type="button"
+							onClick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								onCancelRequest?.();
+							}}
+							className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors cursor-pointer"
 						>
-							{visibilityBadge.text}
-						</span>
+							Requested
+						</button>
+					) : (
+						visibilityBadge && (
+							<span
+								className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${visibilityBadge.className}`}
+							>
+								{visibilityBadge.text}
+							</span>
+						)
 					)}
 				</div>
 			</div>

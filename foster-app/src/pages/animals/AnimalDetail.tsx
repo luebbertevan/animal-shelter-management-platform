@@ -2,15 +2,28 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { Animal, SexSpayNeuterStatus, LifeStage } from "../../types";
+import type {
+	Animal,
+	SexSpayNeuterStatus,
+	LifeStage,
+	FosterRequest,
+} from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import FieldDisplay from "../../components/animals/FieldDisplay";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
 import FosterSelector from "../../components/fosters/FosterSelector";
 import AssignmentConfirmationDialog from "../../components/animals/AssignmentConfirmationDialog";
+import FosterRequestDialog from "../../components/fosters/FosterRequestDialog";
+import CancelRequestDialog from "../../components/fosters/CancelRequestDialog";
 import { fetchAnimalById } from "../../lib/animalQueries";
 import { fetchFosterById } from "../../lib/fosterQueries";
 import { assignAnimalToFoster } from "../../lib/assignmentUtils";
+import {
+	createAnimalFosterRequest,
+	cancelFosterRequest,
+	checkAnimalInGroup,
+} from "../../lib/fosterRequestUtils";
+import { fetchPendingRequestForAnimal } from "../../lib/fosterRequestQueries";
 import { isOffline } from "../../lib/errorUtils";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 import { supabase } from "../../lib/supabase";
@@ -126,6 +139,14 @@ export default function AnimalDetail() {
 	);
 	const [assignmentError, setAssignmentError] = useState<string | null>(null);
 
+	// Foster request state
+	const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+	const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+	const [groupConfirmation, setGroupConfirmation] = useState<{
+		groupId: string;
+		groupName: string;
+	} | null>(null);
+
 	const {
 		data: animal,
 		isLoading,
@@ -185,6 +206,30 @@ export default function AnimalDetail() {
 			}
 		},
 		enabled: !!animal?.current_foster_id,
+	});
+
+	// Fetch pending request for this animal (for fosters only)
+	const { data: pendingRequest, refetch: refetchPendingRequest } = useQuery<
+		FosterRequest | null,
+		Error
+	>({
+		queryKey: [
+			"pending-request-animal",
+			id,
+			user.id,
+			profile.organization_id,
+		],
+		queryFn: async () => {
+			if (!id || isCoordinator) {
+				return null;
+			}
+			return fetchPendingRequestForAnimal(
+				id,
+				user.id,
+				profile.organization_id
+			);
+		},
+		enabled: !!id && !isCoordinator,
 	});
 
 	if (isLoading) {
@@ -308,6 +353,81 @@ export default function AnimalDetail() {
 	// Check if animal is in a group (for blocking individual assignment)
 	const isInGroup = !!animal.group_id;
 
+	// Check if foster can request this animal
+	const canRequest =
+		!isCoordinator &&
+		animal.foster_visibility !== "not_visible" &&
+		animal.foster_visibility !== "foster_pending" &&
+		animal.current_foster_id !== user.id &&
+		!pendingRequest;
+
+	// Handle request button click
+	const handleRequestClick = async () => {
+		if (!id) return;
+
+		// Check if animal is in a group
+		const groupInfo = await checkAnimalInGroup(id, profile.organization_id);
+
+		if (groupInfo.inGroup && groupInfo.groupId) {
+			// Show confirmation dialog about requesting the entire group
+			setGroupConfirmation({
+				groupId: groupInfo.groupId,
+				groupName: groupInfo.groupName || "Unnamed Group",
+			});
+		}
+
+		setIsRequestDialogOpen(true);
+	};
+
+	// Handle request confirmation
+	const handleRequestConfirm = async (message: string) => {
+		if (!id) return;
+
+		await createAnimalFosterRequest(
+			id,
+			user.id,
+			profile.organization_id,
+			message
+		);
+
+		// Invalidate queries
+		await queryClient.invalidateQueries({
+			queryKey: ["animals", user.id, profile.organization_id, id],
+		});
+		await refetchPendingRequest();
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-all-animals"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-groups"],
+		});
+
+		setGroupConfirmation(null);
+	};
+
+	// Handle cancel request
+	const handleCancelRequest = async (message: string) => {
+		if (!pendingRequest) return;
+
+		await cancelFosterRequest(
+			pendingRequest.id,
+			profile.organization_id,
+			message
+		);
+
+		// Invalidate queries
+		await queryClient.invalidateQueries({
+			queryKey: ["animals", user.id, profile.organization_id, id],
+		});
+		await refetchPendingRequest();
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-all-animals"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-groups"],
+		});
+	};
+
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
@@ -344,6 +464,16 @@ export default function AnimalDetail() {
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
 									High Priority
 								</span>
+							)}
+							{/* Requested Badge - for foster who has pending request */}
+							{!isCoordinator && pendingRequest && (
+								<button
+									type="button"
+									onClick={() => setIsCancelDialogOpen(true)}
+									className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors cursor-pointer"
+								>
+									Requested
+								</button>
 							)}
 						</div>
 						{/* Group Indicator */}
@@ -488,6 +618,46 @@ export default function AnimalDetail() {
 							value={animal.bio || null}
 						/>
 
+						{/* Foster Request Section (foster only) */}
+						{!isCoordinator && (
+							<div className="pt-4">
+								{canRequest && (
+									<button
+										type="button"
+										onClick={handleRequestClick}
+										className="w-full px-4 py-3 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+									>
+										Request to Foster
+									</button>
+								)}
+								{pendingRequest && (
+									<div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+										<p className="text-sm text-purple-800">
+											You have a pending request for this
+											animal.{" "}
+											<button
+												type="button"
+												onClick={() =>
+													setIsCancelDialogOpen(true)
+												}
+												className="font-medium underline hover:text-purple-900"
+											>
+												Cancel request
+											</button>
+										</p>
+									</div>
+								)}
+								{animal.current_foster_id === user.id && (
+									<div className="p-3 bg-green-50 border border-green-200 rounded-md">
+										<p className="text-sm text-green-800">
+											This animal is currently assigned to
+											you.
+										</p>
+									</div>
+								)}
+							</div>
+						)}
+
 						{/* Metadata Section (coordinators only) */}
 						{isCoordinator && (
 							<div className="pt-6 border-t border-gray-200 space-y-4 text-base">
@@ -625,6 +795,31 @@ export default function AnimalDetail() {
 					isGroup={false}
 				/>
 			)}
+
+			{/* Foster Request Dialog */}
+			<FosterRequestDialog
+				isOpen={isRequestDialogOpen}
+				onClose={() => {
+					setIsRequestDialogOpen(false);
+					setGroupConfirmation(null);
+				}}
+				onConfirm={handleRequestConfirm}
+				animalOrGroupName={
+					groupConfirmation?.groupName ||
+					animal.name ||
+					"Unnamed Animal"
+				}
+				isGroup={!!groupConfirmation}
+				groupConfirmation={groupConfirmation || undefined}
+			/>
+
+			{/* Cancel Request Dialog */}
+			<CancelRequestDialog
+				isOpen={isCancelDialogOpen}
+				onClose={() => setIsCancelDialogOpen(false)}
+				onConfirm={handleCancelRequest}
+				animalOrGroupName={animal.name || "Unnamed Animal"}
+			/>
 		</div>
 	);
 }

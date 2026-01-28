@@ -104,6 +104,9 @@ export default function AssignmentConfirmationDialog({
 								className="w-full"
 							/>
 							<p className="mt-1 text-xs text-gray-500">
+								Add any additional context or next steps for the foster (optional).
+							</p>
+							<p className="mt-1 text-xs text-gray-500">
 								If no message is provided, the default message will be sent.
 							</p>
 						</div>

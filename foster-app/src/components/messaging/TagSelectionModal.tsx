@@ -316,7 +316,7 @@ export default function TagSelectionModal({
 		}
 
 		return chips;
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		
 	}, [animalFilters]);
 
 	// Generate active filter chips for groups tab
@@ -363,7 +363,7 @@ export default function TagSelectionModal({
 		}
 
 		return chips;
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+
 	}, [groupFilters]);
 
 	const handleAnimalSelect = (animalId: string, animalName: string) => {

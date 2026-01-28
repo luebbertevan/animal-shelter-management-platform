@@ -2,7 +2,7 @@ import { useState } from "react";
 import PhotoLightbox from "./PhotoLightbox";
 import AnimalCard from "../animals/AnimalCard";
 import GroupCard from "../animals/GroupCard";
-import type { MessageTagWithEntity } from "../../types";
+import type { LifeStage, MessageTagWithEntity, PhotoMetadata } from "../../types";
 import { TAG_TYPES } from "../../types";
 
 interface MessageBubbleProps {
@@ -15,11 +15,20 @@ interface MessageBubbleProps {
 		tags?: Array<MessageTagWithEntity>;
 	};
 	isOwnMessage: boolean;
+	/**
+	 * Optional map of animal data used by GroupCard to fall back to individual animal photos
+	 * when a group has no group photos.
+	 */
+	animalDataMap?: Map<
+		string,
+		{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
+	>;
 }
 
 export default function MessageBubble({
 	message,
 	isOwnMessage,
+	animalDataMap,
 }: MessageBubbleProps) {
 	const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 	const [imageLoadStates, setImageLoadStates] = useState<
@@ -229,7 +238,10 @@ export default function MessageBubble({
 										key={`${tag.type}-${tag.id}-${index}`}
 										className="w-[140px] sm:w-[160px]"
 									>
-										<GroupCard group={tag.group} />
+										<GroupCard
+											group={tag.group}
+											animalData={animalDataMap}
+										/>
 									</div>
 								);
 							} else {

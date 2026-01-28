@@ -2,16 +2,23 @@ import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { AnimalGroup, Animal } from "../../types";
+import type { AnimalGroup, Animal, FosterRequest } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import PhotoLightbox from "../../components/messaging/PhotoLightbox";
 import AnimalCard from "../../components/animals/AnimalCard";
 import FieldDisplay from "../../components/animals/FieldDisplay";
 import FosterSelector from "../../components/fosters/FosterSelector";
 import AssignmentConfirmationDialog from "../../components/animals/AssignmentConfirmationDialog";
+import FosterRequestDialog from "../../components/fosters/FosterRequestDialog";
+import CancelRequestDialog from "../../components/fosters/CancelRequestDialog";
 import { fetchGroupById } from "../../lib/groupQueries";
 import { fetchAnimalsByIds } from "../../lib/animalQueries";
 import { assignGroupToFoster } from "../../lib/assignmentUtils";
+import {
+	createGroupFosterRequest,
+	cancelFosterRequest,
+} from "../../lib/fosterRequestUtils";
+import { fetchPendingRequestForGroup } from "../../lib/fosterRequestQueries";
 import { isOffline } from "../../lib/errorUtils";
 import {
 	formatDateForDisplay,
@@ -37,6 +44,10 @@ export default function GroupDetail() {
 		null
 	);
 	const [assignmentError, setAssignmentError] = useState<string | null>(null);
+
+	// Foster request state
+	const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+	const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
 	const {
 		data: group,
@@ -114,6 +125,30 @@ export default function GroupDetail() {
 		enabled: !!group?.current_foster_id,
 	});
 
+	// Fetch pending request for this group (for fosters only)
+	const { data: pendingRequest, refetch: refetchPendingRequest } = useQuery<
+		FosterRequest | null,
+		Error
+	>({
+		queryKey: [
+			"pending-request-group",
+			id,
+			user.id,
+			profile.organization_id,
+		],
+		queryFn: async () => {
+			if (!id || isCoordinator) {
+				return null;
+			}
+			return fetchPendingRequestForGroup(
+				id,
+				user.id,
+				profile.organization_id
+			);
+		},
+		enabled: !!id && !isCoordinator,
+	});
+
 	const photoUrls = group?.group_photos?.map((photo) => photo.url) || [];
 
 	// Compute group foster_visibility (should be same for all animals)
@@ -180,6 +215,67 @@ export default function GroupDetail() {
 	const isLoading = isLoadingGroup || isLoadingAnimals;
 	const isError = isErrorGroup || isErrorAnimals;
 	const error = groupError;
+
+	// Check if foster can request this group
+	const canRequest =
+		!isCoordinator &&
+		groupFosterVisibility !== "not_visible" &&
+		groupFosterVisibility !== "foster_pending" &&
+		group?.current_foster_id !== user.id &&
+		!pendingRequest;
+
+	// Handle request confirmation
+	const handleRequestConfirm = async (message: string) => {
+		if (!id) return;
+
+		await createGroupFosterRequest(
+			id,
+			user.id,
+			profile.organization_id,
+			message
+		);
+
+		// Invalidate queries
+		await queryClient.invalidateQueries({
+			queryKey: ["groups", user.id, profile.organization_id, id],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["group-animals", user.id, profile.organization_id],
+		});
+		await refetchPendingRequest();
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-all-animals"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-groups"],
+		});
+	};
+
+	// Handle cancel request
+	const handleCancelRequest = async (message: string) => {
+		if (!pendingRequest) return;
+
+		await cancelFosterRequest(
+			pendingRequest.id,
+			profile.organization_id,
+			message
+		);
+
+		// Invalidate queries
+		await queryClient.invalidateQueries({
+			queryKey: ["groups", user.id, profile.organization_id, id],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["group-animals", user.id, profile.organization_id],
+		});
+		await refetchPendingRequest();
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-all-animals"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-groups"],
+		});
+	};
 
 	if (isLoading) {
 		return (
@@ -255,18 +351,39 @@ export default function GroupDetail() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-sm p-6">
-					<div className="mb-6 flex items-center justify-between">
-						<h1 className="text-2xl font-bold text-gray-900">
-							{group.name?.trim() || "Unnamed Group"}
-						</h1>
-						{isCoordinator && (
-							<Link
-								to={`/groups/${id}/edit`}
-								className="px-4 py-2 border-2 border-pink-500 text-pink-600 rounded-md hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
-							>
-								Edit
-							</Link>
-						)}
+					<div className="mb-6">
+						<div className="flex items-center justify-between mb-2">
+							<h1 className="text-2xl font-bold text-gray-900">
+								{group.name?.trim() || "Unnamed Group"}
+							</h1>
+							{isCoordinator && (
+								<Link
+									to={`/groups/${id}/edit`}
+									className="px-4 py-2 border-2 border-pink-500 text-pink-600 rounded-md hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								>
+									Edit
+								</Link>
+							)}
+						</div>
+						{/* Badges under name */}
+						<div className="flex items-center gap-2">
+							{/* Priority Badge */}
+							{group.priority && (
+								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
+									High Priority
+								</span>
+							)}
+							{/* Requested Badge - for foster who has pending request */}
+							{!isCoordinator && pendingRequest && (
+								<button
+									type="button"
+									onClick={() => setIsCancelDialogOpen(true)}
+									className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors cursor-pointer"
+								>
+									Requested
+								</button>
+							)}
+						</div>
 					</div>
 
 					{/* Photos */}
@@ -302,17 +419,6 @@ export default function GroupDetail() {
 								<p className="text-lg text-gray-900">
 									{group.description}
 								</p>
-							</div>
-						)}
-
-						{group.priority && (
-							<div>
-								<label className="block text-sm font-medium text-gray-500 mb-1">
-									Priority
-								</label>
-								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
-									High Priority
-								</span>
 							</div>
 						)}
 
@@ -386,6 +492,45 @@ export default function GroupDetail() {
 								</p>
 							</div>
 						)}
+
+					{/* Foster Request Section (foster only) */}
+					{!isCoordinator && (
+						<div className="pt-4 mt-4 border-t border-gray-200">
+							{canRequest && (
+								<button
+									type="button"
+									onClick={() => setIsRequestDialogOpen(true)}
+									className="w-full px-4 py-3 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								>
+									Request to Foster
+								</button>
+							)}
+							{pendingRequest && (
+								<div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+									<p className="text-sm text-purple-800">
+										You have a pending request for this
+										group.{" "}
+										<button
+											type="button"
+											onClick={() =>
+												setIsCancelDialogOpen(true)
+											}
+											className="font-medium underline hover:text-purple-900"
+										>
+											Cancel request
+										</button>
+									</p>
+								</div>
+							)}
+							{group.current_foster_id === user.id && (
+								<div className="p-3 bg-green-50 border border-green-200 rounded-md">
+									<p className="text-sm text-green-800">
+										This group is currently assigned to you.
+									</p>
+								</div>
+							)}
+						</div>
+					)}
 
 					{/* Metadata Section (coordinators only) */}
 					{isCoordinator && (
@@ -503,6 +648,28 @@ export default function GroupDetail() {
 					animalOrGroupName={group.name || "Unnamed Group"}
 					isGroup={true}
 					animalCount={animals.length}
+				/>
+			)}
+
+			{/* Foster Request Dialog */}
+			{group && (
+				<FosterRequestDialog
+					isOpen={isRequestDialogOpen}
+					onClose={() => setIsRequestDialogOpen(false)}
+					onConfirm={handleRequestConfirm}
+					animalOrGroupName={group.name || "Unnamed Group"}
+					isGroup={true}
+					animalCount={animals.length}
+				/>
+			)}
+
+			{/* Cancel Request Dialog */}
+			{group && (
+				<CancelRequestDialog
+					isOpen={isCancelDialogOpen}
+					onClose={() => setIsCancelDialogOpen(false)}
+					onConfirm={handleCancelRequest}
+					animalOrGroupName={group.name || "Unnamed Group"}
 				/>
 			)}
 		</div>
