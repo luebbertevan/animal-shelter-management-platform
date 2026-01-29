@@ -18,6 +18,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ProtectedLayout from "./components/ProtectedLayout";
 import CoordinatorOnlyRoute from "./components/CoordinatorOnlyRoute";
 import FostersNeeded from "./pages/fosters/FostersNeeded";
+import FosterRequests from "./pages/fosters/FosterRequests";
 
 function App() {
 	return (
@@ -146,6 +147,18 @@ function App() {
 							<ProtectedLayout>
 								<FostersNeeded />
 							</ProtectedLayout>
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/foster-requests"
+					element={
+						<ProtectedRoute>
+							<CoordinatorOnlyRoute>
+								<ProtectedLayout>
+									<FosterRequests />
+								</ProtectedLayout>
+							</CoordinatorOnlyRoute>
 						</ProtectedRoute>
 					}
 				/>

@@ -372,3 +372,356 @@ export async function checkAnimalInGroup(
 	};
 }
 
+// Types for RPC responses
+interface ApproveRequestResult {
+	request: FosterRequest;
+	foster: { id: string; name: string };
+	animal: { id: string; name: string } | null;
+	group: { id: string; name: string; animal_count: number } | null;
+	auto_denied_request_ids: string[];
+}
+
+interface DenyRequestResult {
+	request: FosterRequest;
+	foster: { id: string; name: string };
+	animal: { id: string; name: string } | null;
+	group: { id: string; name: string } | null;
+}
+
+/**
+ * Approves a foster request (coordinator only)
+ * Assigns the animal/group to the foster and auto-denies other pending requests
+ */
+export async function approveFosterRequest(
+	requestId: string,
+	organizationId: string,
+	coordinatorId: string,
+	customMessage?: string
+): Promise<ApproveRequestResult> {
+	// #region agent log
+	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			sessionId: "debug-session",
+			runId: "pre-fix",
+			hypothesisId: "A",
+			location: "fosterRequestUtils.ts:approveFosterRequest:entry",
+			message: "Approve request clicked",
+			data: {
+				requestId_last6: requestId?.slice(-6),
+				orgId_last6: organizationId?.slice(-6),
+				coordinatorId_last6: coordinatorId?.slice(-6),
+				hasCustomMessage: !!customMessage?.trim(),
+			},
+			timestamp: Date.now(),
+		}),
+	}).catch(() => {});
+	// #endregion agent log
+
+	// #region agent log
+	const {
+		data: { user: authUser },
+	} = await supabase.auth.getUser();
+	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			sessionId: "debug-session",
+			runId: "pre-fix",
+			hypothesisId: "B",
+			location: "fosterRequestUtils.ts:approveFosterRequest:auth",
+			message: "Auth/coordinator sanity check",
+			data: {
+				authUser_present: !!authUser,
+				authUserId_last6: authUser?.id?.slice(-6) || null,
+				coordinatorMatchesAuth: authUser ? authUser.id === coordinatorId : null,
+			},
+			timestamp: Date.now(),
+		}),
+	}).catch(() => {});
+	// #endregion agent log
+
+	// Call RPC to approve request
+	const { data, error } = await supabase.rpc("approve_foster_request", {
+		p_organization_id: organizationId,
+		p_request_id: requestId,
+		p_coordinator_id: coordinatorId,
+		p_message: customMessage || null,
+	});
+
+	if (error) {
+		// #region agent log
+		fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				sessionId: "debug-session",
+				runId: "pre-fix",
+				hypothesisId: "D",
+				location: "fosterRequestUtils.ts:approveFosterRequest:rpc_error",
+				message: "Supabase RPC approve_foster_request failed",
+				data: {
+					requestId_last6: requestId?.slice(-6),
+					orgId_last6: organizationId?.slice(-6),
+					code: (error as { code?: string }).code || null,
+					message: error.message || null,
+					details: (error as { details?: string }).details || null,
+					hint: (error as { hint?: string }).hint || null,
+					status: (error as { status?: number }).status || null,
+				},
+				timestamp: Date.now(),
+			}),
+		}).catch(() => {});
+		// #endregion agent log
+
+		throw new Error(
+			getErrorMessage(error, "Failed to approve request. Please try again.")
+		);
+	}
+
+	const result = data as ApproveRequestResult;
+
+	// #region agent log
+	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			sessionId: "debug-session",
+			runId: "pre-fix",
+			hypothesisId: "E",
+			location: "fosterRequestUtils.ts:approveFosterRequest:rpc_success",
+			message: "Supabase RPC approve_foster_request succeeded",
+			data: {
+				requestId_last6: requestId?.slice(-6),
+				hasAnimal: !!result?.animal,
+				hasGroup: !!result?.group,
+				autoDeniedCount: result?.auto_denied_request_ids?.length ?? null,
+			},
+			timestamp: Date.now(),
+		}),
+	}).catch(() => {});
+	// #endregion agent log
+
+	// Send assignment message to foster
+	const entityName = result.animal?.name || result.group?.name || "animal";
+	const defaultMessage = `Hi ${result.foster.name}, ${entityName} has been assigned to you.`;
+	const finalMessage = customMessage?.trim() || defaultMessage;
+
+	let tag: MessageTag;
+	if (result.animal) {
+		tag = {
+			type: TAG_TYPES.ANIMAL,
+			id: result.animal.id,
+			name: result.animal.name,
+		};
+	} else if (result.group) {
+		tag = {
+			type: TAG_TYPES.GROUP,
+			id: result.group.id,
+			name: result.group.name,
+		};
+	} else {
+		throw new Error("Invalid request: no animal or group");
+	}
+
+	await sendRequestMessage(result.foster.id, organizationId, finalMessage, tag);
+
+	// Send auto-denial messages to other fosters who had pending requests
+	if (result.auto_denied_request_ids && result.auto_denied_request_ids.length > 0) {
+		await sendAutoDenialMessages(
+			result.auto_denied_request_ids,
+			organizationId,
+			entityName,
+			tag
+		);
+	}
+
+	return result;
+}
+
+/**
+ * Denies a foster request (coordinator only)
+ * Reverts visibility and sends denial message
+ */
+export async function denyFosterRequest(
+	requestId: string,
+	organizationId: string,
+	coordinatorId: string,
+	customMessage?: string
+): Promise<DenyRequestResult> {
+	// #region agent log
+	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			sessionId: "debug-session",
+			runId: "pre-fix",
+			hypothesisId: "A",
+			location: "fosterRequestUtils.ts:denyFosterRequest:entry",
+			message: "Deny request clicked",
+			data: {
+				requestId_last6: requestId?.slice(-6),
+				orgId_last6: organizationId?.slice(-6),
+				coordinatorId_last6: coordinatorId?.slice(-6),
+				hasCustomMessage: !!customMessage?.trim(),
+			},
+			timestamp: Date.now(),
+		}),
+	}).catch(() => {});
+	// #endregion agent log
+
+	// #region agent log
+	const {
+		data: { user: authUser },
+	} = await supabase.auth.getUser();
+	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			sessionId: "debug-session",
+			runId: "pre-fix",
+			hypothesisId: "B",
+			location: "fosterRequestUtils.ts:denyFosterRequest:auth",
+			message: "Auth/coordinator sanity check",
+			data: {
+				authUser_present: !!authUser,
+				authUserId_last6: authUser?.id?.slice(-6) || null,
+				coordinatorMatchesAuth: authUser ? authUser.id === coordinatorId : null,
+			},
+			timestamp: Date.now(),
+		}),
+	}).catch(() => {});
+	// #endregion agent log
+
+	// Call RPC to deny request
+	const { data, error } = await supabase.rpc("deny_foster_request", {
+		p_organization_id: organizationId,
+		p_request_id: requestId,
+		p_coordinator_id: coordinatorId,
+		p_message: customMessage || null,
+	});
+
+	if (error) {
+		// #region agent log
+		fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				sessionId: "debug-session",
+				runId: "pre-fix",
+				hypothesisId: "D",
+				location: "fosterRequestUtils.ts:denyFosterRequest:rpc_error",
+				message: "Supabase RPC deny_foster_request failed",
+				data: {
+					requestId_last6: requestId?.slice(-6),
+					orgId_last6: organizationId?.slice(-6),
+					code: (error as { code?: string }).code || null,
+					message: error.message || null,
+					details: (error as { details?: string }).details || null,
+					hint: (error as { hint?: string }).hint || null,
+					status: (error as { status?: number }).status || null,
+				},
+				timestamp: Date.now(),
+			}),
+		}).catch(() => {});
+		// #endregion agent log
+
+		throw new Error(
+			getErrorMessage(error, "Failed to deny request. Please try again.")
+		);
+	}
+
+	const result = data as DenyRequestResult;
+
+	// #region agent log
+	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			sessionId: "debug-session",
+			runId: "pre-fix",
+			hypothesisId: "E",
+			location: "fosterRequestUtils.ts:denyFosterRequest:rpc_success",
+			message: "Supabase RPC deny_foster_request succeeded",
+			data: {
+				requestId_last6: requestId?.slice(-6),
+				hasAnimal: !!result?.animal,
+				hasGroup: !!result?.group,
+			},
+			timestamp: Date.now(),
+		}),
+	}).catch(() => {});
+	// #endregion agent log
+
+	// Send denial message to foster
+	const entityName = result.animal?.name || result.group?.name || "animal";
+	const defaultMessage = `Thank you for your interest in fostering ${entityName}. Unfortunately, we're unable to assign them to you at this time.`;
+	const finalMessage = customMessage?.trim()
+		? `${defaultMessage} ${customMessage.trim()}`
+		: defaultMessage;
+
+	let tag: MessageTag;
+	if (result.animal) {
+		tag = {
+			type: TAG_TYPES.ANIMAL,
+			id: result.animal.id,
+			name: result.animal.name,
+		};
+	} else if (result.group) {
+		tag = {
+			type: TAG_TYPES.GROUP,
+			id: result.group.id,
+			name: result.group.name,
+		};
+	} else {
+		throw new Error("Invalid request: no animal or group");
+	}
+
+	await sendRequestMessage(result.foster.id, organizationId, finalMessage, tag);
+
+	return result;
+}
+
+/**
+ * Sends auto-denial messages to fosters whose requests were auto-denied
+ */
+async function sendAutoDenialMessages(
+	requestIds: string[],
+	organizationId: string,
+	entityName: string,
+	tag: MessageTag
+): Promise<void> {
+	// Fetch the denied requests to get foster IDs
+	const { data: requests, error } = await supabase
+		.from("foster_requests")
+		.select("id, foster_profile_id")
+		.in("id", requestIds)
+		.eq("organization_id", organizationId);
+
+	if (error || !requests) {
+		console.error("Error fetching auto-denied requests:", error);
+		return;
+	}
+
+	const autoDenialMessage = `Your request for ${entityName} has not been approved.`;
+
+	// Send message to each affected foster
+	for (const request of requests) {
+		try {
+			await sendRequestMessage(
+				request.foster_profile_id,
+				organizationId,
+				autoDenialMessage,
+				tag
+			);
+		} catch (err) {
+			// Log but don't fail the entire operation
+			console.error(
+				`Error sending auto-denial message to foster ${request.foster_profile_id}:`,
+				err
+			);
+		}
+	}
+}
+

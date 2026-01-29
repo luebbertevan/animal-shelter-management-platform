@@ -3,7 +3,6 @@ import { HomeIcon, ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
 import { useProtectedAuth } from "../hooks/useProtectedAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import { getErrorMessage } from "../lib/errorUtils";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
 	const { data, error } = await supabase
@@ -100,7 +99,10 @@ export default function NavigationBar() {
 							</>
 						)}
 						{isCoordinator && (
-							<NavLink to="/fosters">Fosters</NavLink>
+							<>
+								<NavLink to="/fosters">Fosters</NavLink>
+								<NavLink to="/foster-requests">Requests</NavLink>
+							</>
 						)}
 						<div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-2 md:ml-4">
 							<button

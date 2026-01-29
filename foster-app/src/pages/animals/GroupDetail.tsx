@@ -18,7 +18,17 @@ import {
 	createGroupFosterRequest,
 	cancelFosterRequest,
 } from "../../lib/fosterRequestUtils";
-import { fetchPendingRequestForGroup } from "../../lib/fosterRequestQueries";
+import {
+	fetchPendingRequestForGroup,
+	fetchPendingRequestsForGroupWithDetails,
+	type FosterRequestWithDetails,
+} from "../../lib/fosterRequestQueries";
+import {
+	approveFosterRequest,
+	denyFosterRequest,
+} from "../../lib/fosterRequestUtils";
+import RequestApprovalDialog from "../../components/fosters/RequestApprovalDialog";
+import RequestDenialDialog from "../../components/fosters/RequestDenialDialog";
 import { isOffline } from "../../lib/errorUtils";
 import {
 	formatDateForDisplay,
@@ -48,6 +58,12 @@ export default function GroupDetail() {
 	// Foster request state
 	const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
 	const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+
+	// Coordinator request management state
+	const [selectedRequest, setSelectedRequest] =
+		useState<FosterRequestWithDetails | null>(null);
+	const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
+	const [isDenialDialogOpen, setIsDenialDialogOpen] = useState(false);
 
 	const {
 		data: group,
@@ -147,6 +163,28 @@ export default function GroupDetail() {
 			);
 		},
 		enabled: !!id && !isCoordinator,
+	});
+
+	// Fetch all pending requests for this group (for coordinators)
+	const {
+		data: coordinatorPendingRequests = [],
+		refetch: refetchCoordinatorPendingRequests,
+	} = useQuery<FosterRequestWithDetails[], Error>({
+		queryKey: [
+			"coordinator-pending-requests-group",
+			id,
+			profile.organization_id,
+		],
+		queryFn: async () => {
+			if (!id || !isCoordinator) {
+				return [];
+			}
+			return fetchPendingRequestsForGroupWithDetails(
+				id,
+				profile.organization_id
+			);
+		},
+		enabled: !!id && isCoordinator,
 	});
 
 	const photoUrls = group?.group_photos?.map((photo) => photo.url) || [];
@@ -277,6 +315,72 @@ export default function GroupDetail() {
 		});
 	};
 
+	// Handle approve request (coordinator)
+	const handleApproveRequest = async (message: string) => {
+		if (!selectedRequest) return;
+
+		await approveFosterRequest(
+			selectedRequest.id,
+			profile.organization_id,
+			user.id,
+			message
+		);
+
+		// Invalidate queries
+		await queryClient.invalidateQueries({
+			queryKey: ["groups", user.id, profile.organization_id, id],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["group-animals", user.id, profile.organization_id],
+		});
+		await refetchCoordinatorPendingRequests();
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-all-animals"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-groups"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["org-pending-requests"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["foster-requests"],
+		});
+	};
+
+	// Handle deny request (coordinator)
+	const handleDenyRequest = async (message: string) => {
+		if (!selectedRequest) return;
+
+		await denyFosterRequest(
+			selectedRequest.id,
+			profile.organization_id,
+			user.id,
+			message
+		);
+
+		// Invalidate queries
+		await queryClient.invalidateQueries({
+			queryKey: ["groups", user.id, profile.organization_id, id],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["group-animals", user.id, profile.organization_id],
+		});
+		await refetchCoordinatorPendingRequests();
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-all-animals"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-groups"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["org-pending-requests"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["foster-requests"],
+		});
+	};
+
 	if (isLoading) {
 		return (
 			<div className="min-h-screen p-4 bg-gray-50">
@@ -386,6 +490,138 @@ export default function GroupDetail() {
 						</div>
 					</div>
 
+					{/* Coordinator placement + pending requests (kept lightweight; hidden if empty) */}
+					{isCoordinator &&
+						(!!group.current_foster_id ||
+							coordinatorPendingRequests.length > 0) && (
+							<div className="mb-6 space-y-3">
+								{group.current_foster_id && (
+									<div className="text-sm">
+										<span className="text-gray-500">
+											Current foster:{" "}
+										</span>
+										{isLoadingFosterName ? (
+											<span className="text-gray-400">
+												Loading...
+											</span>
+										) : fosterName ? (
+											<Link
+												to={`/fosters/${group.current_foster_id}`}
+												className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
+											>
+												{fosterName}
+											</Link>
+										) : (
+											<span className="text-gray-400">
+												Unknown
+											</span>
+										)}
+									</div>
+								)}
+
+								{coordinatorPendingRequests.length > 0 && (
+									<div>
+										<h3 className="text-sm font-medium text-gray-700 mb-2">
+											Pending Requests (
+											{coordinatorPendingRequests.length}
+											)
+										</h3>
+										<ul className="space-y-2">
+											{coordinatorPendingRequests.map(
+												(request) => (
+													<li
+														key={request.id}
+														className="flex items-center justify-between bg-white p-3 rounded border border-gray-200"
+													>
+														<div className="flex-1 min-w-0">
+															<Link
+																to={`/fosters/${request.foster_profile_id}`}
+																className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
+															>
+																{request.foster_name}
+															</Link>
+															<p className="text-xs text-gray-500 mt-0.5">
+																Requested{" "}
+																{formatDateForDisplay(
+																	request.created_at
+																)}
+															</p>
+														</div>
+														<div className="flex gap-2 ml-3">
+															<button
+																type="button"
+																onClick={() => {
+																	setSelectedRequest(
+																		request
+																	);
+																	setIsApprovalDialogOpen(
+																		true
+																	);
+																}}
+																className="px-3 py-1.5 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 transition-colors"
+															>
+																Accept
+															</button>
+															<button
+																type="button"
+																onClick={() => {
+																	setSelectedRequest(
+																		request
+																	);
+																	setIsDenialDialogOpen(
+																		true
+																	);
+																}}
+																className="px-3 py-1.5 bg-red-500 text-white rounded text-sm font-medium hover:bg-red-600 transition-colors"
+															>
+																Deny
+															</button>
+														</div>
+													</li>
+												)
+											)}
+										</ul>
+									</div>
+								)}
+							</div>
+						)}
+
+					{/* Foster Request Actions (foster only - moved to top) */}
+					{!isCoordinator && (
+						<div className="mb-6">
+							{canRequest && (
+								<button
+									type="button"
+									onClick={() => setIsRequestDialogOpen(true)}
+									className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								>
+									Request to Foster
+								</button>
+							)}
+							{pendingRequest && (
+								<div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
+									<p className="text-sm text-purple-800">
+										You have a pending request for this group.{" "}
+										<button
+											type="button"
+											onClick={() => setIsCancelDialogOpen(true)}
+											className="font-medium underline hover:text-purple-900"
+										>
+											Cancel request
+										</button>
+									</p>
+								</div>
+							)}
+							{group.current_foster_id === user.id && (
+								<div className="p-3 bg-green-50 border border-green-200 rounded-md">
+									<p className="text-sm text-green-800">
+										This group is currently assigned to you.
+									</p>
+								</div>
+							)}
+						</div>
+					)}
+
 					{/* Photos */}
 					{photoUrls.length > 0 && (
 						<div className="mb-6">
@@ -493,75 +729,11 @@ export default function GroupDetail() {
 							</div>
 						)}
 
-					{/* Foster Request Section (foster only) */}
-					{!isCoordinator && (
-						<div className="pt-4 mt-4 border-t border-gray-200">
-							{canRequest && (
-								<button
-									type="button"
-									onClick={() => setIsRequestDialogOpen(true)}
-									className="w-full px-4 py-3 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
-								>
-									Request to Foster
-								</button>
-							)}
-							{pendingRequest && (
-								<div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
-									<p className="text-sm text-purple-800">
-										You have a pending request for this
-										group.{" "}
-										<button
-											type="button"
-											onClick={() =>
-												setIsCancelDialogOpen(true)
-											}
-											className="font-medium underline hover:text-purple-900"
-										>
-											Cancel request
-										</button>
-									</p>
-								</div>
-							)}
-							{group.current_foster_id === user.id && (
-								<div className="p-3 bg-green-50 border border-green-200 rounded-md">
-									<p className="text-sm text-green-800">
-										This group is currently assigned to you.
-									</p>
-								</div>
-							)}
-						</div>
-					)}
-
 					{/* Metadata Section (coordinators only) */}
 					{isCoordinator && (
 						<div className="pt-6 border-t border-gray-200 space-y-4 text-base">
-							{/* Assignment Section */}
+							{/* Assign Foster Button */}
 							<div className="space-y-2">
-								{group.current_foster_id && (
-									<div>
-										<span className="text-gray-500">
-											Current foster:{" "}
-										</span>
-										{isLoadingFosterName ? (
-											<span className="text-gray-400">
-												Loading...
-											</span>
-										) : fosterName ? (
-											<Link
-												to={`/fosters/${group.current_foster_id}`}
-												className="text-pink-600 hover:text-pink-700 hover:underline"
-											>
-												{fosterName}
-											</Link>
-										) : (
-											<span className="text-gray-400">
-												Unknown
-											</span>
-										)}
-									</div>
-								)}
-
-								{/* Assign Foster Button */}
 								<button
 									type="button"
 									onClick={() => {
@@ -669,6 +841,34 @@ export default function GroupDetail() {
 					isOpen={isCancelDialogOpen}
 					onClose={() => setIsCancelDialogOpen(false)}
 					onConfirm={handleCancelRequest}
+					animalOrGroupName={group.name || "Unnamed Group"}
+				/>
+			)}
+
+			{/* Request Approval Dialog (coordinator) */}
+			{selectedRequest && group && (
+				<RequestApprovalDialog
+					isOpen={isApprovalDialogOpen}
+					onClose={() => {
+						setIsApprovalDialogOpen(false);
+						setSelectedRequest(null);
+					}}
+					onConfirm={handleApproveRequest}
+					fosterName={selectedRequest.foster_name}
+					animalOrGroupName={group.name || "Unnamed Group"}
+				/>
+			)}
+
+			{/* Request Denial Dialog (coordinator) */}
+			{selectedRequest && group && (
+				<RequestDenialDialog
+					isOpen={isDenialDialogOpen}
+					onClose={() => {
+						setIsDenialDialogOpen(false);
+						setSelectedRequest(null);
+					}}
+					onConfirm={handleDenyRequest}
+					fosterName={selectedRequest.foster_name}
 					animalOrGroupName={group.name || "Unnamed Group"}
 				/>
 			)}
