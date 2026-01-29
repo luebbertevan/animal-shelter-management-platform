@@ -13,7 +13,9 @@ import FosterRequestDialog from "../../components/fosters/FosterRequestDialog";
 import CancelRequestDialog from "../../components/fosters/CancelRequestDialog";
 import { fetchGroupById } from "../../lib/groupQueries";
 import { fetchAnimalsByIds } from "../../lib/animalQueries";
-import { assignGroupToFoster } from "../../lib/assignmentUtils";
+import { assignGroupToFoster, unassignGroup } from "../../lib/assignmentUtils";
+import UnassignmentDialog from "../../components/animals/UnassignmentDialog";
+import type { AnimalStatus, FosterVisibility } from "../../types";
 import {
 	createGroupFosterRequest,
 	cancelFosterRequest,
@@ -64,6 +66,10 @@ export default function GroupDetail() {
 		useState<FosterRequestWithDetails | null>(null);
 	const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
 	const [isDenialDialogOpen, setIsDenialDialogOpen] = useState(false);
+
+	// Unassignment state
+	const [isUnassignmentDialogOpen, setIsUnassignmentDialogOpen] = useState(false);
+	const [unassignmentError, setUnassignmentError] = useState<string | null>(null);
 
 	const {
 		data: group,
@@ -381,6 +387,70 @@ export default function GroupDetail() {
 		});
 	};
 
+	// Handle unassignment (coordinator)
+	const handleUnassign = async (
+		newStatus: AnimalStatus,
+		newVisibility: FosterVisibility,
+		message: string
+	) => {
+		if (!id || !group?.current_foster_id) return;
+
+		setUnassignmentError(null);
+
+		try {
+			await unassignGroup(
+				id,
+				profile.organization_id,
+				newStatus,
+				newVisibility,
+				message
+			);
+
+			// Invalidate queries
+			await queryClient.invalidateQueries({
+				queryKey: ["groups", user.id, profile.organization_id, id],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["group-animals", user.id, profile.organization_id],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["foster", group.current_foster_id],
+			});
+			// Invalidate each animal's detail query
+			if (group.animal_ids) {
+				for (const animalId of group.animal_ids) {
+					await queryClient.invalidateQueries({
+						queryKey: ["animals", user.id, profile.organization_id, animalId],
+					});
+				}
+			}
+			await queryClient.invalidateQueries({
+				queryKey: ["fosters-needed-all-animals"],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["fosters-needed-groups"],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["coordinator-pending-requests-group", id, profile.organization_id],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["org-pending-requests"],
+			});
+			await queryClient.invalidateQueries({
+				queryKey: ["foster-requests"],
+			});
+
+			// Close dialog
+			setIsUnassignmentDialogOpen(false);
+		} catch (error) {
+			setUnassignmentError(
+				error instanceof Error
+					? error.message
+					: "Failed to unassign group. Please try again."
+			);
+		}
+	};
+
 	if (isLoading) {
 		return (
 			<div className="min-h-screen p-4 bg-gray-50">
@@ -496,26 +566,36 @@ export default function GroupDetail() {
 							coordinatorPendingRequests.length > 0) && (
 							<div className="mb-6 space-y-3">
 								{group.current_foster_id && (
-									<div className="text-sm">
-										<span className="text-gray-500">
-											Current foster:{" "}
-										</span>
-										{isLoadingFosterName ? (
-											<span className="text-gray-400">
-												Loading...
+									<div className="flex items-center justify-between">
+										<div className="text-sm">
+											<span className="text-gray-500">
+												Current foster:{" "}
 											</span>
-										) : fosterName ? (
-											<Link
-												to={`/fosters/${group.current_foster_id}`}
-												className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
-											>
-												{fosterName}
-											</Link>
-										) : (
-											<span className="text-gray-400">
-												Unknown
-											</span>
-										)}
+											{isLoadingFosterName ? (
+												<span className="text-gray-400">
+													Loading...
+												</span>
+											) : fosterName ? (
+												<Link
+													to={`/fosters/${group.current_foster_id}`}
+													className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
+												>
+													{fosterName}
+												</Link>
+											) : (
+												<span className="text-gray-400">
+													Unknown
+												</span>
+											)}
+										</div>
+										{/* Unassign button */}
+										<button
+											type="button"
+											onClick={() => setIsUnassignmentDialogOpen(true)}
+											className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded text-sm font-medium hover:bg-gray-50 transition-colors"
+										>
+											Unassign
+										</button>
 									</div>
 								)}
 
@@ -871,6 +951,37 @@ export default function GroupDetail() {
 					fosterName={selectedRequest.foster_name}
 					animalOrGroupName={group.name || "Unnamed Group"}
 				/>
+			)}
+
+			{/* Unassignment Dialog (coordinator) */}
+			{group?.current_foster_id && fosterName && (
+				<UnassignmentDialog
+					isOpen={isUnassignmentDialogOpen}
+					onClose={() => {
+						setIsUnassignmentDialogOpen(false);
+						setUnassignmentError(null);
+					}}
+					onConfirm={handleUnassign}
+					fosterName={fosterName}
+					animalOrGroupName={group.name || "Unnamed Group"}
+					isGroup={true}
+					animalCount={animals.length}
+					hasPendingRequests={coordinatorPendingRequests.length > 0}
+				/>
+			)}
+
+			{/* Unassignment Error Display */}
+			{unassignmentError && (
+				<div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+					<p className="text-sm">{unassignmentError}</p>
+					<button
+						type="button"
+						onClick={() => setUnassignmentError(null)}
+						className="absolute top-1 right-1 text-red-700 hover:text-red-900"
+					>
+						×
+					</button>
+				</div>
 			)}
 		</div>
 	);

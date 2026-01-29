@@ -1,4 +1,4 @@
-import type { FosterVisibility } from "../types";
+import type { AnimalStatus, FosterVisibility } from "../types";
 
 /**
  * Format a date string for display
@@ -48,5 +48,24 @@ export function formatFosterVisibility(visibility: FosterVisibility): string {
 			return "Not Visible";
 		default:
 			return visibility;
+	}
+}
+
+/**
+ * Get the default foster visibility value based on animal status
+ * This implements the one-directional sync rule: status changes update visibility
+ */
+export function getFosterVisibilityFromStatus(
+	animalStatus: AnimalStatus
+): FosterVisibility {
+	switch (animalStatus) {
+		case "in_shelter":
+			return "available_now";
+		case "medical_hold":
+		case "transferring":
+			return "available_future";
+		case "in_foster":
+		case "adopted":
+			return "not_visible";
 	}
 }

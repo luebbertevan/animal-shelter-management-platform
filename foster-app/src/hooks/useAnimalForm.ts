@@ -15,6 +15,7 @@ import {
 } from "../lib/ageUtils";
 import type { AnimalFormState } from "../lib/animalFormUtils";
 import { getEmptyFormState, animalToFormState } from "../lib/animalFormUtils";
+import { getFosterVisibilityFromStatus } from "../lib/metadataUtils";
 import type { Animal } from "../types";
 
 export interface UseAnimalFormOptions {
@@ -153,22 +154,6 @@ export function useAnimalForm(
 			});
 		}
 	}, [initialAnimal, hasInitializedFromAnimal]);
-
-	// Helper function to get foster_visibility from status
-	const getFosterVisibilityFromStatus = (
-		animalStatus: AnimalStatus
-	): FosterVisibility => {
-		switch (animalStatus) {
-			case "in_shelter":
-				return "available_now";
-			case "medical_hold":
-			case "transferring":
-				return "available_future";
-			case "in_foster":
-			case "adopted":
-				return "not_visible";
-		}
-	};
 
 	// Custom setStatus that automatically syncs foster_visibility
 	// This avoids the linter warning about calling setState in effects

@@ -56,16 +56,23 @@ async function fetchCoordinatorGroupChat(organizationId: string) {
 	return data?.id || null;
 }
 
+interface AssignmentCounts {
+	animalCount: number;
+	groupCount: number;
+}
+
 function FosterCard({
 	foster,
 	currentUserId,
 	organizationId,
 	pendingRequestCount,
+	assignmentCounts,
 }: {
 	foster: User;
 	currentUserId: string;
 	organizationId: string;
 	pendingRequestCount?: number;
+	assignmentCounts?: AssignmentCounts;
 }) {
 	// Fetch conversation ID for this foster
 	const { data: conversationId } = useQuery<string | null>({
@@ -88,6 +95,39 @@ function FosterCard({
 	// Don't show chat icon for current user
 	const showChatIcon = foster.id !== currentUserId && conversationId;
 
+	// Format assignment badge text
+	const getAssignmentBadgeText = (
+		animalCount: number,
+		groupCount: number
+	): string | null => {
+		if (animalCount === 0 && groupCount === 0) {
+			return null;
+		}
+
+		const parts: string[] = [];
+
+		if (groupCount > 0) {
+			parts.push(
+				`${groupCount} ${groupCount === 1 ? "group" : "groups"}`
+			);
+		}
+
+		if (animalCount > 0) {
+			parts.push(
+				`${animalCount} ${animalCount === 1 ? "animal" : "animals"}`
+			);
+		}
+
+		return `Fostering ${parts.join(", ")}`;
+	};
+
+	const assignmentBadgeText = assignmentCounts
+		? getAssignmentBadgeText(
+				assignmentCounts.animalCount,
+				assignmentCounts.groupCount
+			)
+		: null;
+
 	return (
 		<div className="bg-white rounded-lg shadow-sm p-5 border border-pink-100 hover:shadow-md transition-shadow relative">
 			<div className="flex items-start justify-between mb-3">
@@ -97,6 +137,11 @@ function FosterCard({
 					</h2>
 				</Link>
 				<div className="flex items-center gap-2 ml-2">
+					{assignmentBadgeText && (
+						<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+							{assignmentBadgeText}
+						</span>
+					)}
 					{typeof pendingRequestCount === "number" &&
 						pendingRequestCount > 0 &&
 						foster.role === "foster" && (
@@ -343,6 +388,77 @@ export default function FostersList() {
 		},
 		enabled: fosterIdsOnPage.length > 0,
 	});
+
+	// Fetch assignment counts (animals and groups) for fosters on the current page
+	const { data: assignmentCounts = new Map<string, AssignmentCounts>() } =
+		useQuery<Map<string, AssignmentCounts>, Error>({
+			queryKey: [
+				"foster-assignment-counts",
+				profile.organization_id,
+				fosterIdsOnPage,
+			],
+			queryFn: async () => {
+				if (fosterIdsOnPage.length === 0) {
+					return new Map<string, AssignmentCounts>();
+				}
+
+				// Fetch individual animals (not in groups) assigned to these fosters
+				const { data: animalsData, error: animalsError } = await supabase
+					.from("animals")
+					.select("current_foster_id")
+					.eq("organization_id", profile.organization_id)
+					.in("current_foster_id", fosterIdsOnPage)
+					.is("group_id", null);
+
+				if (animalsError) {
+					throw animalsError;
+				}
+
+				// Fetch groups assigned to these fosters
+				const { data: groupsData, error: groupsError } = await supabase
+					.from("animal_groups")
+					.select("current_foster_id")
+					.eq("organization_id", profile.organization_id)
+					.in("current_foster_id", fosterIdsOnPage);
+
+				if (groupsError) {
+					throw groupsError;
+				}
+
+				// Count animals per foster
+				const animalCounts = new Map<string, number>();
+				(animalsData as Array<{ current_foster_id: string }>).forEach(
+					(row) => {
+						const id = row.current_foster_id;
+						if (!id) return;
+						animalCounts.set(id, (animalCounts.get(id) ?? 0) + 1);
+					}
+				);
+
+				// Count groups per foster
+				const groupCounts = new Map<string, number>();
+				(groupsData as Array<{ current_foster_id: string }>).forEach(
+					(row) => {
+						const id = row.current_foster_id;
+						if (!id) return;
+						groupCounts.set(id, (groupCounts.get(id) ?? 0) + 1);
+					}
+				);
+
+				// Combine into AssignmentCounts map
+				const map = new Map<string, AssignmentCounts>();
+				fosterIdsOnPage.forEach((fosterId) => {
+					const animalCount = animalCounts.get(fosterId) ?? 0;
+					const groupCount = groupCounts.get(fosterId) ?? 0;
+					if (animalCount > 0 || groupCount > 0) {
+						map.set(fosterId, { animalCount, groupCount });
+					}
+				});
+
+				return map;
+			},
+			enabled: fosterIdsOnPage.length > 0,
+		});
 
 	// Fetch total count for pagination (with search, but "currently fostering" handled client-side)
 	const { data: totalCount = 0 } = useQuery({
@@ -602,6 +718,9 @@ export default function FostersList() {
 											}
 											pendingRequestCount={
 												pendingCounts.get(foster.id)
+											}
+											assignmentCounts={
+												assignmentCounts.get(foster.id)
 											}
 										/>
 									))}

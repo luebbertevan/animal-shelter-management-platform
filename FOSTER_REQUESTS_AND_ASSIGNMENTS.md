@@ -783,74 +783,297 @@ Coordinators can reliably view, approve, and deny foster requests using a single
 
 **Dependencies:** Phase 1 (Assignment) - Can be developed in parallel with Phases 2-3
 
+### Additional Design Decisions for Phase 4
+
+-   **Implementation pattern:** Unassignment utilities are **TypeScript functions** (like Phase 1 assignment utilities), not RPCs. Unassignment is simpler than approve/deny operations and doesn't require the same level of atomicity or complex state transitions.
+
+-   **Pending requests handling:** When unassigning an animal/group, **pending foster requests are NOT automatically cancelled or denied**. The coordinator can handle pending requests separately through the existing request management UI. However, the unassignment dialog may show a warning if there are pending requests for the animal/group.
+
+-   **Default values:** When unassigning, default status is `in_shelter` and default visibility is `available_now`. These defaults make the animal/group immediately available for new foster requests.
+
+-   **Group consistency:** If an animal is in a group, unassigning the animal will unassign the entire group (same pattern as assignment). Individual unassignment is blocked for animals in groups.
+
+-   **Button placement:** The "Unassign" button appears in the **"Placement & Requests"** section (coordinator view) alongside the current foster assignment information, maintaining consistency with the existing UI layout.
+
+-   **Message pattern:** Unassignment messages follow the same pattern as assignment messages, using `sendAssignmentMessage` from `assignmentUtils.ts` with animal/group tags.
+
+---
+
 ### Task 4.1: Create Unassignment Utilities
 
 **File:** `src/lib/assignmentUtils.ts` (add to existing file)
 
 **Functions:**
 
--   `unassignGroup(groupId, organizationId, newStatus?, newVisibility?, message?)` - Unassigns group and all animals
--   `unassignAnimal(animalId, organizationId, newStatus?, newVisibility?, message?)` - Unassigns individual animal
--   Both functions:
-    -   Clear `current_foster_id`
-    -   Update `status` and `foster_visibility` (if provided)
-    -   Send message to foster's conversation (if message provided)
-    -   Handle group consistency (if unassigning animal in group)
+-   `unassignGroup(groupId: string, organizationId: string, newStatus?: AnimalStatus, newVisibility?: FosterVisibility, message?: string): Promise<void>`
+    -   Unassigns group and all animals in the group
+    -   Clears `animal_groups.current_foster_id`
+    -   Clears `animals.current_foster_id` for all animals in the group
+    -   Updates `animals.status` to `newStatus` (defaults to `in_shelter` if not provided)
+    -   Updates `animals.foster_visibility` to `newVisibility` (defaults to `available_now` if not provided)
+    -   Fetches foster name for message
+    -   Sends message to foster's conversation with group tag (uses default template if no message provided)
+    -   Handles errors gracefully with user-friendly messages
+
+-   `unassignAnimal(animalId: string, organizationId: string, newStatus?: AnimalStatus, newVisibility?: FosterVisibility, message?: string): Promise<void>`
+    -   Unassigns individual animal
+    -   **Checks if animal is in a group**: If `animal.group_id` exists, throws error: "This animal is in a group. Please unassign the entire group instead."
+    -   Clears `animals.current_foster_id`
+    -   Updates `animals.status` to `newStatus` (defaults to `in_shelter` if not provided)
+    -   Updates `animals.foster_visibility` to `newVisibility` (defaults to `available_now` if not provided)
+    -   Fetches foster name for message
+    -   Sends message to foster's conversation with animal tag (uses default template if no message provided)
+    -   Handles errors gracefully with user-friendly messages
+
+**Implementation Notes:**
+
+-   Both functions use the same error handling pattern as `assignAnimalToFoster` and `assignGroupToFoster`
+-   Both functions use `sendAssignmentMessage` for sending messages (reuse existing pattern)
+-   Default message template: `"Hi [Foster Name], [Animal/Group Name] is no longer assigned to you."`
+-   If `newStatus` is not provided, use `"in_shelter"` as default
+-   If `newVisibility` is not provided, use `"available_now"` as default
+-   Fetch foster name using existing `fetchFosterById` pattern (or query from `profiles` table directly)
+-   Create appropriate `MessageTag` (animal or group) for message tagging
+
+---
 
 ### Task 4.2: Create Unassignment Dialog
 
 **File:** `src/components/animals/UnassignmentDialog.tsx`
 
+**Pattern:** Follows the same pattern as `AssignmentConfirmationDialog.tsx` (same structure, styling, and layout)
+
+**Props Interface:**
+
+```typescript
+interface UnassignmentDialogProps {
+	isOpen: boolean;
+	onClose: () => void;
+	onConfirm: (newStatus: AnimalStatus, newVisibility: FosterVisibility, message: string) => void;
+	fosterName: string;
+	animalOrGroupName: string;
+	isGroup?: boolean;
+	animalCount?: number; // For groups
+	hasPendingRequests?: boolean; // Optional: show warning if there are pending requests
+}
+```
+
 **Features:**
 
--   Shows current assignment information (foster name, animal/group name)
--   Status dropdown (pre-selected with `in_shelter` as default)
--   Visibility dropdown (pre-selected with `available_now` as default)
--   Text area for optional custom message (placeholder shows default template)
--   Default message sent if no custom message: "Hi [Foster Name], [Animal/Group Name] is no longer assigned to you."
--   "Confirm Unassignment" and "Cancel" buttons
--   Warning if unassigning animal in group: "This will unassign the entire group. Continue?"
+-   **Dialog structure:** Same backdrop, header, content, and footer layout as `AssignmentConfirmationDialog`
+-   **Header:** "Confirm Unassignment"
+-   **Assignment details section:**
+    -   Foster name (read-only display)
+    -   Animal/Group name (read-only display)
+    -   Animal count (if group, e.g., "Animals in group: 4")
+-   **Status dropdown:**
+    -   Label: "New Status"
+    -   Options: All `AnimalStatus` values with formatted labels:
+        -   `in_shelter` → "In Shelter"
+        -   `in_foster` → "In Foster"
+        -   `adopted` → "Adopted"
+        -   `medical_hold` → "Medical Hold"
+        -   `transferring` → "Transferring"
+    -   Default value: `"in_shelter"`
+    -   Use `Select` component from `src/components/ui/Select.tsx`
+-   **Visibility dropdown:**
+    -   Label: "Visibility on Fosters Needed page"
+    -   Options: All `FosterVisibility` values with formatted labels:
+        -   `available_now` → "Available Now"
+        -   `available_future` → "Available Future"
+        -   `foster_pending` → "Foster Pending"
+        -   `not_visible` → "Not Visible"
+    -   Default value: `"available_now"`
+    -   Use `Select` component from `src/components/ui/Select.tsx`
+-   **Message textarea:**
+    -   Label: "Message (optional)"
+    -   Placeholder: Default message template: `"Hi [Foster Name], [Animal/Group Name] is no longer assigned to you."`
+    -   Helper text (2-line pattern, consistent with other dialogs):
+        -   Line 1: "Add any additional context or information for the foster (optional)."
+        -   Line 2: "If no message is provided, the default message will be sent."
+    -   Use `Textarea` component from `src/components/ui/Textarea.tsx`
+-   **Warning (if `hasPendingRequests` is true):**
+    -   Display warning message: "Note: There are pending foster requests for this animal/group. Unassignment will not automatically cancel these requests."
+    -   Style as info/warning (e.g., yellow background, info icon)
+-   **Footer buttons:**
+    -   "Cancel" button (secondary variant)
+    -   "Confirm Unassignment" button (primary variant)
+-   **State management:**
+    -   Use `useState` for `newStatus`, `newVisibility`, and `message`
+    -   Reset state on close/cancel
+    -   On confirm, call `onConfirm(newStatus, newVisibility, message.trim() || defaultMessage)`
+
+**Implementation Notes:**
+
+-   Reuse existing UI components (`Button`, `Textarea`, `Select`) for consistency
+-   Follow the same styling and spacing as `AssignmentConfirmationDialog`
+-   Handle form state reset on dialog close/cancel
+
+---
 
 ### Task 4.3: Update AnimalDetail Page - Unassignment UI
 
 **File:** `src/pages/animals/AnimalDetail.tsx`
 
-**Changes:**
+**Changes (coordinator-only UI):**
 
--   Add "Unassign" button (coordinator only, only visible if animal is assigned)
--   If animal is in a group:
-    -   Show warning: "This animal is in a group. Unassigning will unassign the entire group."
-    -   Block individual unassignment
--   When clicked:
-    -   Open unassignment dialog
-    -   On confirm, call `unassignAnimal` or `unassignGroup` utility
-    -   Show success notification
-    -   Refresh page data
+-   **Add "Unassign" button in "Placement & Requests" section:**
+    -   Button appears **only when animal has a `current_foster_id`** (animal is assigned)
+    -   Button appears **below the "Current foster" information** in the "Placement & Requests" section
+    -   Button styling: Secondary variant, smaller size (consistent with other action buttons on detail pages)
+    -   Button text: "Unassign"
+-   **Group handling:**
+    -   If animal is in a group (`animal.group_id` exists):
+        -   **Block individual unassignment** (disable button or show error)
+        -   Show info message: "This animal is in a group. Please unassign the entire group from the group detail page."
+        -   Optionally, provide a link to the group detail page
+-   **State management:**
+    -   Add state for unassignment dialog: `const [isUnassignmentDialogOpen, setIsUnassignmentDialogOpen] = useState(false)`
+    -   Add state for selected status/visibility (if needed for dialog)
+-   **Dialog integration:**
+    -   Import `UnassignmentDialog` component
+    -   Pass foster name (from existing `fosterName` query)
+    -   Pass animal name (`animal.name || "Unnamed Animal"`)
+    -   Pass `hasPendingRequests` prop (check if `coordinatorPendingRequests.length > 0`)
+-   **Unassignment handler:**
+    ```typescript
+    const handleUnassign = async (newStatus: AnimalStatus, newVisibility: FosterVisibility, message: string) => {
+        try {
+            await unassignAnimal(id, profile.organization_id, newStatus, newVisibility, message);
+            
+            // Invalidate queries (same pattern as assignment)
+            await queryClient.invalidateQueries({
+                queryKey: ["animals", user.id, profile.organization_id, id],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["foster", animal.current_foster_id],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["fosters-needed-all-animals"],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["fosters-needed-groups"],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["coordinator-pending-requests-animal", id, profile.organization_id],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["org-pending-requests"],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["foster-requests"],
+            });
+            
+            // Close dialog
+            setIsUnassignmentDialogOpen(false);
+            
+            // Show success notification (use existing notification pattern)
+        } catch (error) {
+            // Handle error (show error message, keep dialog open)
+        }
+    };
+    ```
+-   **Error handling:**
+    -   Catch errors from `unassignAnimal` and display user-friendly error messages
+    -   Handle group conflict error specifically: "This animal is in a group. Please unassign the entire group instead."
+    -   Use existing error handling patterns from assignment handlers
+
+---
 
 ### Task 4.4: Update GroupDetail Page - Unassignment UI
 
 **File:** `src/pages/animals/GroupDetail.tsx`
 
-**Changes:**
+**Changes (coordinator-only UI):**
 
--   Add "Unassign" button (coordinator only, only visible if group is assigned)
--   When clicked:
-    -   Open unassignment dialog
-    -   Show confirmation: "This will unassign the group and all [X] animals. Continue?"
-    -   On confirm, call `unassignGroup` utility
-    -   Show success notification
-    -   Refresh page data
+-   **Add "Unassign" button in "Placement & Requests" section:**
+    -   Button appears **only when group has a `current_foster_id`** (group is assigned)
+    -   Button appears **below the "Current foster" information** in the "Placement & Requests" section
+    -   Button styling: Secondary variant, smaller size (consistent with other action buttons on detail pages)
+    -   Button text: "Unassign"
+-   **State management:**
+    -   Add state for unassignment dialog: `const [isUnassignmentDialogOpen, setIsUnassignmentDialogOpen] = useState(false)`
+-   **Dialog integration:**
+    -   Import `UnassignmentDialog` component
+    -   Pass foster name (fetch using `fetchFosterById` if not already available)
+    -   Pass group name (`group.name || "Unnamed Group"`)
+    -   Pass `isGroup={true}`
+    -   Pass `animalCount={animals.length}` (or `group.animal_ids?.length`)
+    -   Pass `hasPendingRequests` prop (check if `coordinatorPendingRequests.length > 0`)
+-   **Unassignment handler:**
+    ```typescript
+    const handleUnassign = async (newStatus: AnimalStatus, newVisibility: FosterVisibility, message: string) => {
+        try {
+            await unassignGroup(id, profile.organization_id, newStatus, newVisibility, message);
+            
+            // Invalidate queries (same pattern as assignment)
+            await queryClient.invalidateQueries({
+                queryKey: ["groups", user.id, profile.organization_id, id],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["group-animals", user.id, profile.organization_id, group?.animal_ids],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["foster", group.current_foster_id],
+            });
+            // Invalidate each animal's detail query
+            if (group?.animal_ids) {
+                for (const animalId of group.animal_ids) {
+                    await queryClient.invalidateQueries({
+                        queryKey: ["animals", user.id, profile.organization_id, animalId],
+                    });
+                }
+            }
+            await queryClient.invalidateQueries({
+                queryKey: ["fosters-needed-all-animals"],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["fosters-needed-groups"],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["coordinator-pending-requests-group", id, profile.organization_id],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["org-pending-requests"],
+            });
+            await queryClient.invalidateQueries({
+                queryKey: ["foster-requests"],
+            });
+            
+            // Close dialog
+            setIsUnassignmentDialogOpen(false);
+            
+            // Show success notification (use existing notification pattern)
+        } catch (error) {
+            // Handle error (show error message, keep dialog open)
+        }
+    };
+    ```
+-   **Error handling:**
+    -   Catch errors from `unassignGroup` and display user-friendly error messages
+    -   Use existing error handling patterns from assignment handlers
 
-**Testing:**
+---
 
--   Can unassign individual animals
--   Can unassign groups (all animals unassigned)
--   Status and visibility update correctly
--   Individual unassignment blocked for animals in groups
--   Messages sent to foster's conversation
--   React Query cache updates correctly
+**Testing (Phase 4):**
 
-**Deliverable:** Coordinators can unassign animals/groups with control over status, visibility, and messaging.
+-   Can unassign individual animals (not in groups)
+-   Can unassign groups (all animals in group are unassigned)
+-   Individual unassignment blocked for animals in groups (shows appropriate error message)
+-   Status updates correctly to selected value (defaults to `in_shelter` if not provided)
+-   Visibility updates correctly to selected value (defaults to `available_now` if not provided)
+-   `current_foster_id` is cleared on both `animals` and `animal_groups` tables
+-   Messages sent to foster's conversation with animal/group tags
+-   Default message sent if no custom message provided
+-   React Query cache updates correctly (all relevant queries invalidated)
+-   "Placement & Requests" section updates after unassignment
+-   Unassignment button only visible when animal/group is assigned
+-   Dialog shows warning if there are pending requests
+-   Pending requests are NOT automatically cancelled/denied on unassignment
+-   Success notifications display correctly
+-   Error handling works for network errors, validation errors, etc.
+
+**Deliverable:** Coordinators can unassign animals/groups with control over status, visibility, and messaging. Unassignment follows the same patterns as assignment for consistency and maintainability.
 
 ---
 
@@ -1128,12 +1351,21 @@ Your request for [Animal/Group Name] has not been approved.
 
 ### Phase 4: Unassignment
 
--   [ ] Can unassign individual animals
--   [ ] Can unassign groups (all animals unassigned)
--   [ ] Status and visibility update correctly
--   [ ] Individual unassignment blocked for animals in groups
--   [ ] Messages sent to foster's conversation
--   [ ] React Query cache updates correctly
+-   [ ] Can unassign individual animals (not in groups)
+-   [ ] Can unassign groups (all animals in group are unassigned)
+-   [ ] Individual unassignment blocked for animals in groups (shows appropriate error message)
+-   [ ] Status updates correctly to selected value (defaults to `in_shelter` if not provided)
+-   [ ] Visibility updates correctly to selected value (defaults to `available_now` if not provided)
+-   [ ] `current_foster_id` is cleared on both `animals` and `animal_groups` tables
+-   [ ] Messages sent to foster's conversation with animal/group tags
+-   [ ] Default message sent if no custom message provided
+-   [ ] React Query cache updates correctly (all relevant queries invalidated)
+-   [ ] "Placement & Requests" section updates after unassignment
+-   [ ] Unassignment button only visible when animal/group is assigned
+-   [ ] Dialog shows warning if there are pending requests
+-   [ ] Pending requests are NOT automatically cancelled/denied on unassignment
+-   [ ] Success notifications display correctly
+-   [ ] Error handling works for network errors, validation errors, etc.
 
 ### Phase 5: UI Improvements
 
