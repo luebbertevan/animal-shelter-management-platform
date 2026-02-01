@@ -7,11 +7,10 @@ import type {
 	LifeStage,
 	FosterVisibility,
 } from "../types";
+import { DEFAULT_PAGE_SIZE } from "./paginationConfig";
 
-/**
- * Default page size for pagination across list pages
- */
-export const DEFAULT_PAGE_SIZE = 40;
+// Re-export for backwards compatibility
+export { DEFAULT_PAGE_SIZE };
 
 // Generic type for Supabase query builder that supports chaining
 // This represents a query that can be chained with .eq(), .not(), .order(), etc.
@@ -197,6 +196,7 @@ export function countActiveFosterFilters(filters: FosterFilters): number {
 	let count = 0;
 	if (filters.currentlyFostering === true) count++;
 	if (filters.sortByCreatedAt) count++;
+	if (filters.isCoordinator !== undefined) count++;
 	return count;
 }
 

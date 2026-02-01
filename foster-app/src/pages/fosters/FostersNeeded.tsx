@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
@@ -9,6 +9,7 @@ import type {
 	LifeStage,
 	PhotoMetadata,
 	FosterVisibility,
+	FosterRequest,
 } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import AnimalCard from "../../components/animals/AnimalCard";
@@ -19,8 +20,11 @@ import FostersNeededFilters, {
 	type FostersNeededFilters as FostersNeededFiltersType,
 } from "../../components/fosters/FostersNeededFilters";
 import { FilterChip } from "../../components/shared/Filters";
+import CancelRequestDialog from "../../components/fosters/CancelRequestDialog";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroups } from "../../lib/groupQueries";
+import { fetchPendingRequestsForItems } from "../../lib/fosterRequestQueries";
+import { cancelFosterRequest } from "../../lib/fosterRequestUtils";
 import { isOffline } from "../../lib/errorUtils";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import {
@@ -40,9 +44,17 @@ type CombinedItem =
 	  };
 
 export default function FostersNeeded() {
-	const { user, profile } = useProtectedAuth();
+	const { user, profile, isCoordinator } = useProtectedAuth();
+	const queryClient = useQueryClient();
 	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
+
+	// Cancel dialog state
+	const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+	const [cancelTarget, setCancelTarget] = useState<{
+		requestId: string;
+		name: string;
+	} | null>(null);
 
 	// Parse filters, search, and pagination from URL
 	const {
@@ -51,17 +63,12 @@ export default function FostersNeeded() {
 		page,
 		pageSize,
 	} = useMemo(() => {
-		return queryParamsToFilters<FostersNeededFiltersType>(searchParams, {
-			type: "both",
-		});
+		return queryParamsToFilters<FostersNeededFiltersType>(searchParams, {});
 	}, [searchParams]);
 
-	// Ensure type defaults to "both" if not specified
+	// Type filter: undefined = both, "groups" = groups only, "singles" = singles only
 	const filters = useMemo(() => {
-		return {
-			...parsedFilters,
-			type: parsedFilters.type || "both",
-		};
+		return parsedFilters;
 	}, [parsedFilters]);
 
 	// Single fetch for all animals with all needed fields
@@ -136,6 +143,36 @@ export default function FostersNeeded() {
 		);
 	}, [allAnimals]);
 
+	// Collect all animal IDs and group IDs for pending request check
+	const allItemIds = useMemo(() => {
+		const animalIds = animalsData.map((a) => a.id);
+		const groupIds = groupsData.map((g) => g.id);
+		return { animalIds, groupIds };
+	}, [animalsData, groupsData]);
+
+	// Fetch pending requests for all displayed items (for fosters only)
+	const { data: pendingRequestsMap, refetch: refetchPendingRequests } =
+		useQuery<Map<string, FosterRequest>>({
+			queryKey: [
+				"pending-requests-batch",
+				user.id,
+				profile.organization_id,
+				allItemIds,
+			],
+			queryFn: async () => {
+				if (isCoordinator) {
+					return new Map();
+				}
+				return fetchPendingRequestsForItems(
+					allItemIds.animalIds,
+					allItemIds.groupIds,
+					user.id,
+					profile.organization_id
+				);
+			},
+			enabled: !isCoordinator,
+		});
+
 	// Create a map of animal ID to animal for quick lookup (only for animals in groups)
 	const animalMapById = useMemo(() => {
 		const map = new Map<string, Animal>();
@@ -205,13 +242,14 @@ export default function FostersNeeded() {
 		const shouldHideGroups = !!filters.sex;
 
 		// Determine type filter, but override to hide groups if sex filter is active
-		let typeFilter = filters.type || "both";
+		// undefined means "both", "groups" means groups only, "singles" means singles only
+		let typeFilter = filters.type; // undefined = both
 		if (shouldHideGroups) {
 			typeFilter = "singles"; // Force to singles only when groups should be hidden
 		}
 
 		// Add animals (singles only - not in groups)
-		if (typeFilter === "both" || typeFilter === "singles") {
+		if (typeFilter === undefined || typeFilter === "singles") {
 			animalsData.forEach((animal) => {
 				// Apply filters to animals
 				if (filters.priority === true && !animal.priority) return;
@@ -253,7 +291,7 @@ export default function FostersNeeded() {
 		// Add groups (only if not hidden by sex filter)
 		if (
 			!shouldHideGroups &&
-			(typeFilter === "both" || typeFilter === "groups")
+			(typeFilter === undefined || typeFilter === "groups")
 		) {
 			groupsWithVisibility.forEach(({ group, foster_visibility }) => {
 				if (!foster_visibility) return;
@@ -363,16 +401,12 @@ export default function FostersNeeded() {
 		const chips: Array<{ label: string; onRemove: () => void }> = [];
 
 		const createRemoveHandler =
-			(key: keyof FostersNeededFiltersType, value: undefined | "both") =>
+			(key: keyof FostersNeededFiltersType, value: undefined) =>
 			() => {
-				if (key === "type" && value === "both") {
-					handleFiltersChange({ ...filters, [key]: "both" });
-				} else {
-					handleFiltersChange({
-						...filters,
-						[key]: value as undefined,
-					});
-				}
+				handleFiltersChange({
+					...filters,
+					[key]: value,
+				});
 			};
 
 		if (filters.priority === true) {
@@ -382,14 +416,14 @@ export default function FostersNeeded() {
 			});
 		}
 
-		if (filters.type && filters.type !== "both") {
+		if (filters.type) {
 			const typeLabels: Record<string, string> = {
 				groups: "Groups Only",
 				singles: "Singles Only",
 			};
 			chips.push({
 				label: typeLabels[filters.type] || filters.type,
-				onRemove: createRemoveHandler("type", "both"),
+				onRemove: createRemoveHandler("type", undefined),
 			});
 		}
 
@@ -460,7 +494,7 @@ export default function FostersNeeded() {
 		if (filters.sex) count++;
 		if (filters.life_stage) count++;
 		if (filters.availability) count++;
-		if (filters.type && filters.type !== "both") count++;
+		if (filters.type) count++;
 		if (filters.sortByCreatedAt) count++;
 		return count;
 	}
@@ -472,9 +506,42 @@ export default function FostersNeeded() {
 	const isError = isErrorAnimals || isErrorGroups;
 	const error = animalsError || groupsError;
 
-	// Refetch both queries
+	// Refetch all queries
 	const handleRefetch = async () => {
-		await Promise.all([refetchAnimals(), refetchGroups()]);
+		await Promise.all([
+			refetchAnimals(),
+			refetchGroups(),
+			refetchPendingRequests(),
+		]);
+	};
+
+	// Handle cancel request
+	const handleCancelRequest = useCallback(
+		async (requestId: string, name: string) => {
+			setCancelTarget({ requestId, name });
+			setCancelDialogOpen(true);
+		},
+		[]
+	);
+
+	// Confirm cancel request
+	const handleConfirmCancel = async (message: string) => {
+		if (!cancelTarget) return;
+
+		await cancelFosterRequest(
+			cancelTarget.requestId,
+			profile.organization_id,
+			message
+		);
+
+		// Invalidate queries
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-all-animals"],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: ["fosters-needed-groups"],
+		});
+		await refetchPendingRequests();
 	};
 
 	return (
@@ -611,6 +678,10 @@ export default function FostersNeeded() {
 								<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 									{paginatedItems.map((item) => {
 										if (item.type === "animal") {
+											const pendingRequest =
+												pendingRequestsMap?.get(
+													item.data.id
+												);
 											return (
 												<AnimalCard
 													key={`animal-${item.data.id}`}
@@ -619,9 +690,29 @@ export default function FostersNeeded() {
 														item.data
 															.foster_visibility
 													}
+													hasPendingRequest={
+														!!pendingRequest
+													}
+													requestId={pendingRequest?.id}
+													onCancelRequest={
+														pendingRequest
+															? () =>
+																	handleCancelRequest(
+																		pendingRequest.id,
+																		item
+																			.data
+																			.name ||
+																			"Unnamed Animal"
+																	)
+															: undefined
+													}
 												/>
 											);
 										} else {
+											const pendingRequest =
+												pendingRequestsMap?.get(
+													item.data.id
+												);
 											return (
 												<GroupCard
 													key={`group-${item.data.id}`}
@@ -629,6 +720,22 @@ export default function FostersNeeded() {
 													animalData={animalDataMap}
 													foster_visibility={
 														item.foster_visibility
+													}
+													hasPendingRequest={
+														!!pendingRequest
+													}
+													requestId={pendingRequest?.id}
+													onCancelRequest={
+														pendingRequest
+															? () =>
+																	handleCancelRequest(
+																		pendingRequest.id,
+																		item
+																			.data
+																			.name ||
+																			"Unnamed Group"
+																	)
+															: undefined
 													}
 												/>
 											);
@@ -647,6 +754,19 @@ export default function FostersNeeded() {
 					</>
 				)}
 			</div>
+
+			{/* Cancel Request Dialog */}
+			{cancelTarget && (
+				<CancelRequestDialog
+					isOpen={cancelDialogOpen}
+					onClose={() => {
+						setCancelDialogOpen(false);
+						setCancelTarget(null);
+					}}
+					onConfirm={handleConfirmCancel}
+					animalOrGroupName={cancelTarget.name}
+				/>
+			)}
 		</div>
 	);
 }

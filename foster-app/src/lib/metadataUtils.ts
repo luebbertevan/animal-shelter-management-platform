@@ -1,4 +1,4 @@
-import type { FosterVisibility } from "../types";
+import type { AnimalStatus, FosterVisibility } from "../types";
 
 /**
  * Format a date string for display
@@ -49,4 +49,52 @@ export function formatFosterVisibility(visibility: FosterVisibility): string {
 		default:
 			return visibility;
 	}
+}
+
+/**
+ * Get the default foster visibility value based on animal status
+ * This implements the one-directional sync rule: status changes update visibility
+ */
+export function getFosterVisibilityFromStatus(
+	animalStatus: AnimalStatus
+): FosterVisibility {
+	switch (animalStatus) {
+		case "in_shelter":
+			return "available_now";
+		case "medical_hold":
+		case "transferring":
+			return "available_future";
+		case "in_foster":
+		case "adopted":
+			return "not_visible";
+	}
+}
+
+/**
+ * Format assignment counts (animals and groups) into badge text
+ * Returns null if both counts are 0
+ */
+export function getAssignmentBadgeText(
+	animalCount: number,
+	groupCount: number
+): string | null {
+	if (animalCount === 0 && groupCount === 0) {
+		return null;
+	}
+
+	const parts: string[] = [];
+
+	if (groupCount > 0) {
+		parts.push(
+			`${groupCount} ${groupCount === 1 ? "group" : "groups"}`
+		);
+	}
+
+	if (animalCount > 0) {
+		parts.push(
+			`${animalCount} ${animalCount === 1 ? "animal" : "animals"}`
+		);
+	}
+
+	return parts.join(", ");
 }

@@ -14,11 +14,12 @@ import { FilterChip } from "../../components/shared/Filters";
 import { fetchFosters, fetchFostersCount } from "../../lib/fosterQueries";
 import { fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroups } from "../../lib/groupQueries";
-import { isOffline, getErrorMessage } from "../../lib/errorUtils";
+import { isOffline } from "../../lib/errorUtils";
 import {
 	queryParamsToFilters,
 	filtersToQueryParams,
 } from "../../lib/filterUtils";
+import { getAssignmentBadgeText } from "../../lib/metadataUtils";
 import type { User, Foster } from "../../types";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
@@ -28,18 +29,12 @@ async function fetchFosterConversation(userId: string, organizationId: string) {
 		.eq("type", "foster_chat")
 		.eq("foster_profile_id", userId)
 		.eq("organization_id", organizationId)
-		.single();
+		.maybeSingle();
 
 	if (error) {
-		if (error.code === "PGRST116") {
-			return null;
-		}
-		throw new Error(
-			getErrorMessage(
-				error,
-				"Failed to load conversation. Please try again."
-			)
-		);
+		// Log error but don't fail - return null gracefully
+		console.error("Error fetching foster conversation:", error);
+		return null;
 	}
 
 	return data?.id || null;
@@ -51,31 +46,34 @@ async function fetchCoordinatorGroupChat(organizationId: string) {
 		.select("id")
 		.eq("type", "coordinator_group")
 		.eq("organization_id", organizationId)
-		.single();
+		.maybeSingle();
 
 	if (error) {
-		if (error.code === "PGRST116") {
-			return null;
-		}
-		throw new Error(
-			getErrorMessage(
-				error,
-				"Failed to load conversation. Please try again."
-			)
-		);
+		// Log error but don't fail - return null gracefully
+		console.error("Error fetching coordinator group chat:", error);
+		return null;
 	}
 
 	return data?.id || null;
+}
+
+interface AssignmentCounts {
+	animalCount: number;
+	groupCount: number;
 }
 
 function FosterCard({
 	foster,
 	currentUserId,
 	organizationId,
+	pendingRequestCount,
+	assignmentCounts,
 }: {
 	foster: User;
 	currentUserId: string;
 	organizationId: string;
+	pendingRequestCount?: number;
+	assignmentCounts?: AssignmentCounts;
 }) {
 	// Fetch conversation ID for this foster
 	const { data: conversationId } = useQuery<string | null>({
@@ -98,6 +96,14 @@ function FosterCard({
 	// Don't show chat icon for current user
 	const showChatIcon = foster.id !== currentUserId && conversationId;
 
+
+	const assignmentBadgeText = assignmentCounts
+		? getAssignmentBadgeText(
+				assignmentCounts.animalCount,
+				assignmentCounts.groupCount
+			)
+		: null;
+
 	return (
 		<div className="bg-white rounded-lg shadow-sm p-5 border border-pink-100 hover:shadow-md transition-shadow relative">
 			<div className="flex items-start justify-between mb-3">
@@ -107,6 +113,21 @@ function FosterCard({
 					</h2>
 				</Link>
 				<div className="flex items-center gap-2 ml-2">
+					{assignmentBadgeText && (
+						<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+							{assignmentBadgeText}
+						</span>
+					)}
+					{typeof pendingRequestCount === "number" &&
+						pendingRequestCount > 0 &&
+						foster.role === "foster" && (
+							<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+								{pendingRequestCount}{" "}
+								{pendingRequestCount === 1
+									? "request"
+									: "requests"}
+							</span>
+						)}
 					{foster.role === "coordinator" && (
 						<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
 							Coordinator
@@ -301,11 +322,135 @@ export default function FostersList() {
 		return filteredFosters;
 	}, [filteredFosters, needsAllFosters, page, pageSize]);
 
+	// Fetch pending request counts for fosters on the current page
+	const fosterIdsOnPage = useMemo(
+		() => fosters.map((foster) => foster.id),
+		[fosters]
+	);
+
+	const { data: pendingCounts = new Map<string, number>() } = useQuery<
+		Map<string, number>,
+		Error
+	>({
+		queryKey: [
+			"foster-pending-counts",
+			profile.organization_id,
+			fosterIdsOnPage,
+		],
+		queryFn: async () => {
+			if (fosterIdsOnPage.length === 0) {
+				return new Map<string, number>();
+			}
+
+			const { data, error } = await supabase
+				.from("foster_requests")
+				.select("foster_profile_id")
+				.eq("organization_id", profile.organization_id)
+				.eq("status", "pending")
+				.in("foster_profile_id", fosterIdsOnPage);
+
+			if (error) {
+				throw error;
+			}
+
+			const map = new Map<string, number>();
+			(data as Array<{ foster_profile_id: string }>).forEach((row) => {
+				const id = row.foster_profile_id;
+				if (!id) return;
+				map.set(id, (map.get(id) ?? 0) + 1);
+			});
+
+			return map;
+		},
+		enabled: fosterIdsOnPage.length > 0,
+	});
+
+	// Fetch assignment counts (animals and groups) for fosters on the current page
+	const { data: assignmentCounts = new Map<string, AssignmentCounts>() } =
+		useQuery<Map<string, AssignmentCounts>, Error>({
+			queryKey: [
+				"foster-assignment-counts",
+				profile.organization_id,
+				fosterIdsOnPage,
+			],
+			queryFn: async () => {
+				if (fosterIdsOnPage.length === 0) {
+					return new Map<string, AssignmentCounts>();
+				}
+
+				// Fetch individual animals (not in groups) assigned to these fosters
+				const { data: animalsData, error: animalsError } = await supabase
+					.from("animals")
+					.select("current_foster_id")
+					.eq("organization_id", profile.organization_id)
+					.in("current_foster_id", fosterIdsOnPage)
+					.is("group_id", null);
+
+				if (animalsError) {
+					throw animalsError;
+				}
+
+				// Fetch groups assigned to these fosters
+				const { data: groupsData, error: groupsError } = await supabase
+					.from("animal_groups")
+					.select("current_foster_id")
+					.eq("organization_id", profile.organization_id)
+					.in("current_foster_id", fosterIdsOnPage);
+
+				if (groupsError) {
+					throw groupsError;
+				}
+
+				// Count animals per foster
+				const animalCounts = new Map<string, number>();
+				(animalsData as Array<{ current_foster_id: string }>).forEach(
+					(row) => {
+						const id = row.current_foster_id;
+						if (!id) return;
+						animalCounts.set(id, (animalCounts.get(id) ?? 0) + 1);
+					}
+				);
+
+				// Count groups per foster
+				const groupCounts = new Map<string, number>();
+				(groupsData as Array<{ current_foster_id: string }>).forEach(
+					(row) => {
+						const id = row.current_foster_id;
+						if (!id) return;
+						groupCounts.set(id, (groupCounts.get(id) ?? 0) + 1);
+					}
+				);
+
+				// Combine into AssignmentCounts map
+				const map = new Map<string, AssignmentCounts>();
+				fosterIdsOnPage.forEach((fosterId) => {
+					const animalCount = animalCounts.get(fosterId) ?? 0;
+					const groupCount = groupCounts.get(fosterId) ?? 0;
+					if (animalCount > 0 || groupCount > 0) {
+						map.set(fosterId, { animalCount, groupCount });
+					}
+				});
+
+				return map;
+			},
+			enabled: fosterIdsOnPage.length > 0,
+		});
+
 	// Fetch total count for pagination (with search, but "currently fostering" handled client-side)
 	const { data: totalCount = 0 } = useQuery({
-		queryKey: ["fosters-count", profile.organization_id, searchTerm],
+		queryKey: [
+			"fosters-count",
+			profile.organization_id,
+			searchTerm,
+			filters,
+		],
 		queryFn: () =>
-			fetchFostersCount(profile.organization_id, true, searchTerm),
+			fetchFostersCount(
+				profile.organization_id,
+				true,
+				searchTerm,
+				filters
+			),
 		enabled: isCoordinator && !needsAllFosters,
 	});
 
@@ -358,6 +503,20 @@ export default function FostersList() {
 					handleFiltersChange({
 						...filters,
 						currentlyFostering: undefined,
+					}),
+			});
+		}
+
+		if (filters.isCoordinator !== undefined) {
+			chips.push({
+				label:
+					filters.isCoordinator === true
+						? "Coordinators Only"
+						: "Fosters Only",
+				onRemove: () =>
+					handleFiltersChange({
+						...filters,
+						isCoordinator: undefined,
 					}),
 			});
 		}
@@ -532,6 +691,12 @@ export default function FostersList() {
 											currentUserId={user.id}
 											organizationId={
 												profile.organization_id
+											}
+											pendingRequestCount={
+												pendingCounts.get(foster.id)
+											}
+											assignmentCounts={
+												assignmentCounts.get(foster.id)
 											}
 										/>
 									))}

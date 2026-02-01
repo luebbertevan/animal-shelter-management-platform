@@ -1,13 +1,20 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type { MessageWithLinks, MessageWithMetadata } from "../../types";
+import type {
+	LifeStage,
+	MessageWithLinks,
+	MessageWithMetadata,
+	PhotoMetadata,
+} from "../../types";
 import { getErrorMessage } from "../../lib/errorUtils";
 import { transformMessageWithLinks } from "../../lib/messageLinkUtils";
 import MessageBubble from "./MessageBubble";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import Button from "../ui/Button";
+import { fetchAnimalsByIds } from "../../lib/animalQueries";
+import { TAG_TYPES } from "../../types";
 
 interface MessageListProps {
 	conversationId: string;
@@ -100,7 +107,7 @@ export default function MessageList({
 	conversationId,
 	scrollableContainerRef: parentScrollableContainerRef,
 }: MessageListProps) {
-	const { user } = useProtectedAuth();
+	const { user, profile } = useProtectedAuth();
 	const queryClient = useQueryClient();
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -126,6 +133,58 @@ export default function MessageList({
 		queryFn: () => fetchMessages(conversationId),
 		enabled: !!conversationId,
 	});
+
+	// Collect unique animal IDs for any GROUP tags currently in the message list.
+	// This lets GroupCard fall back to individual animal photos when a group has no group photos.
+	const groupTaggedAnimalIds = useMemo(() => {
+		const idSet = new Set<string>();
+		(messages || []).forEach((msg) => {
+			(msg.tags || []).forEach((tag) => {
+				if (
+					tag.type === TAG_TYPES.GROUP &&
+					tag.group &&
+					Array.isArray(tag.group.animal_ids)
+				) {
+					tag.group.animal_ids.forEach((animalId) => {
+						if (animalId) idSet.add(animalId);
+					});
+				}
+			});
+		});
+		return Array.from(idSet).sort();
+	}, [messages]);
+
+	// Fetch only the animals referenced by those group tags (minimal fields for the card UI).
+	const { data: animalsForTaggedGroups = [] } = useQuery({
+		queryKey: [
+			"messages-tagged-group-animals",
+			profile.organization_id,
+			groupTaggedAnimalIds,
+		],
+		queryFn: async () => {
+			return fetchAnimalsByIds(groupTaggedAnimalIds, profile.organization_id, {
+				fields: ["id", "photos", "life_stage"],
+			});
+		},
+		enabled: groupTaggedAnimalIds.length > 0,
+	});
+
+	// Map for GroupCard: Key = animal ID, Value = { photos, life_stage }
+	const animalDataMap = useMemo(() => {
+		const map = new Map<
+			string,
+			{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
+		>();
+		animalsForTaggedGroups.forEach((animal) => {
+			if (animal.id) {
+				map.set(animal.id, {
+					photos: animal.photos,
+					life_stage: animal.life_stage,
+				});
+			}
+		});
+		return map;
+	}, [animalsForTaggedGroups]);
 
 	// Track oldest message date and whether there are more messages when data loads
 	// Only update on initial load, not when messages change due to pagination
@@ -543,6 +602,7 @@ export default function MessageList({
 							tags: message.tags,
 						}}
 						isOwnMessage={isOwnMessage}
+						animalDataMap={animalDataMap}
 					/>
 				);
 			})}

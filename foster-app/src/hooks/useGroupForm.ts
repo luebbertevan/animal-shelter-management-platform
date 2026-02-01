@@ -1,6 +1,7 @@
 import { useState, useEffect, startTransition } from "react";
 import type { AnimalGroup, AnimalStatus, FosterVisibility } from "../types";
 import { getEmptyFormState, groupToFormState } from "../lib/groupFormUtils";
+import { getFosterVisibilityFromStatus } from "../lib/metadataUtils";
 
 export interface UseGroupFormOptions {
 	initialGroup?: AnimalGroup | null;
@@ -100,22 +101,6 @@ export function useGroupForm(
 				return [...prev, animalId];
 			}
 		});
-	};
-
-	// Helper function to get foster_visibility from status (same as in useAnimalForm)
-	const getFosterVisibilityFromStatus = (
-		animalStatus: AnimalStatus
-	): FosterVisibility => {
-		switch (animalStatus) {
-			case "in_shelter":
-				return "available_now";
-			case "medical_hold":
-			case "transferring":
-				return "available_future";
-			case "in_foster":
-			case "adopted":
-				return "not_visible";
-		}
 	};
 
 	// Stage status changes for all selected animals

@@ -33,7 +33,12 @@ export default function ConfirmModal({
 		<>
 			{/* Backdrop */}
 			<div
-				className="fixed inset-0 bg-black bg-opacity-50 z-40"
+				className="fixed inset-0 z-40"
+				style={{
+					backgroundColor: "rgba(0, 0, 0, 0.65)",
+					backdropFilter: "blur(4px)",
+					WebkitBackdropFilter: "blur(4px)",
+				}}
 				onClick={onCancel}
 			/>
 

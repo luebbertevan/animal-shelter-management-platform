@@ -16,6 +16,8 @@ import GroupCard from "../../components/animals/GroupCard";
 import { fetchFosterById } from "../../lib/fosterQueries";
 import { fetchAnimalsByFosterId, fetchAnimals } from "../../lib/animalQueries";
 import { fetchGroupsByFosterId } from "../../lib/groupQueries";
+import { fetchMyPendingRequests } from "../../lib/fosterRequestQueries";
+import type { FosterRequest, AnimalGroup as AnimalGroupType } from "../../types";
 import { isOffline, getErrorMessage } from "../../lib/errorUtils";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
@@ -250,6 +252,101 @@ export default function FosterDetail() {
 	const hasAssignedItems =
 		filteredAnimals.length > 0 || assignedGroups.length > 0;
 
+	// Fetch pending requests for this foster (as viewed by coordinator)
+	const {
+		data: pendingRequests = [],
+		isLoading: isLoadingPendingRequests,
+	} = useQuery<FosterRequest[], Error>({
+		queryKey: [
+			"foster-pending-requests",
+			user.id,
+			profile.organization_id,
+			foster?.id,
+		],
+		queryFn: () => {
+			if (!foster?.id) return Promise.resolve([]);
+			return fetchMyPendingRequests(foster.id, profile.organization_id);
+		},
+		enabled: !!foster,
+	});
+
+	const pendingAnimalIds = useMemo(
+		() =>
+			pendingRequests
+				.map((r) => r.animal_id)
+				.filter((id): id is string => !!id),
+		[pendingRequests]
+	);
+
+	const pendingGroupIds = useMemo(
+		() =>
+			pendingRequests
+				.map((r) => r.group_id)
+				.filter((id): id is string => !!id),
+		[pendingRequests]
+	);
+
+	// Fetch animals for pending requests
+	const { data: pendingAnimals = [] } = useQuery<Animal[], Error>({
+		queryKey: [
+			"foster-pending-animals",
+			user.id,
+			profile.organization_id,
+			foster?.id,
+			pendingAnimalIds,
+		],
+		queryFn: async () => {
+			if (pendingAnimalIds.length === 0) return [];
+			const { data, error } = await supabase
+				.from("animals")
+				.select(
+					"id, name, status, sex_spay_neuter_status, priority, group_id, photos, date_of_birth"
+				)
+				.in("id", pendingAnimalIds)
+				.eq("organization_id", profile.organization_id);
+
+			if (error) {
+				throw error;
+			}
+
+			return (data as Animal[]) || [];
+		},
+		enabled: !!foster && pendingAnimalIds.length > 0,
+	});
+
+	// Fetch groups for pending requests
+	const { data: pendingGroups = [] } = useQuery<AnimalGroupType[], Error>({
+		queryKey: [
+			"foster-pending-groups",
+			user.id,
+			profile.organization_id,
+			foster?.id,
+			pendingGroupIds,
+		],
+		queryFn: async () => {
+			if (pendingGroupIds.length === 0) return [];
+			const { data, error } = await supabase
+				.from("animal_groups")
+				.select(
+					"id, name, description, animal_ids, priority, group_photos"
+				)
+				.in("id", pendingGroupIds)
+				.eq("organization_id", profile.organization_id);
+
+			if (error) {
+				throw error;
+			}
+
+			return (data as AnimalGroupType[]) || [];
+		},
+		enabled: !!foster && pendingGroupIds.length > 0,
+	});
+
+	const hasPendingItems =
+		pendingAnimals.length > 0 || pendingGroups.length > 0;
+	const showPendingSection =
+		isLoadingPendingRequests || hasPendingItems;
+
 	// Fetch conversation ID for the foster/coordinator
 	const { data: conversationId } = useQuery<string | null>({
 		queryKey: [
@@ -435,6 +532,34 @@ export default function FosterDetail() {
 						)}
 					</div>
 				</div>
+
+				{/* Pending Requests */}
+				{showPendingSection && (
+					<div className="mb-4">
+						<h2 className="text-lg font-semibold text-gray-900 mb-4">
+							Pending Requests
+						</h2>
+						{isLoadingPendingRequests ? (
+							<LoadingSpinner message="Loading pending requests..." />
+						) : (
+							<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+								{pendingGroups.map((group) => (
+									<GroupCard
+										key={group.id}
+										group={group}
+										animalData={animalDataMap}
+									/>
+								))}
+								{pendingAnimals.map((animal) => (
+									<AnimalCard
+										key={animal.id}
+										animal={animal}
+									/>
+								))}
+							</div>
+						)}
+					</div>
+				)}
 
 				{/* Currently Fostering */}
 				{hasAssignedItems && (

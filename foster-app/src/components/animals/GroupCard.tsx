@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type {
 	AnimalGroup,
 	LifeStage,
@@ -34,6 +34,16 @@ interface GroupCardProps {
 		{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
 	>;
 	foster_visibility?: FosterVisibility; // Optional visibility badge for Fosters Needed page
+	/** If true, shows "Requested" badge instead of "Foster Pending" (for current user's pending request) */
+	hasPendingRequest?: boolean;
+	/** Request ID for cancellation (needed when hasPendingRequest is true) */
+	requestId?: string;
+	/** Callback when cancel request badge is clicked */
+	onCancelRequest?: () => void;
+	/** Optional coordinator badge text (e.g. "Requested by Jane" or "3 pending requests") */
+	requestedByLabel?: string;
+	/** If provided, clicking the requestedBy badge navigates to the foster profile */
+	requestedByFosterId?: string;
 }
 
 // Helper function to get visibility badge text and styling (same as AnimalCard)
@@ -74,10 +84,26 @@ export default function GroupCard({
 	group,
 	animalData,
 	foster_visibility,
+	hasPendingRequest = false,
+	onCancelRequest,
+	requestedByLabel,
+	requestedByFosterId,
 }: GroupCardProps) {
+	const navigate = useNavigate();
 	const animalCount = group.animal_ids?.length || 0;
 	const isEmpty = animalCount === 0;
-	const visibilityBadge = getVisibilityBadge(foster_visibility);
+	// If user has a pending request, show "Requested" badge instead of visibility badge
+	const visibilityBadge = hasPendingRequest
+		? null
+		: getVisibilityBadge(foster_visibility);
+
+	const handleRequestedByClick = (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (requestedByFosterId) {
+			navigate(`/fosters/${requestedByFosterId}`);
+		}
+	};
 
 	// Determine photo to display
 	let displayPhotos: string[] = [];
@@ -163,19 +189,44 @@ export default function GroupCard({
 						/>
 					</svg>
 				)}
-				{/* Badges overlay - priority and visibility (same position as AnimalCard) */}
+				{/* Badges overlay - priority, visibility, and request status (same position as AnimalCard) */}
 				<div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
 					{group.priority && (
 						<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
 							High Priority
 						</span>
 					)}
-					{visibilityBadge && (
-						<span
-							className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${visibilityBadge.className}`}
+					{!hasPendingRequest && requestedByLabel && (
+						<button
+							type="button"
+							onClick={handleRequestedByClick}
+							disabled={!requestedByFosterId}
+							className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors disabled:opacity-100 disabled:cursor-default max-w-[11rem] sm:max-w-[13rem] truncate"
+							title={requestedByLabel}
 						>
-							{visibilityBadge.text}
-						</span>
+							{requestedByLabel}
+						</button>
+					)}
+					{hasPendingRequest ? (
+						<button
+							type="button"
+							onClick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								onCancelRequest?.();
+							}}
+							className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors cursor-pointer"
+						>
+							Requested
+						</button>
+					) : (
+						visibilityBadge && (
+							<span
+								className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${visibilityBadge.className}`}
+							>
+								{visibilityBadge.text}
+							</span>
+						)
 					)}
 				</div>
 			</div>

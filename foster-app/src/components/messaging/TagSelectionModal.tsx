@@ -14,7 +14,9 @@ import AnimalCard from "../animals/AnimalCard";
 import GroupCard from "../animals/GroupCard";
 import Pagination from "../shared/Pagination";
 import LoadingSpinner from "../ui/LoadingSpinner";
+import { FilterChip } from "../shared/Filters";
 import { TAG_TYPES } from "../../types";
+import { PAGE_SIZES } from "../../lib/paginationConfig";
 
 interface TagSelectionModalProps {
 	isOpen: boolean;
@@ -24,7 +26,7 @@ interface TagSelectionModalProps {
 	maxTags: number;
 }
 
-const PAGE_SIZE = 40;
+const PAGE_SIZE = PAGE_SIZES.TAG_SELECTION;
 
 export default function TagSelectionModal({
 	isOpen,
@@ -213,6 +215,157 @@ export default function TagSelectionModal({
 		setGroupPage(1); // Reset to page 1 when filters change
 	};
 
+	// Generate active filter chips for animals tab
+	const activeAnimalFilterChips = useMemo(() => {
+		const chips: Array<{ label: string; onRemove: () => void }> = [];
+
+		const createRemoveHandler =
+			(key: keyof AnimalFilters, value: undefined) => () => {
+				handleAnimalFiltersChange({ ...animalFilters, [key]: value });
+			};
+
+		if (animalFilters.priority === true) {
+			chips.push({
+				label: "High Priority",
+				onRemove: createRemoveHandler("priority", undefined),
+			});
+		}
+
+		if (animalFilters.sex) {
+			const sexLabels: Record<string, string> = {
+				male: "Male",
+				female: "Female",
+				spayed_female: "Spayed Female",
+				neutered_male: "Neutered Male",
+			};
+			chips.push({
+				label: `Sex: ${sexLabels[animalFilters.sex] || animalFilters.sex}`,
+				onRemove: createRemoveHandler("sex", undefined),
+			});
+		}
+
+		if (animalFilters.life_stage) {
+			const lifeStageLabels: Record<string, string> = {
+				kitten: "Kitten",
+				adult: "Adult",
+				senior: "Senior",
+				unknown: "Unknown",
+			};
+			chips.push({
+				label: `Life Stage: ${
+					lifeStageLabels[animalFilters.life_stage] ||
+					animalFilters.life_stage
+				}`,
+				onRemove: createRemoveHandler("life_stage", undefined),
+			});
+		}
+
+		if (animalFilters.inGroup === true) {
+			chips.push({
+				label: "In Group",
+				onRemove: createRemoveHandler("inGroup", undefined),
+			});
+		} else if (animalFilters.inGroup === false) {
+			chips.push({
+				label: "Not In Group",
+				onRemove: createRemoveHandler("inGroup", undefined),
+			});
+		}
+
+		if (animalFilters.status) {
+			const statusLabels: Record<string, string> = {
+				in_foster: "In Foster",
+				adopted: "Adopted",
+				medical_hold: "Medical Hold",
+				in_shelter: "In Shelter",
+				transferring: "Transferring",
+			};
+			chips.push({
+				label: `Status: ${
+					statusLabels[animalFilters.status] || animalFilters.status
+				}`,
+				onRemove: createRemoveHandler("status", undefined),
+			});
+		}
+
+		if (animalFilters.foster_visibility) {
+			const visibilityLabels: Record<string, string> = {
+				available_now: "Available Now",
+				available_future: "Available Future",
+				foster_pending: "Foster Pending",
+				not_visible: "Not Visible",
+			};
+			chips.push({
+				label: `Visibility: ${
+					visibilityLabels[animalFilters.foster_visibility] ||
+					animalFilters.foster_visibility
+				}`,
+				onRemove: createRemoveHandler("foster_visibility", undefined),
+			});
+		}
+
+		if (animalFilters.sortByCreatedAt) {
+			chips.push({
+				label: `Sort: ${
+					animalFilters.sortByCreatedAt === "oldest"
+						? "Oldest First"
+						: "Newest First"
+				}`,
+				onRemove: createRemoveHandler("sortByCreatedAt", undefined),
+			});
+		}
+
+		return chips;
+		
+	}, [animalFilters]);
+
+	// Generate active filter chips for groups tab
+	const activeGroupFilterChips = useMemo(() => {
+		const chips: Array<{ label: string; onRemove: () => void }> = [];
+
+		const createRemoveHandler =
+			(key: keyof GroupFilters, value: undefined) => () => {
+				handleGroupFiltersChange({ ...groupFilters, [key]: value });
+			};
+
+		if (groupFilters.priority === true) {
+			chips.push({
+				label: "High Priority",
+				onRemove: createRemoveHandler("priority", undefined),
+			});
+		}
+
+		if (groupFilters.foster_visibility) {
+			const visibilityLabels: Record<string, string> = {
+				available_now: "Available Now",
+				available_future: "Available Future",
+				foster_pending: "Foster Pending",
+				not_visible: "Not Visible",
+			};
+			chips.push({
+				label: `Visibility: ${
+					visibilityLabels[groupFilters.foster_visibility] ||
+					groupFilters.foster_visibility
+				}`,
+				onRemove: createRemoveHandler("foster_visibility", undefined),
+			});
+		}
+
+		if (groupFilters.sortByCreatedAt) {
+			chips.push({
+				label: `Sort: ${
+					groupFilters.sortByCreatedAt === "oldest"
+						? "Oldest First"
+						: "Newest First"
+				}`,
+				onRemove: createRemoveHandler("sortByCreatedAt", undefined),
+			});
+		}
+
+		return chips;
+
+	}, [groupFilters]);
+
 	const handleAnimalSelect = (animalId: string, animalName: string) => {
 		// Check max tags limit
 		if (selectedTags.length >= maxTags) {
@@ -332,6 +485,21 @@ export default function TagSelectionModal({
 									/>
 								</div>
 
+								{/* Active Filter Chips */}
+								{activeAnimalFilterChips.length > 0 && (
+									<div className="flex flex-wrap gap-2">
+										{activeAnimalFilterChips.map(
+											(chip, index) => (
+												<FilterChip
+													key={index}
+													label={chip.label}
+													onRemove={chip.onRemove}
+												/>
+											)
+										)}
+									</div>
+								)}
+
 								{/* Loading State */}
 								{isLoadingAnimals && (
 									<div className="flex justify-center py-8">
@@ -404,6 +572,21 @@ export default function TagSelectionModal({
 										}
 									/>
 								</div>
+
+								{/* Active Filter Chips */}
+								{activeGroupFilterChips.length > 0 && (
+									<div className="flex flex-wrap gap-2">
+										{activeGroupFilterChips.map(
+											(chip, index) => (
+												<FilterChip
+													key={index}
+													label={chip.label}
+													onRemove={chip.onRemove}
+												/>
+											)
+										)}
+									</div>
+								)}
 
 								{/* Loading State */}
 								{isLoadingGroups && (
