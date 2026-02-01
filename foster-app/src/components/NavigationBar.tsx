@@ -1,8 +1,14 @@
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { HomeIcon, ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
+import {
+	HomeIcon,
+	ChatBubbleLeftIcon,
+	Bars3Icon,
+	XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { useProtectedAuth } from "../hooks/useProtectedAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
+import { useState, useEffect, useRef } from "react";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
 	const { data, error } = await supabase
@@ -42,6 +48,8 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
 export default function NavigationBar() {
 	const navigate = useNavigate();
 	const { user, profile, isFoster, isCoordinator } = useProtectedAuth();
+	const [isMenuOpen, setIsMenuOpen] = useState(false);
+	const menuRef = useRef<HTMLDivElement>(null);
 
 	// Fetch conversation ID only for fosters
 	const { data: conversationId } = useQuery<string | null>({
@@ -51,6 +59,31 @@ export default function NavigationBar() {
 		},
 		enabled: isFoster,
 	});
+
+	// Close menu when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				menuRef.current &&
+				!menuRef.current.contains(event.target as Node)
+			) {
+				setIsMenuOpen(false);
+			}
+		};
+
+		if (isMenuOpen) {
+			document.addEventListener("mousedown", handleClickOutside);
+		}
+
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+		};
+	}, [isMenuOpen]);
+
+	// Close menu handler
+	const handleMenuLinkClick = () => {
+		setIsMenuOpen(false);
+	};
 
 	const handleChatClick = () => {
 		if (isCoordinator) {
@@ -83,27 +116,29 @@ export default function NavigationBar() {
 					</div>
 
 					<div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+						{/* Desktop navigation - hidden on mobile for coordinators */}
 						{isFoster ? (
 							// Fosters see "Fosters Needed" instead of "Animals" and "Groups"
 							<NavLink to="/fosters-needed">
 								Fosters Needed
 							</NavLink>
 						) : (
-							// Coordinators see "Animals", "Groups", and "Fosters Needed"
-							<>
+							// Coordinators see "Animals", "Groups", and "Fosters Needed" on desktop
+							<div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
 								<NavLink to="/animals">Animals</NavLink>
 								<NavLink to="/groups">Groups</NavLink>
 								<NavLink to="/fosters-needed">
 									Fosters Needed
 								</NavLink>
-							</>
+							</div>
 						)}
 						{isCoordinator && (
-							<>
+							<div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
 								<NavLink to="/fosters">Fosters</NavLink>
 								<NavLink to="/foster-requests">Requests</NavLink>
-							</>
+							</div>
 						)}
+
 						<div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-2 md:ml-4">
 							<button
 								onClick={() => navigate("/dashboard")}
@@ -120,6 +155,65 @@ export default function NavigationBar() {
 							>
 								<ChatBubbleLeftIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
 							</button>
+
+							{/* Hamburger menu button - only for coordinators on mobile */}
+							{isCoordinator && (
+								<div className="md:hidden relative" ref={menuRef}>
+									<button
+										onClick={() => setIsMenuOpen(!isMenuOpen)}
+										className="flex items-center justify-center p-2 md:p-3 rounded-lg hover:bg-gray-100 transition-colors"
+										aria-label="Menu"
+										aria-expanded={isMenuOpen}
+									>
+										{isMenuOpen ? (
+											<XMarkIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
+										) : (
+											<Bars3Icon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
+										)}
+									</button>
+
+									{/* Dropdown menu */}
+									{isMenuOpen && (
+										<div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+											<div onClick={handleMenuLinkClick}>
+												<NavLink to="/animals">
+													<div className="px-4 py-2 hover:bg-gray-50">
+														Animals
+													</div>
+												</NavLink>
+											</div>
+											<div onClick={handleMenuLinkClick}>
+												<NavLink to="/groups">
+													<div className="px-4 py-2 hover:bg-gray-50">
+														Groups
+													</div>
+												</NavLink>
+											</div>
+											<div onClick={handleMenuLinkClick}>
+												<NavLink to="/fosters-needed">
+													<div className="px-4 py-2 hover:bg-gray-50">
+														Fosters Needed
+													</div>
+												</NavLink>
+											</div>
+											<div onClick={handleMenuLinkClick}>
+												<NavLink to="/fosters">
+													<div className="px-4 py-2 hover:bg-gray-50">
+														Fosters
+													</div>
+												</NavLink>
+											</div>
+											<div onClick={handleMenuLinkClick}>
+												<NavLink to="/foster-requests">
+													<div className="px-4 py-2 hover:bg-gray-50">
+														Requests
+													</div>
+												</NavLink>
+											</div>
+										</div>
+									)}
+								</div>
+							)}
 						</div>
 					</div>
 				</div>
