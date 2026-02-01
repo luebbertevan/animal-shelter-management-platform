@@ -45,7 +45,12 @@ export default function AssignmentConfirmationDialog({
 		<>
 			{/* Backdrop */}
 			<div
-				className="fixed inset-0 z-40 bg-black bg-opacity-50"
+				className="fixed inset-0 z-40"
+				style={{
+					backgroundColor: "rgba(0, 0, 0, 0.65)",
+					backdropFilter: "blur(4px)",
+					WebkitBackdropFilter: "blur(4px)",
+				}}
 				onClick={handleCancel}
 			/>
 

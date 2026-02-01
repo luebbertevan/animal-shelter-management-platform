@@ -5,6 +5,28 @@ import type { MessageTag, AnimalStatus, FosterVisibility } from "../types";
 import { TAG_TYPES } from "../types";
 
 /**
+ * Gets the coordinator group conversation ID for an organization
+ */
+async function getCoordinatorGroupConversationId(
+	organizationId: string
+): Promise<string | null> {
+	const { data, error } = await supabase
+		.from("conversations")
+		.select("id")
+		.eq("type", "coordinator_group")
+		.eq("organization_id", organizationId)
+		.maybeSingle();
+
+	if (error) {
+		// Log error but don't fail assignment - return null gracefully
+		console.error("Error fetching coordinator group conversation:", error);
+		return null;
+	}
+
+	return data?.id || null;
+}
+
+/**
  * Gets the foster's conversation ID for sending messages
  */
 async function getFosterConversationId(
@@ -30,6 +52,7 @@ async function getFosterConversationId(
 
 /**
  * Sends a message to a foster's conversation with optional animal/group tag
+ * If the foster is a coordinator, routes to the coordinator_group conversation instead
  */
 async function sendAssignmentMessage(
 	fosterId: string,
@@ -37,15 +60,37 @@ async function sendAssignmentMessage(
 	message: string,
 	tag?: MessageTag
 ): Promise<void> {
-	const conversationId = await getFosterConversationId(
-		fosterId,
-		organizationId
-	);
+	// Check if the foster is a coordinator
+	const { data: fosterProfile, error: profileError } = await supabase
+		.from("profiles")
+		.select("role")
+		.eq("id", fosterId)
+		.eq("organization_id", organizationId)
+		.single();
+
+	if (profileError) {
+		// Log error but don't fail assignment - try to get conversation anyway
+		console.error("Error fetching foster profile:", profileError);
+	}
+
+	// If foster is a coordinator, use coordinator_group conversation
+	// Otherwise, use foster_chat conversation
+	let conversationId: string | null = null;
+	if (fosterProfile?.role === "coordinator") {
+		conversationId = await getCoordinatorGroupConversationId(
+			organizationId
+		);
+	} else {
+		conversationId = await getFosterConversationId(
+			fosterId,
+			organizationId
+		);
+	}
 
 	if (!conversationId) {
 		// No conversation found - skip sending message
 		console.warn(
-			`No conversation found for foster ${fosterId}, skipping message`
+			`No conversation found for foster ${fosterId} (role: ${fosterProfile?.role || "unknown"}), skipping message`
 		);
 		return;
 	}

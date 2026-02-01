@@ -560,11 +560,10 @@ export default function GroupDetail() {
 						</div>
 					</div>
 
-					{/* Coordinator placement + pending requests (kept lightweight; hidden if empty) */}
-					{isCoordinator &&
-						(!!group.current_foster_id ||
-							coordinatorPendingRequests.length > 0) && (
+					{/* Coordinator placement + pending requests (always show for coordinators) */}
+					{isCoordinator && (
 							<div className="mb-6 space-y-3">
+								{/* Current foster (only if assigned) */}
 								{group.current_foster_id && (
 									<div className="flex items-center justify-between">
 										<div className="text-sm">
@@ -596,6 +595,31 @@ export default function GroupDetail() {
 										>
 											Unassign
 										</button>
+									</div>
+								)}
+
+								{/* Assign Foster Button (only if not assigned) */}
+								{!group.current_foster_id && (
+									<div className="space-y-2">
+										<button
+											type="button"
+											onClick={() => {
+												setIsFosterSelectorOpen(true);
+												setAssignmentError(null);
+											}}
+											className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+										>
+											Assign Foster
+										</button>
+
+										{/* Assignment Error */}
+										{assignmentError && (
+											<div className="p-3 bg-red-50 border border-red-200 rounded-md">
+												<p className="text-sm text-red-800">
+													{assignmentError}
+												</p>
+											</div>
+										)}
 									</div>
 								)}
 
@@ -812,30 +836,6 @@ export default function GroupDetail() {
 					{/* Metadata Section (coordinators only) */}
 					{isCoordinator && (
 						<div className="pt-6 border-t border-gray-200 space-y-4 text-base">
-							{/* Assign Foster Button */}
-							<div className="space-y-2">
-								<button
-									type="button"
-									onClick={() => {
-										setIsFosterSelectorOpen(true);
-										setAssignmentError(null);
-									}}
-									className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
-								>
-									{group.current_foster_id
-										? "Reassign Foster"
-										: "Assign Foster"}
-								</button>
-
-								{/* Assignment Error */}
-								{assignmentError && (
-									<div className="p-3 bg-red-50 border border-red-200 rounded-md">
-										<p className="text-sm text-red-800">
-											{assignmentError}
-										</p>
-									</div>
-								)}
-							</div>
 							<div>
 								<span className="text-gray-500">
 									Created at:{" "}

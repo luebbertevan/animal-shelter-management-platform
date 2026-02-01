@@ -138,7 +138,7 @@ export default function FosterRequests() {
 					requestedByLabel:
 						requestCount === 1
 							? `Requested by ${first.foster_name}`
-							: `${requestCount} pending requests`,
+							: `${requestCount} requests`,
 				});
 			} else if (first.group) {
 				const priority = !!first.group.priority;
@@ -153,7 +153,7 @@ export default function FosterRequests() {
 					requestedByLabel:
 						requestCount === 1
 							? `Requested by ${first.foster_name}`
-							: `${requestCount} pending requests`,
+							: `${requestCount} requests`,
 				});
 			}
 		}

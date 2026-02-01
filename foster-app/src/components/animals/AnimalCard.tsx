@@ -262,13 +262,16 @@ export default function AnimalCard({
 					)}
 					{/* Group indicator */}
 					{animal.group_id && !hideGroupIndicator && (
-						<button
-							type="button"
-							onClick={handleGroupClick}
-							className="text-sm text-pink-300 hover:text-pink-200 font-medium mt-1 inline-block text-left"
-						>
-							In group: {animal.group_name || "View group"}
-						</button>
+						<div className="mt-1.5">
+							<span className="text-xs text-white/70">In group:</span>{" "}
+							<button
+								type="button"
+								onClick={handleGroupClick}
+								className="text-xs text-pink-200 hover:text-pink-100 font-medium underline decoration-pink-200/50 hover:decoration-pink-100 transition-colors"
+							>
+								{animal.group_name || "View group"}
+							</button>
+						</div>
 					)}
 				</div>
 			</div>

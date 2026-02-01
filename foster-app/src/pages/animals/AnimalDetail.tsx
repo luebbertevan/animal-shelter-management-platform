@@ -170,6 +170,9 @@ export default function AnimalDetail() {
 	const [isUnassignmentDialogOpen, setIsUnassignmentDialogOpen] = useState(false);
 	const [unassignmentError, setUnassignmentError] = useState<string | null>(null);
 
+	// Group assignment dialog state
+	const [isGroupAssignmentDialogOpen, setIsGroupAssignmentDialogOpen] = useState(false);
+
 	const {
 		data: animal,
 		isLoading,
@@ -402,8 +405,6 @@ export default function AnimalDetail() {
 		}
 	};
 
-	// Check if animal is in a group (for blocking individual assignment)
-	const isInGroup = !!animal.group_id;
 
 	// Check if foster can request this animal
 	const canRequest =
@@ -662,23 +663,28 @@ export default function AnimalDetail() {
 							)}
 						</div>
 						{/* Group Indicator */}
-						{animal.group_id && (
-							<div className="mb-2">
-								<Link
-									to={`/groups/${animal.group_id}`}
-									className="text-sm text-pink-600 hover:text-pink-700 hover:underline"
-								>
-									In group: {groupName || "View group"}
-								</Link>
-							</div>
-						)}
 					</div>
 
-					{/* Coordinator placement + pending requests (kept lightweight; hidden if empty) */}
-					{isCoordinator &&
-						(!!animal.current_foster_id ||
-							coordinatorPendingRequests.length > 0) && (
+					{/* Coordinator placement + pending requests (always show for coordinators) */}
+					{isCoordinator && (
 							<div className="mb-6 space-y-3">
+								{/* Current group (only if animal is in a group) */}
+								{animal.group_id && (
+									<div className="flex items-center justify-between">
+										<div className="text-sm">
+											<span className="text-gray-500">
+												Current group:{" "}
+											</span>
+											<Link
+												to={`/groups/${animal.group_id}`}
+												className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
+											>
+												{groupName || "View group"}
+											</Link>
+										</div>
+									</div>
+								)}
+
 								{/* Current foster (only if assigned) */}
 								{animal.current_foster_id && (
 									<div className="flex items-center justify-between">
@@ -703,27 +709,58 @@ export default function AnimalDetail() {
 												</span>
 											)}
 										</div>
-										{/* Unassign button - show for individual animals (not in groups) */}
-										{!animal.group_id && (
-											<button
-												type="button"
-												onClick={() => setIsUnassignmentDialogOpen(true)}
-												className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded text-sm font-medium hover:bg-gray-50 transition-colors"
-											>
-												Unassign
-											</button>
-										)}
-										{/* If animal is in a group, show info about unassigning from group page */}
-										{animal.group_id && (
-											<span className="text-xs text-gray-500">
-												Unassign from{" "}
-												<Link
-													to={`/groups/${animal.group_id}`}
-													className="text-pink-600 hover:text-pink-700 hover:underline"
-												>
-													group page
-												</Link>
-											</span>
+										{/* Unassign button - always show, clickable but shows alert if in a group */}
+										<button
+											type="button"
+											onClick={() => {
+												if (animal.group_id) {
+													alert(
+														"This animal is part of a group. Please manage assignments from the group detail page."
+													);
+													return;
+												}
+												setIsUnassignmentDialogOpen(true);
+											}}
+											className={`px-3 py-1.5 border border-gray-300 text-gray-700 rounded text-sm font-medium transition-colors ${
+												animal.group_id
+													? "opacity-50 cursor-not-allowed"
+													: "hover:bg-gray-50"
+											}`}
+										>
+											Unassign
+										</button>
+									</div>
+								)}
+
+								{/* Assign Foster Button - always show when not assigned, disabled if in a group */}
+								{!animal.current_foster_id && (
+									<div className="space-y-2">
+										<button
+											type="button"
+											onClick={() => {
+												if (animal.group_id) {
+													setIsGroupAssignmentDialogOpen(true);
+													return;
+												}
+												setIsFosterSelectorOpen(true);
+												setAssignmentError(null);
+											}}
+											className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors ${
+												animal.group_id
+													? "bg-gray-300 text-gray-500 cursor-not-allowed"
+													: "bg-pink-500 text-white hover:bg-pink-600"
+											}`}
+										>
+											Assign Foster
+										</button>
+
+										{/* Assignment Error */}
+										{assignmentError && (
+											<div className="p-3 bg-red-50 border border-red-200 rounded-md">
+												<p className="text-sm text-red-800">
+													{assignmentError}
+												</p>
+											</div>
 										)}
 									</div>
 								)}
@@ -976,45 +1013,6 @@ export default function AnimalDetail() {
 						{/* Metadata Section (coordinators only) */}
 						{isCoordinator && (
 							<div className="pt-6 border-t border-gray-200 space-y-4 text-base">
-								{/* Assign Foster Button */}
-								<div className="space-y-2">
-									{isInGroup ? (
-										<div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-											<p className="text-sm text-yellow-800">
-												This animal is in a group. Please{" "}
-												<Link
-													to={`/groups/${animal.group_id}`}
-													className="font-medium underline hover:text-yellow-900"
-												>
-													assign the entire group
-												</Link>{" "}
-												instead.
-											</p>
-										</div>
-									) : (
-										<button
-											type="button"
-											onClick={() => {
-												setIsFosterSelectorOpen(true);
-												setAssignmentError(null);
-											}}
-											className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
-										>
-											{animal.current_foster_id
-												? "Reassign Foster"
-												: "Assign Foster"}
-										</button>
-									)}
-
-									{/* Assignment Error */}
-									{assignmentError && (
-										<div className="p-3 bg-red-50 border border-red-200 rounded-md">
-											<p className="text-sm text-red-800">
-												{assignmentError}
-											</p>
-										</div>
-									)}
-								</div>
 								<div>
 									<span className="text-gray-500">
 										Created at:{" "}
@@ -1137,6 +1135,67 @@ export default function AnimalDetail() {
 					fosterName={selectedRequest.foster_name}
 					animalOrGroupName={animal.name || "Unnamed Animal"}
 				/>
+			)}
+
+			{/* Group Assignment Dialog */}
+			{isGroupAssignmentDialogOpen && animal.group_id && (
+				<>
+					{/* Backdrop */}
+					<div
+						className="fixed inset-0 z-40"
+						style={{
+							backgroundColor: "rgba(0, 0, 0, 0.65)",
+							backdropFilter: "blur(4px)",
+							WebkitBackdropFilter: "blur(4px)",
+						}}
+						onClick={() => setIsGroupAssignmentDialogOpen(false)}
+					/>
+
+					{/* Dialog */}
+					<div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+						<div
+							className="bg-white rounded-lg shadow-xl w-full max-w-md pointer-events-auto"
+							onClick={(e) => e.stopPropagation()}
+						>
+							{/* Header */}
+							<div className="p-6 border-b border-gray-200">
+								<h3 className="text-lg font-semibold text-gray-900">
+									Animal is in a Group
+								</h3>
+							</div>
+
+							{/* Content */}
+							<div className="p-6">
+								<p className="text-sm text-gray-700 mb-6">
+									This animal is part of a group. Please manage
+									assignments from the group detail page.
+								</p>
+
+								{/* Footer */}
+								<div className="flex justify-end gap-3">
+									<button
+										type="button"
+										onClick={() =>
+											setIsGroupAssignmentDialogOpen(false)
+										}
+										className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+									>
+										Cancel
+									</button>
+									<Link
+										to={`/groups/${animal.group_id}`}
+										onClick={() =>
+											setIsGroupAssignmentDialogOpen(false)
+										}
+										className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+									>
+										Go to Group Page
+									</Link>
+								</div>
+							</div>
+						</div>
+					</div>
+				</>
 			)}
 
 			{/* Unassignment Dialog (coordinator) */}

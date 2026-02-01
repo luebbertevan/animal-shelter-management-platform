@@ -19,6 +19,7 @@ import {
 	queryParamsToFilters,
 	filtersToQueryParams,
 } from "../../lib/filterUtils";
+import { getAssignmentBadgeText } from "../../lib/metadataUtils";
 import type { User, Foster } from "../../types";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
@@ -95,31 +96,6 @@ function FosterCard({
 	// Don't show chat icon for current user
 	const showChatIcon = foster.id !== currentUserId && conversationId;
 
-	// Format assignment badge text
-	const getAssignmentBadgeText = (
-		animalCount: number,
-		groupCount: number
-	): string | null => {
-		if (animalCount === 0 && groupCount === 0) {
-			return null;
-		}
-
-		const parts: string[] = [];
-
-		if (groupCount > 0) {
-			parts.push(
-				`${groupCount} ${groupCount === 1 ? "group" : "groups"}`
-			);
-		}
-
-		if (animalCount > 0) {
-			parts.push(
-				`${animalCount} ${animalCount === 1 ? "animal" : "animals"}`
-			);
-		}
-
-		return `Fostering ${parts.join(", ")}`;
-	};
 
 	const assignmentBadgeText = assignmentCounts
 		? getAssignmentBadgeText(
@@ -148,8 +124,8 @@ function FosterCard({
 							<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
 								{pendingRequestCount}{" "}
 								{pendingRequestCount === 1
-									? "pending request"
-									: "pending requests"}
+									? "request"
+									: "requests"}
 							</span>
 						)}
 					{foster.role === "coordinator" && (

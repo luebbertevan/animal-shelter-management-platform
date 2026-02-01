@@ -10,9 +10,15 @@ import LoadingSpinner from "../ui/LoadingSpinner";
 import Pagination from "../shared/Pagination";
 import { FilterChip } from "../shared/Filters";
 import { PAGE_SIZES } from "../../lib/paginationConfig";
+import { getAssignmentBadgeText } from "../../lib/metadataUtils";
 import FosterFilters, {
 	type FosterFilters as FosterFiltersType,
 } from "./FosterFilters";
+
+interface AssignmentCounts {
+	animalCount: number;
+	groupCount: number;
+}
 
 interface FosterSelectorProps {
 	isOpen: boolean;
@@ -184,58 +190,78 @@ export default function FosterSelector({
 		return totalCount;
 	}, [filters.currentlyFostering, totalCount, filteredFosters.length]);
 
-	// Fetch current assignments count for each foster
-	const { data: assignmentsMap = new Map() } = useQuery({
-		queryKey: [
-			"foster-assignments-count",
-			profile.organization_id,
-			fosters.map((f) => f.id).join(","),
-		],
-		queryFn: async () => {
-			const map = new Map<string, number>();
+	// Fetch assignment counts (animals and groups) for fosters
+	const { data: assignmentCounts = new Map<string, AssignmentCounts>() } =
+		useQuery<Map<string, AssignmentCounts>, Error>({
+			queryKey: [
+				"foster-assignment-counts-selector",
+				profile.organization_id,
+				fosters.map((f) => f.id).join(","),
+			],
+			queryFn: async () => {
+				if (fosters.length === 0) {
+					return new Map<string, AssignmentCounts>();
+				}
 
-			// Fetch animals assigned to these fosters
-			const { data: animals, error: animalsError } = await supabase
-				.from("animals")
-				.select("current_foster_id")
-				.in(
-					"current_foster_id",
-					fosters.map((f) => f.id)
-				)
-				.eq("organization_id", profile.organization_id);
+				const fosterIds = fosters.map((f) => f.id);
 
-			if (!animalsError && animals) {
-				animals.forEach((animal) => {
-					if (animal.current_foster_id) {
-						const current = map.get(animal.current_foster_id) || 0;
-						map.set(animal.current_foster_id, current + 1);
+				// Fetch individual animals (not in groups) assigned to these fosters
+				const { data: animalsData, error: animalsError } = await supabase
+					.from("animals")
+					.select("current_foster_id")
+					.eq("organization_id", profile.organization_id)
+					.in("current_foster_id", fosterIds)
+					.is("group_id", null);
+
+				if (animalsError) {
+					throw animalsError;
+				}
+
+				// Fetch groups assigned to these fosters
+				const { data: groupsData, error: groupsError } = await supabase
+					.from("animal_groups")
+					.select("current_foster_id")
+					.eq("organization_id", profile.organization_id)
+					.in("current_foster_id", fosterIds);
+
+				if (groupsError) {
+					throw groupsError;
+				}
+
+				// Count animals per foster
+				const animalCounts = new Map<string, number>();
+				(animalsData as Array<{ current_foster_id: string }>).forEach(
+					(row) => {
+						const id = row.current_foster_id;
+						if (!id) return;
+						animalCounts.set(id, (animalCounts.get(id) ?? 0) + 1);
+					}
+				);
+
+				// Count groups per foster
+				const groupCounts = new Map<string, number>();
+				(groupsData as Array<{ current_foster_id: string }>).forEach(
+					(row) => {
+						const id = row.current_foster_id;
+						if (!id) return;
+						groupCounts.set(id, (groupCounts.get(id) ?? 0) + 1);
+					}
+				);
+
+				// Combine into AssignmentCounts map
+				const map = new Map<string, AssignmentCounts>();
+				fosterIds.forEach((fosterId) => {
+					const animalCount = animalCounts.get(fosterId) ?? 0;
+					const groupCount = groupCounts.get(fosterId) ?? 0;
+					if (animalCount > 0 || groupCount > 0) {
+						map.set(fosterId, { animalCount, groupCount });
 					}
 				});
-			}
 
-			// Fetch groups assigned to these fosters
-			const { data: groups, error: groupsError } = await supabase
-				.from("animal_groups")
-				.select("current_foster_id")
-				.in(
-					"current_foster_id",
-					fosters.map((f) => f.id)
-				)
-				.eq("organization_id", profile.organization_id);
-
-			if (!groupsError && groups) {
-				groups.forEach((group) => {
-					if (group.current_foster_id) {
-						const current = map.get(group.current_foster_id) || 0;
-						map.set(group.current_foster_id, current + 1);
-					}
-				});
-			}
-
-			return map;
-		},
-		enabled: isOpen && fosters.length > 0,
-	});
+				return map;
+			},
+			enabled: isOpen && fosters.length > 0,
+		});
 
 	const handleSearch = (term: string) => {
 		setSearchTerm(term);
@@ -383,12 +409,17 @@ export default function FosterSelector({
 								) : (
 									<div className="space-y-2">
 										{fosters.map((foster) => {
-											const assignmentCount =
-												assignmentsMap.get(foster.id) || 0;
 											const fosterName =
 												foster.full_name ||
 												foster.email ||
 												"Unknown";
+											const counts = assignmentCounts.get(foster.id);
+											const assignmentBadgeText = counts
+												? getAssignmentBadgeText(
+														counts.animalCount,
+														counts.groupCount
+													)
+												: null;
 
 											return (
 												<button
@@ -433,13 +464,10 @@ export default function FosterSelector({
 																	</span>
 																)}
 
-															{/* Assignment Count */}
-															{assignmentCount > 0 && (
-																<span className="text-xs text-gray-500">
-																	{assignmentCount}{" "}
-																	{assignmentCount === 1
-																		? "assignment"
-																		: "assignments"}
+															{/* Assignment Badge */}
+															{assignmentBadgeText && (
+																<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+																	{assignmentBadgeText}
 																</span>
 															)}
 														</div>

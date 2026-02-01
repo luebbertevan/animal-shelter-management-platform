@@ -69,3 +69,32 @@ export function getFosterVisibilityFromStatus(
 			return "not_visible";
 	}
 }
+
+/**
+ * Format assignment counts (animals and groups) into badge text
+ * Returns null if both counts are 0
+ */
+export function getAssignmentBadgeText(
+	animalCount: number,
+	groupCount: number
+): string | null {
+	if (animalCount === 0 && groupCount === 0) {
+		return null;
+	}
+
+	const parts: string[] = [];
+
+	if (groupCount > 0) {
+		parts.push(
+			`${groupCount} ${groupCount === 1 ? "group" : "groups"}`
+		);
+	}
+
+	if (animalCount > 0) {
+		parts.push(
+			`${animalCount} ${animalCount === 1 ? "animal" : "animals"}`
+		);
+	}
+
+	return parts.join(", ");
+}
