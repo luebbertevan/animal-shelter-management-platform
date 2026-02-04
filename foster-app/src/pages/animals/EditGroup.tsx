@@ -8,6 +8,7 @@ import { useGroupForm } from "../../hooks/useGroupForm";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import GroupForm from "../../components/animals/GroupForm";
+import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import {
@@ -823,14 +824,18 @@ export default function EditGroup() {
 						<h1 className="text-2xl font-bold text-gray-900">
 							Edit Group
 						</h1>
-						<button
-							onClick={() =>
-								navigate(id ? `/groups/${id}` : "/groups")
-							}
-							className="text-sm text-pink-600 hover:text-pink-700 hover:underline font-medium"
-						>
-							Cancel
-						</button>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() =>
+									navigate(id ? `/groups/${id}` : "/groups")
+								}
+								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+							>
+								Cancel
+							</Button>
+						</div>
 					</div>
 
 					<GroupForm

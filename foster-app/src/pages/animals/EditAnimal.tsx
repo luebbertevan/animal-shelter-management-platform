@@ -8,6 +8,8 @@ import { useAnimalForm } from "../../hooks/useAnimalForm";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import AnimalForm from "../../components/animals/AnimalForm";
+import AnimalSelector from "../../components/animals/AnimalSelector";
+import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import {
@@ -22,6 +24,7 @@ import { wouldFosterVisibilityChangeConflict } from "../../lib/groupUtils";
 import { calculateDOBFromAge } from "../../lib/ageUtils";
 import { uploadAnimalPhoto, deleteAnimalPhoto } from "../../lib/photoUtils";
 import { deleteAnimal } from "../../lib/animalUtils";
+import { animalToFormState } from "../../lib/animalFormUtils";
 import type {
 	AnimalStatus,
 	SexSpayNeuterStatus,
@@ -96,6 +99,10 @@ export default function EditAnimal() {
 	const [showGroupConflictModal, setShowGroupConflictModal] = useState(false);
 	const [originalFosterVisibility, setOriginalFosterVisibility] =
 		useState<FosterVisibility | null>(null);
+
+	// Copy from Animal state
+	const [isAnimalSelectorOpen, setIsAnimalSelectorOpen] = useState(false);
+	const [copiedFromAnimalName, setCopiedFromAnimalName] = useState<string | null>(null);
 
 	// Fetch breed suggestions (must be before early return)
 	const { data: breedSuggestions = [], isLoading: isLoadingBreeds } =
@@ -188,6 +195,43 @@ export default function EditAnimal() {
 		{ value: "senior", label: "Senior" },
 		{ value: "unknown", label: "Unknown" },
 	];
+
+	// Handle copying data from selected animal
+	const handleCopyFromAnimal = (sourceAnimal: Animal) => {
+		// Use animalToFormState with exclusions for name, bio, and photos
+		const copiedState = animalToFormState(sourceAnimal, {
+			exclude: ["name", "bio"],
+		});
+
+		// Update all form fields with copied values
+		setStatus(copiedState.status);
+		setFosterVisibility(copiedState.fosterVisibility);
+		setSexSpayNeuterStatus(copiedState.sexSpayNeuterStatus);
+		setLifeStage(copiedState.lifeStage);
+		setPrimaryBreed(copiedState.primaryBreed);
+		setPhysicalCharacteristics(copiedState.physicalCharacteristics);
+		setMedicalNeeds(copiedState.medicalNeeds);
+		setBehavioralNeeds(copiedState.behavioralNeeds);
+		setAdditionalNotes(copiedState.additionalNotes);
+		setPriority(copiedState.priority);
+
+		// Handle date of birth - use handleDOBChange to properly calculate age
+		if (copiedState.dateOfBirth) {
+			handleDOBChange(copiedState.dateOfBirth);
+		} else {
+			// Clear DOB if source animal doesn't have one
+			handleDOBChange("");
+		}
+
+		// Set success message with animal name
+		const animalName = sourceAnimal.name?.trim() || "Unnamed Animal";
+		setCopiedFromAnimalName(animalName);
+
+		// Clear the copied message after 5 seconds
+		setTimeout(() => {
+			setCopiedFromAnimalName(null);
+		}, 5000);
+	};
 
 	// Handle photo removal - track photos to delete
 	const handleRemovePhoto = (photoUrl: string) => {
@@ -592,15 +636,48 @@ export default function EditAnimal() {
 						<h1 className="text-2xl font-bold text-gray-900">
 							Edit Animal
 						</h1>
-						<button
-							onClick={() =>
-								navigate(id ? `/animals/${id}` : "/animals")
-							}
-							className="text-sm text-pink-600 hover:text-pink-700 hover:underline font-medium"
-						>
-							Cancel
-						</button>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								variant="primary"
+								onClick={() => setIsAnimalSelectorOpen(true)}
+								disabled={loading || uploadingPhotos}
+								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+							>
+								Copy animal
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() =>
+									navigate(id ? `/animals/${id}` : "/animals")
+								}
+								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+							>
+								Cancel
+							</Button>
+						</div>
 					</div>
+
+					{/* Success message when data is copied */}
+					{copiedFromAnimalName && (
+						<div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
+							<svg
+								className="w-5 h-5 text-green-600 flex-shrink-0"
+								fill="currentColor"
+								viewBox="0 0 20 20"
+							>
+								<path
+									fillRule="evenodd"
+									d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+									clipRule="evenodd"
+								/>
+							</svg>
+							<span className="text-sm text-green-800">
+								Data copied from <strong>{copiedFromAnimalName}</strong>
+							</span>
+						</div>
+					)}
 
 					<AnimalForm
 						formState={formState}
@@ -712,6 +789,15 @@ export default function EditAnimal() {
 					)}
 				</div>
 			</div>
+
+			{/* Animal Selector Modal for Copy from Animal */}
+			<AnimalSelector
+				isOpen={isAnimalSelectorOpen}
+				onClose={() => setIsAnimalSelectorOpen(false)}
+				onSelect={handleCopyFromAnimal}
+				title="Copy data from animal"
+				excludeAnimalIds={id ? [id] : []}
+			/>
 		</div>
 	);
 }

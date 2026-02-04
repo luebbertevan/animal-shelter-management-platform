@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { getErrorMessage } from "../../lib/errorUtils";
@@ -348,61 +348,105 @@ export default function MessageInput({
 		return null;
 	};
 
-	// Handle file selection
+	// Process files (shared between file input and paste)
+	const processFiles = useCallback(
+		(files: File[]) => {
+			if (selectedPhotos.length + files.length > MAX_PHOTOS) {
+				setPhotoError(
+					`Maximum ${MAX_PHOTOS} photos per message. Please remove some photos first.`
+				);
+				return;
+			}
+
+			// Validate and add files
+			const newPhotos: SelectedPhoto[] = [];
+			const errors: string[] = [];
+
+			files.forEach((file) => {
+				const validationError = validateFile(file);
+				if (validationError) {
+					errors.push(validationError);
+				} else {
+					// Create preview URL
+					const preview = URL.createObjectURL(file);
+					newPhotos.push({
+						file,
+						preview,
+						id: crypto.randomUUID(),
+					});
+				}
+			});
+
+			if (errors.length > 0) {
+				setPhotoError(errors.join(" "));
+			}
+
+			if (newPhotos.length > 0) {
+				setSelectedPhotos((prev) => {
+					const updated = [...prev, ...newPhotos];
+					selectedPhotosRef.current = updated;
+					return updated;
+				});
+			}
+		},
+		[selectedPhotos.length]
+	);
+
+	// Handle file selection from input
 	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const files = e.target.files;
 		if (!files || files.length === 0) return;
 
 		setPhotoError(null);
-
-		// Check if adding these files would exceed the limit
-		if (selectedPhotos.length + files.length > MAX_PHOTOS) {
-			setPhotoError(
-				`Maximum ${MAX_PHOTOS} photos per message. Please remove some photos first.`
-			);
-			// Reset file input
-			if (fileInputRef.current) {
-				fileInputRef.current.value = "";
-			}
-			return;
-		}
-
-		// Validate and add files
-		const newPhotos: SelectedPhoto[] = [];
-		const errors: string[] = [];
-
-		Array.from(files).forEach((file) => {
-			const validationError = validateFile(file);
-			if (validationError) {
-				errors.push(validationError);
-			} else {
-				// Create preview URL
-				const preview = URL.createObjectURL(file);
-				newPhotos.push({
-					file,
-					preview,
-					id: crypto.randomUUID(),
-				});
-			}
-		});
-
-		if (errors.length > 0) {
-			setPhotoError(errors.join(" "));
-		}
-
-		if (newPhotos.length > 0) {
-			setSelectedPhotos((prev) => {
-				const updated = [...prev, ...newPhotos];
-				selectedPhotosRef.current = updated;
-				return updated;
-			});
-		}
+		processFiles(Array.from(files));
 
 		// Reset file input to allow selecting the same file again
 		if (fileInputRef.current) {
 			fileInputRef.current.value = "";
 		}
 	};
+
+	// Handle paste event for photos
+	useEffect(() => {
+		const handlePaste = (e: Event) => {
+			// Only handle if not already at max photos
+			if (selectedPhotos.length >= MAX_PHOTOS) return;
+
+			const clipboardEvent = e as ClipboardEvent;
+			const items = clipboardEvent.clipboardData?.items;
+			if (!items) return;
+
+			const imageFiles: File[] = [];
+
+			// Extract image files from clipboard
+			for (let i = 0; i < items.length; i++) {
+				const item = items[i];
+				if (item.type.indexOf("image") !== -1) {
+					const file = item.getAsFile();
+					if (file) {
+						imageFiles.push(file);
+					}
+				}
+			}
+
+			if (imageFiles.length === 0) return;
+
+			// Prevent default paste behavior for images
+			clipboardEvent.preventDefault();
+			setPhotoError(null);
+			processFiles(imageFiles);
+		};
+
+		// Attach to the form container
+		const formElement =
+			textareaRef.current?.closest("form") || textareaRef.current;
+		if (formElement) {
+			formElement.addEventListener("paste", handlePaste);
+			return () => {
+				formElement.removeEventListener("paste", handlePaste);
+			};
+		}
+	}, [selectedPhotos.length, processFiles]);
 
 	// Remove photo from selection
 	const handleRemovePhoto = (photoId: string) => {
