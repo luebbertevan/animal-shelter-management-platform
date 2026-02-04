@@ -16,6 +16,10 @@ interface MessageBubbleProps {
 		tags?: Array<MessageTagWithEntity>;
 	};
 	isOwnMessage: boolean;
+	/** Whether this is the first message in a group from the same sender */
+	isFirstInGroup?: boolean;
+	/** Whether this is the last message in a group from the same sender */
+	isLastInGroup?: boolean;
 	/**
 	 * Optional map of animal data used by GroupCard to fall back to individual animal photos
 	 * when a group has no group photos.
@@ -26,9 +30,46 @@ interface MessageBubbleProps {
 	>;
 }
 
+/**
+ * Format timestamp in a clean, readable way
+ * - Today: "2:34 PM"
+ * - This week: "Mon 2:34 PM"
+ * - Older: "Jan 5, 2:34 PM"
+ */
+function formatTimestamp(dateString: string): string {
+	const date = new Date(dateString);
+	const now = new Date();
+	const diffDays = Math.floor(
+		(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+	);
+
+	const timeStr = date.toLocaleTimeString(undefined, {
+		hour: "numeric",
+		minute: "2-digit",
+	});
+
+	if (diffDays === 0) {
+		// Today - just show time
+		return timeStr;
+	} else if (diffDays < 7) {
+		// This week - show day name
+		const dayName = date.toLocaleDateString(undefined, { weekday: "short" });
+		return `${dayName} ${timeStr}`;
+	} else {
+		// Older - show month and day
+		const dateStr = date.toLocaleDateString(undefined, {
+			month: "short",
+			day: "numeric",
+		});
+		return `${dateStr}, ${timeStr}`;
+	}
+}
+
 export default function MessageBubble({
 	message,
 	isOwnMessage,
+	isFirstInGroup = true,
+	isLastInGroup = true,
 	animalDataMap,
 }: MessageBubbleProps) {
 	const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
@@ -38,13 +79,7 @@ export default function MessageBubble({
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(0);
 
-	const timestamp = new Date(message.created_at).toLocaleString(undefined, {
-		year: "numeric",
-		month: "numeric",
-		day: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
+	const timestamp = formatTimestamp(message.created_at);
 
 	const photoUrls = message.photo_urls || [];
 	const hasPhotos = photoUrls.length > 0;
@@ -73,67 +108,58 @@ export default function MessageBubble({
 		<div
 			className={`flex flex-col ${
 				isOwnMessage ? "items-end" : "items-start"
-			} mb-1 w-full`}
+			} ${isFirstInGroup ? "mt-3" : "mt-0.5"} w-full`}
 		>
-			<div
-				className={`rounded-lg shadow-sm ${
-					isOwnMessage
-						? "bg-gray-700 text-white"
-						: "bg-white border border-gray-200"
-				} ${!hasContent ? "p-1.5 py-1" : "p-3"} ${
-					!hasContent
-						? "w-auto max-w-none"
-						: "max-w-[85%] sm:max-w-[80%]"
-				}`}
-			>
-				<div
-					className={`text-xs sm:text-sm ${
-						!hasContent ? "mb-0" : "mb-1.5"
-					} ${isOwnMessage ? "text-gray-300" : "text-gray-500"}`}
-				>
-					{isOwnMessage ? "You" : message.sender_name} • {timestamp}
+			{/* Sender name - only shown on first message in group, not for own messages */}
+			{isFirstInGroup && !isOwnMessage && (
+				<div className="text-xs font-medium mb-1 text-gray-600 ml-1">
+					{message.sender_name}
 				</div>
+			)}
 
-				{/* Text content */}
-				{hasContent && (
-					<div
-						className={`break-words leading-relaxed mb-2 ${
-							isOwnMessage ? "text-white" : "text-gray-900"
-						}`}
-					>
-						{message.content}
-					</div>
-				)}
-			</div>
+			{/* Message bubble */}
+			{(hasContent || (!hasPhotos && !hasTags)) && (
+				<div
+					className={`rounded-2xl ${
+						isOwnMessage
+							? "bg-pink-100 text-gray-900"
+							: "bg-white border border-gray-200 text-gray-900"
+					} ${hasContent ? "px-3.5 py-2" : "px-3 py-1.5"} max-w-[85%] sm:max-w-[75%]`}
+				>
+					{/* Text content */}
+					{hasContent && (
+						<div className="break-words leading-relaxed">
+							{message.content}
+						</div>
+					)}
+				</div>
+			)}
 
 			{/* Photos - outside message bubble to avoid width constraints */}
 			{hasPhotos && (
 				<div
-					className={`w-full mt-2 ${
+					className={`w-full mt-1 ${
 						isOwnMessage ? "flex justify-end" : "flex justify-start"
 					}`}
 				>
 					<div
 						className={`flex flex-wrap ${
 							isOwnMessage
-								? "max-w-[85%] sm:max-w-[80%] justify-end"
-								: "max-w-[85%] sm:max-w-[80%] justify-start"
+								? "max-w-[85%] sm:max-w-[75%] justify-end"
+								: "max-w-[85%] sm:max-w-[75%] justify-start"
 						}`}
 					>
 						{photoUrls.length > 1 && (
 							<div
 								className={`w-full text-xs mb-1 ${
-									isOwnMessage
-										? "text-gray-300"
-										: "text-gray-500"
-								}`}
+									isOwnMessage ? "text-right" : "text-left"
+								} text-gray-500`}
 							>
-								{photoUrls.length} photo
-								{photoUrls.length !== 1 ? "s" : ""}
+								{photoUrls.length} photos
 							</div>
 						)}
 						<div
-							className={`grid gap-2 ${
+							className={`grid gap-1.5 ${
 								photoUrls.length === 1
 									? "grid-cols-1"
 									: photoUrls.length === 2
@@ -152,7 +178,7 @@ export default function MessageBubble({
 								return (
 									<div
 										key={`${url}-${index}`}
-										className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 w-full max-w-[250px]"
+										className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 w-full max-w-[250px]"
 									>
 										{isLoading && !hasError && (
 											<div className="absolute inset-0 flex items-center justify-center">
@@ -207,15 +233,15 @@ export default function MessageBubble({
 			{/* Tags - outside message bubble to avoid width constraints */}
 			{hasTags && (
 				<div
-					className={`w-full mt-2 ${
+					className={`w-full mt-1.5 ${
 						isOwnMessage ? "flex justify-end" : "flex justify-start"
 					}`}
 				>
 					<div
 						className={`flex flex-wrap gap-2 ${
 							isOwnMessage
-								? "max-w-[85%] sm:max-w-[80%] justify-end"
-								: "max-w-[85%] sm:max-w-[80%] justify-start"
+								? "max-w-[85%] sm:max-w-[75%] justify-end"
+								: "max-w-[85%] sm:max-w-[75%] justify-start"
 						}`}
 					>
 						{tags.map((tag, index) => {
@@ -261,7 +287,7 @@ export default function MessageBubble({
 									<a
 										key={`${tag.type}-${tag.id}-${index}`}
 										href={linkTo}
-										className="inline-flex items-center gap-1 px-3 py-1.5 bg-pink-100 text-pink-800 rounded-lg text-sm hover:bg-pink-200 transition-colors border border-pink-200"
+										className="inline-flex items-center gap-1 px-3 py-1.5 bg-pink-100 text-pink-800 rounded-xl text-sm hover:bg-pink-200 transition-colors border border-pink-200"
 									>
 										<span className="font-medium">
 											{tag.name}
@@ -271,6 +297,19 @@ export default function MessageBubble({
 							}
 						})}
 					</div>
+				</div>
+			)}
+
+			{/* Timestamp - only shown on last message in group */}
+			{isLastInGroup && (
+				<div
+					className={`text-xs mt-1 ${
+						isOwnMessage
+							? "text-gray-400 mr-1"
+							: "text-gray-400 ml-1"
+					}`}
+				>
+					{timestamp}
 				</div>
 			)}
 

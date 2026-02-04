@@ -464,7 +464,7 @@ export default function MessageInput({
 	};
 
 	return (
-		<div className="bg-white border-t border-gray-200 p-4">
+		<div className="bg-white border-t border-gray-200 p-1.5">
 			{error && (
 				<div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
 					{error}
