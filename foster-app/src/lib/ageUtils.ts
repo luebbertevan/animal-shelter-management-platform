@@ -19,7 +19,7 @@ const DAYS_PER_MONTH = 30.44; // Average month length
 const DAYS_PER_YEAR = 365.25; // Accounts for leap years (average)
 
 // Rollover thresholds
-const WEEKS_TO_MONTHS_THRESHOLD = 16; // weeks
+const WEEKS_TO_MONTHS_THRESHOLD = 8; // weeks
 
 /**
  * Converts age to the most appropriate unit based on rollover rules.
@@ -30,7 +30,7 @@ const WEEKS_TO_MONTHS_THRESHOLD = 16; // weeks
  * Rollover rules (checked in order):
  * - 24+ months → years
  * - 365+ days → years
- * - 16+ weeks → months
+ * - 8+ weeks → months
  * - 7+ days → weeks
  *
  * Returns integer values for cleaner display.
@@ -67,9 +67,9 @@ export function rolloverAge(value: number, unit: AgeUnit): AgeValue {
 		return { value: years, unit: "years" };
 	}
 
-	// 16+ weeks (112+ days) → months
+	// 8+ weeks (56+ days) → months
 	// But never return 12 months - convert to 1 year instead
-	const weeksThresholdDays = WEEKS_TO_MONTHS_THRESHOLD * DAYS_PER_WEEK; // 16 * 7 = 112 days
+	const weeksThresholdDays = WEEKS_TO_MONTHS_THRESHOLD * DAYS_PER_WEEK; // 8 * 7 = 56 days
 	if (totalDays >= weeksThresholdDays) {
 		const months = Math.round(totalDays / DAYS_PER_MONTH);
 		// If it would be 12 months, convert to 1 year
@@ -80,7 +80,7 @@ export function rolloverAge(value: number, unit: AgeUnit): AgeValue {
 		return { value: months, unit: "months" };
 	}
 
-	// 7+ days (but < 112 days) → weeks
+	// 7+ days (but < 56 days) → weeks
 	// Use Math.floor to avoid rounding up (e.g., 11 days = 1 week, not 2)
 	if (totalDays >= DAYS_PER_WEEK) {
 		const weeks = Math.floor(totalDays / DAYS_PER_WEEK);
@@ -101,7 +101,7 @@ export function rolloverAge(value: number, unit: AgeUnit): AgeValue {
  *
  * Determines the most appropriate unit based on age:
  * - < 7 days → days
- * - < 16 weeks → weeks
+ * - < 8 weeks → weeks
  * - < 1 year → months
  * - >= 1 year → years
  *
@@ -163,19 +163,17 @@ export function calculateAgeFromDOB(dob: string): AgeValue | null {
 		return { value: ageDays, unit: "days" };
 	}
 
-	// If < 16 weeks (112 days), return weeks
-	const weeksThresholdDays = WEEKS_TO_MONTHS_THRESHOLD * DAYS_PER_WEEK; // 16 * 7 = 112 days
+	// If < 8 weeks (56 days), return weeks
+	const weeksThresholdDays = WEEKS_TO_MONTHS_THRESHOLD * DAYS_PER_WEEK; // 8 * 7 = 56 days
 	if (ageDays < weeksThresholdDays) {
 		const weeks = Math.floor(ageDays / DAYS_PER_WEEK);
 		return { value: weeks, unit: "weeks" };
 	}
 
-	// >= 16 weeks and < 1 year, calculate actual months difference using calendar math
-	// Start with year difference in months, then add/subtract month difference
-	let months = yearDiff * 12 + monthDiff;
-	if (!hasBirthdayOccurred) {
-		months--;
-	}
+	// >= 8 weeks and < 1 year, calculate months using consistent arithmetic
+	// Use the same calculation as rolloverAge for consistency: ageDays / DAYS_PER_MONTH
+	// This ensures "8 weeks" displays as "2 months" (56/30.44 ≈ 1.84 → rounds to 2)
+	const months = Math.round(ageDays / DAYS_PER_MONTH);
 
 	// Never return 12 months - if it's 12 months, it should be 1 year
 	// But only if we've actually reached the birthday (years >= 1)
@@ -183,7 +181,7 @@ export function calculateAgeFromDOB(dob: string): AgeValue | null {
 		return { value: years, unit: "years" };
 	}
 
-	// Return months (we know it's >= 16 weeks and < 1 year, and < 12 months)
+	// Return months (we know it's >= 8 weeks and < 1 year, and < 12 months)
 	return { value: months, unit: "months" };
 }
 
@@ -237,8 +235,8 @@ export function calculateDOBFromAge(value: number, unit: AgeUnit): string {
  * Uses age calculation to determine life stage.
  *
  * Life stage thresholds:
- * - < 1 year: "kitten"
- * - >= 1 year and < 11 years: "adult"
+ * - < 2 years: "kitten"
+ * - >= 2 years and < 11 years: "adult"
  * - >= 11 years: "senior"
  * - If age cannot be determined: "unknown"
  *
@@ -264,8 +262,8 @@ export function calculateLifeStageFromDOB(
  * Calculates life stage from age value and unit.
  *
  * Life stage thresholds:
- * - < 1 year: "kitten"
- * - >= 1 year and < 11 years: "adult"
+ * - < 2 years: "kitten"
+ * - >= 2 years and < 11 years: "adult"
  * - >= 11 years: "senior"
  *
  * @param value - The numeric age value
@@ -296,11 +294,11 @@ export function calculateLifeStageFromAge(
 		return "senior";
 	}
 
-	// >= 1 year and < 11 years: adult
-	if (years >= 1) {
+	// >= 2 years and < 11 years: adult
+	if (years >= 2) {
 		return "adult";
 	}
 
-	// < 1 year: kitten
+	// < 2 years: kitten
 	return "kitten";
 }

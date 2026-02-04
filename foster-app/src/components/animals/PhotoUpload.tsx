@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { PhotoMetadata } from "../../types";
 import { getThumbnailUrl } from "../../lib/photoUtils";
 
@@ -41,7 +41,11 @@ export default function PhotoUpload({
 	const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const pasteZoneRef = useRef<HTMLDivElement>(null);
 	const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
+
+	const totalPhotos = selectedPhotos.length + existingPhotos.length;
+	const canAddMore = totalPhotos < maxPhotos;
 
 	// Validate file before adding to selection
 	const validateFile = (file: File): string | null => {
@@ -59,58 +63,179 @@ export default function PhotoUpload({
 		return null;
 	};
 
-	// Handle file selection
+	// Process files (shared between file input and paste)
+	const processFiles = useCallback(
+		(files: File[]) => {
+			const currentTotal = selectedPhotos.length + existingPhotos.length;
+			if (currentTotal + files.length > maxPhotos) {
+				setError(`Maximum ${maxPhotos} photos allowed.`);
+				return;
+			}
+
+			// Validate and add files
+			const newPhotos: SelectedPhoto[] = [];
+			const errors: string[] = [];
+
+			files.forEach((file) => {
+				const validationError = validateFile(file);
+				if (validationError) {
+					errors.push(validationError);
+				} else {
+					// Create preview URL
+					const preview = URL.createObjectURL(file);
+					newPhotos.push({
+						file,
+						preview,
+						id: crypto.randomUUID(),
+					});
+				}
+			});
+
+			if (errors.length > 0) {
+				setError(errors.join(" "));
+			}
+
+			if (newPhotos.length > 0) {
+				setSelectedPhotos((prev) => {
+					const updated = [...prev, ...newPhotos];
+					selectedPhotosRef.current = updated;
+					return updated;
+				});
+			}
+		},
+		[selectedPhotos.length, existingPhotos.length, maxPhotos]
+	);
+
+	// Handle file selection from input
 	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const files = e.target.files;
 		if (!files || files.length === 0) return;
 
 		setError(null);
-
-		// Check if adding these files would exceed the limit
-		const totalPhotos = selectedPhotos.length + existingPhotos.length;
-		if (totalPhotos + files.length > maxPhotos) {
-			setError(`Maximum ${maxPhotos} photos allowed.`);
-			// Reset file input
-			if (fileInputRef.current) {
-				fileInputRef.current.value = "";
-			}
-			return;
-		}
-
-		// Validate and add files
-		const newPhotos: SelectedPhoto[] = [];
-		const errors: string[] = [];
-
-		Array.from(files).forEach((file) => {
-			const validationError = validateFile(file);
-			if (validationError) {
-				errors.push(validationError);
-			} else {
-				// Create preview URL
-				const preview = URL.createObjectURL(file);
-				newPhotos.push({
-					file,
-					preview,
-					id: crypto.randomUUID(),
-				});
-			}
-		});
-
-		if (errors.length > 0) {
-			setError(errors.join(" "));
-		}
-
-		if (newPhotos.length > 0) {
-			setSelectedPhotos((prev) => {
-				const updated = [...prev, ...newPhotos];
-				selectedPhotosRef.current = updated;
-				return updated;
-			});
-		}
+		processFiles(Array.from(files));
 
 		// Reset file input to allow selecting the same file again
 		if (fileInputRef.current) {
 			fileInputRef.current.value = "";
+		}
+	};
+
+	// Handle paste event for photos (keyboard shortcut - works anywhere on page)
+	useEffect(() => {
+		const handlePaste = (e: ClipboardEvent) => {
+			// Don't handle if disabled or at max
+			if (disabled || !canAddMore) return;
+
+			const items = e.clipboardData?.items;
+			if (!items) return;
+
+			const imageFiles: File[] = [];
+
+			// Extract image files from clipboard
+			for (let i = 0; i < items.length; i++) {
+				const item = items[i];
+				if (item.type.indexOf("image") !== -1) {
+					const file = item.getAsFile();
+					if (file) {
+						imageFiles.push(file);
+					}
+				}
+			}
+
+			if (imageFiles.length === 0) return;
+
+			// Prevent default paste behavior for images
+			e.preventDefault();
+			setError(null);
+			processFiles(imageFiles);
+		};
+
+		// Attach to window so paste works anywhere on the form
+		window.addEventListener("paste", handlePaste);
+		return () => {
+			window.removeEventListener("paste", handlePaste);
+		};
+	}, [disabled, canAddMore, processFiles]);
+
+	// Handle paste on the paste zone (for right-click paste support)
+	const handlePasteZonePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+		// Always prevent default and stop propagation to avoid double handling
+		e.preventDefault();
+		e.stopPropagation();
+
+		if (disabled || !canAddMore) return;
+
+		const items = e.clipboardData?.items;
+		if (!items) return;
+
+		const imageFiles: File[] = [];
+
+		// Extract image files from clipboard
+		for (let i = 0; i < items.length; i++) {
+			const item = items[i];
+			if (item.type.indexOf("image") !== -1) {
+				const file = item.getAsFile();
+				if (file) {
+					imageFiles.push(file);
+				}
+			}
+		}
+
+		if (imageFiles.length === 0) return;
+
+		setError(null);
+		processFiles(imageFiles);
+	};
+
+	// Block all keyboard input in the paste zone (except paste shortcuts)
+	const handlePasteZoneKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		// Allow Ctrl+V / Cmd+V for paste
+		if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+			return;
+		}
+		// Block all other keyboard input
+		e.preventDefault();
+	};
+
+	// Prevent any text changes in the paste zone
+	const handlePasteZoneInput = () => {
+		if (pasteZoneRef.current) {
+			pasteZoneRef.current.textContent = "Paste";
+		}
+	};
+
+	// Handle click-to-paste using Clipboard API
+	const handlePasteZoneClick = async () => {
+		if (disabled || !canAddMore) return;
+
+		try {
+			// Request clipboard read permission
+			const clipboardItems = await navigator.clipboard.read();
+			const imageFiles: File[] = [];
+
+			for (const clipboardItem of clipboardItems) {
+				for (const type of clipboardItem.types) {
+					if (type.startsWith("image/")) {
+						const blob = await clipboardItem.getType(type);
+						// Determine file extension from MIME type
+						const extension = type.split("/")[1] || "png";
+						const file = new File(
+							[blob],
+							`pasted-image.${extension}`,
+							{ type }
+						);
+						imageFiles.push(file);
+					}
+				}
+			}
+
+			if (imageFiles.length > 0) {
+				setError(null);
+				processFiles(imageFiles);
+			}
+		} catch {
+			// User denied permission, clipboard empty, or no image in clipboard
+			// Silently fail - user can still use right-click or Ctrl+V
 		}
 	};
 
@@ -150,8 +275,6 @@ export default function PhotoUpload({
 		};
 	}, []); // Only run on unmount
 
-	const totalPhotos = selectedPhotos.length + existingPhotos.length;
-	const canAddMore = totalPhotos < maxPhotos;
 	const displayError = externalError || error;
 
 	return (
@@ -231,17 +354,38 @@ export default function PhotoUpload({
 				</div>
 			)}
 
-			{/* Upload button */}
-			<button
-				type="button"
-				onClick={() => fileInputRef.current?.click()}
-				disabled={disabled || !canAddMore}
-				className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-			>
-				{canAddMore
-					? "Add Photos"
-					: `Maximum ${maxPhotos} photos reached`}
-			</button>
+			{/* Upload button and paste zone */}
+			<div className="flex items-center gap-3">
+				<button
+					type="button"
+					onClick={() => fileInputRef.current?.click()}
+					disabled={disabled || !canAddMore}
+					className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+				>
+					{canAddMore
+						? "Upload"
+						: `Maximum ${maxPhotos} photos reached`}
+				</button>
+
+				{/* Paste zone for click-to-paste and right-click paste support */}
+				{canAddMore && !disabled && (
+					<div
+						ref={pasteZoneRef}
+						contentEditable
+						onClick={handlePasteZoneClick}
+						onPaste={handlePasteZonePaste}
+						onKeyDown={handlePasteZoneKeyDown}
+						onInput={handlePasteZoneInput}
+						className="px-3 py-2 text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-center select-none"
+						style={{ caretColor: "transparent" }}
+						aria-label="Click or right-click to paste photos"
+						title="Click or right-click to paste photos"
+						suppressContentEditableWarning
+					>
+						Paste
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

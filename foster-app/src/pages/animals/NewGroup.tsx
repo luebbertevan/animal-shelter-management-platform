@@ -7,6 +7,7 @@ import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { useGroupForm } from "../../hooks/useGroupForm";
 import type { Animal } from "../../types";
 import GroupForm from "../../components/animals/GroupForm";
+import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
@@ -693,12 +694,16 @@ export default function NewGroup() {
 						<h1 className="text-2xl font-bold text-gray-900">
 							Create New Group
 						</h1>
-						<button
-							onClick={() => navigate("/animals")}
-							className="text-sm text-pink-600 hover:text-pink-700 hover:underline font-medium"
-						>
-							Cancel
-						</button>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => navigate("/animals")}
+								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+							>
+								Cancel
+							</Button>
+						</div>
 					</div>
 
 					<GroupForm

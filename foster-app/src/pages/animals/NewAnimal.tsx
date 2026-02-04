@@ -387,45 +387,46 @@ export default function NewAnimal() {
 						<h1 className="text-2xl font-bold text-gray-900">
 							Create New Animal
 						</h1>
-						<button
-							onClick={() => navigate("/animals")}
-							className="text-sm text-pink-600 hover:text-pink-700 hover:underline font-medium"
-						>
-							Cancel
-						</button>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								variant="primary"
+								onClick={() => setIsAnimalSelectorOpen(true)}
+								disabled={loading || uploadingPhotos}
+								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+							>
+								Copy animal
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => navigate("/animals")}
+								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+							>
+								Cancel
+							</Button>
+						</div>
 					</div>
 
-					{/* Copy from Animal Section */}
-					<div className="mb-6">
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => setIsAnimalSelectorOpen(true)}
-							disabled={loading || uploadingPhotos}
-						>
-							Copy data from existing animal
-						</Button>
-
-						{/* Success message when data is copied */}
-						{copiedFromAnimalName && (
-							<div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
-								<svg
-									className="w-5 h-5 text-green-600 flex-shrink-0"
-									fill="currentColor"
-									viewBox="0 0 20 20"
-								>
-									<path
-										fillRule="evenodd"
-										d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-										clipRule="evenodd"
-									/>
-								</svg>
-								<span className="text-sm text-green-800">
-									Data copied from <strong>{copiedFromAnimalName}</strong>
-								</span>
-							</div>
-						)}
-					</div>
+					{/* Success message when data is copied */}
+					{copiedFromAnimalName && (
+						<div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
+							<svg
+								className="w-5 h-5 text-green-600 flex-shrink-0"
+								fill="currentColor"
+								viewBox="0 0 20 20"
+							>
+								<path
+									fillRule="evenodd"
+									d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+									clipRule="evenodd"
+								/>
+							</svg>
+							<span className="text-sm text-green-800">
+								Data copied from <strong>{copiedFromAnimalName}</strong>
+							</span>
+						</div>
+					)}
 
 					<AnimalForm
 						formState={formState}
