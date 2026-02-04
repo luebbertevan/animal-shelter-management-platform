@@ -2,6 +2,7 @@ import { useState } from "react";
 import Button from "../ui/Button";
 import Textarea from "../ui/Textarea";
 import Select from "../ui/Select";
+import Toggle from "../ui/Toggle";
 import type { AnimalStatus, FosterVisibility } from "../../types";
 import { getFosterVisibilityFromStatus } from "../../lib/metadataUtils";
 
@@ -11,7 +12,8 @@ interface UnassignmentDialogProps {
 	onConfirm: (
 		newStatus: AnimalStatus,
 		newVisibility: FosterVisibility,
-		message: string
+		message: string,
+		includeTag: boolean
 	) => void;
 	fosterName: string;
 	animalOrGroupName: string;
@@ -49,28 +51,30 @@ export default function UnassignmentDialog({
 	const [newVisibility, setNewVisibility] =
 		useState<FosterVisibility>("available_now");
 	const [message, setMessage] = useState("");
+	const [includeTag, setIncludeTag] = useState(true);
 
 	// Generate default message template
 	const defaultMessage = `Hi ${fosterName}, ${animalOrGroupName} is no longer assigned to you.`;
 
-	if (!isOpen) return null;
+	const resetState = () => {
+		setNewStatus("in_shelter");
+		setNewVisibility("available_now");
+		setMessage("");
+		setIncludeTag(true);
+	};
 
 	const handleConfirm = () => {
 		const finalMessage = message.trim() || defaultMessage;
-		onConfirm(newStatus, newVisibility, finalMessage);
-		// Reset state
-		setNewStatus("in_shelter");
-		setNewVisibility("available_now");
-		setMessage("");
+		onConfirm(newStatus, newVisibility, finalMessage, includeTag);
+		resetState();
 	};
 
 	const handleCancel = () => {
-		// Reset state
-		setNewStatus("in_shelter");
-		setNewVisibility("available_now");
-		setMessage("");
+		resetState();
 		onClose();
 	};
+
+	if (!isOpen) return null;
 
 	return (
 		<>
@@ -189,6 +193,13 @@ export default function UnassignmentDialog({
 								will be sent.
 							</p>
 						</div>
+
+						{/* Include Tag Toggle */}
+						<Toggle
+							label={`Include link to ${isGroup ? "group" : "animal"} in message`}
+							checked={includeTag}
+							onChange={setIncludeTag}
+						/>
 					</div>
 
 					{/* Footer */}

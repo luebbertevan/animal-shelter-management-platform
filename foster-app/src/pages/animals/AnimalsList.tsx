@@ -312,9 +312,6 @@ export default function AnimalsList() {
 							</button>
 						</div>
 					</div>
-					<p className="text-gray-600">
-						Browse all animals currently tracked in the system.
-					</p>
 				</div>
 
 				{isLoading && (

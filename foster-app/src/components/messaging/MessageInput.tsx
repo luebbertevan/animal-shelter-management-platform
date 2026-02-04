@@ -526,6 +526,7 @@ export default function MessageInput({
 								<img
 									src={photo.preview}
 									alt={photo.file.name}
+									loading="lazy"
 									className="w-20 h-20 object-cover rounded border border-gray-300"
 								/>
 								<button

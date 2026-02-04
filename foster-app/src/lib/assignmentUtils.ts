@@ -235,7 +235,8 @@ export async function assignGroupToFoster(
 	groupId: string,
 	fosterId: string,
 	organizationId: string,
-	message?: string
+	message?: string,
+	includeTag: boolean = true
 ): Promise<void> {
 	// Validate group assignment
 	const validation = await validateGroupAssignment(groupId, organizationId);
@@ -326,12 +327,14 @@ export async function assignGroupToFoster(
 	const defaultMessage = `Hi ${fosterName}, ${groupName} has been assigned to you.`;
 	const finalMessage = message?.trim() || defaultMessage;
 
-	// Create tag for the group
-	const groupTag: MessageTag = {
-		type: TAG_TYPES.GROUP,
-		id: groupId,
-		name: groupName,
-	};
+	// Create tag for the group (only if includeTag is true)
+	const groupTag: MessageTag | undefined = includeTag
+		? {
+				type: TAG_TYPES.GROUP,
+				id: groupId,
+				name: groupName,
+			}
+		: undefined;
 
 	await sendAssignmentMessage(fosterId, organizationId, finalMessage, groupTag);
 }
@@ -343,7 +346,8 @@ export async function assignAnimalToFoster(
 	animalId: string,
 	fosterId: string,
 	organizationId: string,
-	message?: string
+	message?: string,
+	includeTag: boolean = true
 ): Promise<void> {
 	// Check for group assignment conflict
 	const conflict = await checkGroupAssignmentConflict(
@@ -426,12 +430,14 @@ export async function assignAnimalToFoster(
 	const defaultMessage = `Hi ${fosterName}, ${animalName} has been assigned to you.`;
 	const finalMessage = message?.trim() || defaultMessage;
 
-	// Create tag for the animal
-	const animalTag: MessageTag = {
-		type: TAG_TYPES.ANIMAL,
-		id: animalId,
-		name: animalName,
-	};
+	// Create tag for the animal (only if includeTag is true)
+	const animalTag: MessageTag | undefined = includeTag
+		? {
+				type: TAG_TYPES.ANIMAL,
+				id: animalId,
+				name: animalName,
+			}
+		: undefined;
 
 	await sendAssignmentMessage(fosterId, organizationId, finalMessage, animalTag);
 }
@@ -444,7 +450,8 @@ export async function unassignGroup(
 	organizationId: string,
 	newStatus: AnimalStatus = "in_shelter",
 	newVisibility: FosterVisibility = "available_now",
-	message?: string
+	message?: string,
+	includeTag: boolean = true
 ): Promise<void> {
 	// Fetch group to get animal_ids, name, and current_foster_id
 	const { data: group, error: groupError } = await supabase
@@ -533,12 +540,14 @@ export async function unassignGroup(
 	const defaultMessage = `Hi ${fosterName}, ${groupName} is no longer assigned to you.`;
 	const finalMessage = message?.trim() || defaultMessage;
 
-	// Create tag for the group
-	const groupTag: MessageTag = {
-		type: TAG_TYPES.GROUP,
-		id: groupId,
-		name: groupName,
-	};
+	// Create tag for the group (only if includeTag is true)
+	const groupTag: MessageTag | undefined = includeTag
+		? {
+				type: TAG_TYPES.GROUP,
+				id: groupId,
+				name: groupName,
+			}
+		: undefined;
 
 	await sendAssignmentMessage(fosterId, organizationId, finalMessage, groupTag);
 }
@@ -551,7 +560,8 @@ export async function unassignAnimal(
 	organizationId: string,
 	newStatus: AnimalStatus = "in_shelter",
 	newVisibility: FosterVisibility = "available_now",
-	message?: string
+	message?: string,
+	includeTag: boolean = true
 ): Promise<void> {
 	// Fetch animal to get name, group_id, and current_foster_id
 	const { data: animal, error: animalError } = await supabase
@@ -627,12 +637,14 @@ export async function unassignAnimal(
 	const defaultMessage = `Hi ${fosterName}, ${animalName} is no longer assigned to you.`;
 	const finalMessage = message?.trim() || defaultMessage;
 
-	// Create tag for the animal
-	const animalTag: MessageTag = {
-		type: TAG_TYPES.ANIMAL,
-		id: animalId,
-		name: animalName,
-	};
+	// Create tag for the animal (only if includeTag is true)
+	const animalTag: MessageTag | undefined = includeTag
+		? {
+				type: TAG_TYPES.ANIMAL,
+				id: animalId,
+				name: animalName,
+			}
+		: undefined;
 
 	await sendAssignmentMessage(fosterId, organizationId, finalMessage, animalTag);
 }

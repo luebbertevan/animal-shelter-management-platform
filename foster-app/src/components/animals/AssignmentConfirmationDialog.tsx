@@ -1,11 +1,12 @@
 import { useState } from "react";
 import Button from "../ui/Button";
 import Textarea from "../ui/Textarea";
+import Toggle from "../ui/Toggle";
 
 interface AssignmentConfirmationDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onConfirm: (message: string) => void;
+	onConfirm: (message: string, includeTag: boolean) => void;
 	fosterName: string;
 	animalOrGroupName: string;
 	isGroup?: boolean;
@@ -22,24 +23,30 @@ export default function AssignmentConfirmationDialog({
 	animalCount,
 }: AssignmentConfirmationDialogProps) {
 	const [message, setMessage] = useState("");
+	const [includeTag, setIncludeTag] = useState(true);
 
 	// Generate default message template
 	const defaultMessage = isGroup
 		? `Hi ${fosterName}, ${animalOrGroupName} has been assigned to you.`
 		: `Hi ${fosterName}, ${animalOrGroupName} has been assigned to you.`;
 
-	if (!isOpen) return null;
+	const resetState = () => {
+		setMessage("");
+		setIncludeTag(true);
+	};
 
 	const handleConfirm = () => {
 		const finalMessage = message.trim() || defaultMessage;
-		onConfirm(finalMessage);
-		setMessage("");
+		onConfirm(finalMessage, includeTag);
+		resetState();
 	};
 
 	const handleCancel = () => {
-		setMessage("");
+		resetState();
 		onClose();
 	};
+
+	if (!isOpen) return null;
 
 	return (
 		<>
@@ -115,6 +122,13 @@ export default function AssignmentConfirmationDialog({
 								If no message is provided, the default message will be sent.
 							</p>
 						</div>
+
+						{/* Include Tag Toggle */}
+						<Toggle
+							label={`Include link to ${isGroup ? "group" : "animal"} in message`}
+							checked={includeTag}
+							onChange={setIncludeTag}
+						/>
 					</div>
 
 					{/* Footer */}

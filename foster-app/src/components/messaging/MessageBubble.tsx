@@ -4,6 +4,7 @@ import AnimalCard from "../animals/AnimalCard";
 import GroupCard from "../animals/GroupCard";
 import type { LifeStage, MessageTagWithEntity, PhotoMetadata } from "../../types";
 import { TAG_TYPES } from "../../types";
+import { getMediumImageUrl } from "../../lib/photoUtils";
 
 interface MessageBubbleProps {
 	message: {
@@ -176,8 +177,9 @@ export default function MessageBubble({
 											</div>
 										) : (
 											<img
-												src={url}
+												src={getMediumImageUrl(url)}
 												alt={`Photo ${index + 1}`}
+												loading="lazy"
 												className={`w-full h-full object-cover cursor-pointer ${
 													isLoading
 														? "opacity-0"

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { PhotoMetadata } from "../../types";
+import { getThumbnailUrl } from "../../lib/photoUtils";
 
 // Maximum file size: 8MB
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -186,8 +187,9 @@ export default function PhotoUpload({
 							className="relative group"
 						>
 							<img
-								src={photo.url}
+								src={getThumbnailUrl(photo.url)}
 								alt={`Photo ${index + 1}`}
+								loading="lazy"
 								className="w-20 h-20 object-cover rounded border border-gray-300"
 							/>
 							{onRemovePhoto && (
@@ -212,6 +214,7 @@ export default function PhotoUpload({
 							<img
 								src={photo.preview}
 								alt={photo.file.name}
+								loading="lazy"
 								className="w-20 h-20 object-cover rounded border border-gray-300"
 							/>
 							<button
