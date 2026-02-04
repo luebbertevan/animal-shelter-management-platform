@@ -4068,32 +4068,46 @@ The preview card should show minimal, scannable information for quick browsing:
 
 **Dependencies:**
 
--   **Reusable Search & Filter Component** - Needed for animal search/select UI
--   **Update Animal Preview Card & Detail Page** - Needed for animal list/preview cards
--   **Display Groups in Animal UI** - Needed for group support in search
--   **Animal Editing for Coordinators** - Provides `animalToFormState` utility and `useAnimalForm` hook
+-   **Reusable Search & Filter Component** ✅ - Available (`SearchInput`, `AnimalFilters` components exist)
+-   **Animal Preview Card** ✅ - Available (`AnimalCard` component exists and is used in lists)
+-   **Display Groups in Animal UI** ✅ - Available (groups are supported in animal selection UI)
+-   **Animal Editing for Coordinators** ✅ - Available (`animalToFormState` utility and `useAnimalForm` hook exist)
 
 **Tasks:**
 
-1. **Add "Copy from Animal" button/selector to NewAnimal form**:
+1. **Create AnimalSelector modal component** (similar to `FosterSelector` pattern):
 
-    - Add a button or dropdown near the top of the form: "Copy data from existing animal"
-    - When clicked, show a modal or dropdown to search/select an animal
-    - Use the Reusable Search & Filter Component for animal selection (from Reusable Search & Filter Component milestone)
-    - Filter by organization (only show animals from same organization)
+    - Create new component: `src/components/animals/AnimalSelector.tsx`
+    - Modal dialog that opens when "Copy from Animal" button is clicked
+    - Uses `SearchInput` component for searching animals by name
+    - Uses `AnimalFilters` component for filtering (priority, sex, life_stage, status, foster_visibility, etc.)
+    - Uses `AnimalCard` component to display animals in a grid
+    - Includes pagination using `Pagination` component
+    - Filter by organization (only show animals from same organization - handled automatically by `fetchAnimals`)
+    - Clicking an animal card selects it and closes the modal
+    - Support Escape key to close modal
+    - Mobile-responsive design
 
-2. **Copy logic**:
+2. **Add "Copy from Animal" button to NewAnimal form**:
 
-    - Use the `animalToFormState` utility function (created in Animal Editing for Coordinators milestone)
-    - When animal is selected, use: `animalToFormState(animal, { exclude: ['name', 'bio', 'photos'] })`
+    - Add a button near the top of the form (before the form fields): "Copy data from existing animal"
+    - Button opens the `AnimalSelector` modal
+    - Button is disabled while form is loading/submitting
+
+3. **Copy logic**:
+
+    - Use the `animalToFormState` utility function (from `src/lib/animalFormUtils.ts`)
+    - When animal is selected from modal, fetch full animal data using React Query
+    - Use: `animalToFormState(animal, { exclude: ['name', 'bio', 'photos'] })`
     - This will copy the following fields to form:
         - Status (but allow editing)
-        - Display Placement Request
+        - Visibility on Fosters Needed page (foster_visibility)
         - Sex/SpayNeuter Status
         - Life Stage
+        - Primary Breed
         - Physical Characteristics
         - Date of Birth
-        - Age (calculated from Date of Birth on-demand)
+        - Age (calculated from Date of Birth on-demand via `useAnimalForm` hook)
         - Priority
         - Medical Needs
         - Behavioral Needs
@@ -4102,35 +4116,59 @@ The preview card should show minimal, scannable information for quick browsing:
     - **Do NOT copy**: Bio (bio is specific to each animal)
     - **Do NOT copy**: Photos (photos are specific to each animal)
     - **Do NOT copy**: Tags (if implemented later)
-    - Pre-fill form fields with copied values using `useAnimalForm` hook
+    - Update form state using setters from `useAnimalForm` hook (e.g., `setStatus`, `setFosterVisibility`, etc.)
     - All fields remain editable after copying
 
-3. **User experience**:
+4. **User experience**:
 
     - After selecting animal, form fields populate automatically
-    - Show a brief success message or visual indicator that data was copied
+    - Show a brief success message or visual indicator that data was copied (e.g., green banner: "Data copied from [Animal Name]")
     - User can edit any copied field before submitting
-    - If user navigates away and comes back, copied data is lost (form resets)
+    - If user navigates away and comes back, copied data is lost (form resets to empty state)
+    - Modal closes automatically after selection
 
-4. **Implementation notes**:
+5. **Implementation notes**:
 
-    - Use React Query to fetch selected animal data
+    - Use React Query to fetch animals for selection modal (reuse `fetchAnimals` from `src/lib/animalQueries.ts`)
+    - Use React Query to fetch full animal data when selected (for copying)
     - Handle loading state while fetching animal data
     - Handle error state if animal fetch fails
-    - Ensure copied data respects organization boundaries
+    - Ensure copied data respects organization boundaries (already handled by `fetchAnimals` filtering)
     - Reuse `animalToFormState` utility and `useAnimalForm` hook for consistency
+    - Follow the pattern established by `FosterSelector` component for modal structure
 
 **Testing:**
 
--   Can search and select an animal to copy from (using search/filter component)
--   All appropriate fields are copied to form
--   Name field is NOT copied (remains empty)
--   Bio field is NOT copied (remains empty)
--   Photos are NOT copied (photo upload section remains empty)
+-   "Copy from Animal" button appears on NewAnimal form
+-   Clicking button opens AnimalSelector modal
+-   Modal displays animals in a grid using AnimalCard components
+-   Can search animals by name using SearchInput component
+-   Can filter animals using AnimalFilters component (priority, sex, life_stage, status, foster_visibility, etc.)
+-   Pagination works correctly when there are many animals
+-   Clicking an animal card selects it and closes the modal
+-   Escape key closes the modal
+-   All appropriate fields are copied to form:
+    - Status ✅
+    - Visibility on Fosters Needed page (foster_visibility) ✅
+    - Sex/SpayNeuter Status ✅
+    - Life Stage ✅
+    - Primary Breed ✅
+    - Physical Characteristics ✅
+    - Date of Birth ✅
+    - Age (calculated from DOB) ✅
+    - Priority ✅
+    - Medical Needs ✅
+    - Behavioral Needs ✅
+    - Additional Notes ✅
+-   Name field is NOT copied (remains empty) ✅
+-   Bio field is NOT copied (remains empty) ✅
+-   Photos are NOT copied (photo upload section remains empty) ✅
+-   Success message appears after copying data
 -   Copied fields are editable
 -   Can submit form with copied data
--   Only shows animals from same organization
--   Works on mobile devices
+-   Only shows animals from same organization (verified by organization_id filtering)
+-   Works on mobile devices (modal is responsive)
+-   If user navigates away and returns, form resets (copied data is lost)
 
 **Deliverable:** Copy data from animal feature working, allowing quick creation of similar animals.
 

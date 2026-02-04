@@ -39,6 +39,7 @@ import {
 } from "../../lib/metadataUtils";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import { fetchFosterById } from "../../lib/fosterQueries";
+import { getThumbnailUrl } from "../../lib/photoUtils";
 
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -217,7 +218,7 @@ export default function GroupDetail() {
 	};
 
 	// Handle assignment confirmation
-	const handleAssignmentConfirm = async (message: string) => {
+	const handleAssignmentConfirm = async (message: string, includeTag: boolean) => {
 		if (!selectedFosterId || !id) {
 			return;
 		}
@@ -229,7 +230,8 @@ export default function GroupDetail() {
 				id,
 				selectedFosterId,
 				profile.organization_id,
-				message
+				message,
+				includeTag
 			);
 
 			// Invalidate queries to refresh data
@@ -391,7 +393,8 @@ export default function GroupDetail() {
 	const handleUnassign = async (
 		newStatus: AnimalStatus,
 		newVisibility: FosterVisibility,
-		message: string
+		message: string,
+		includeTag: boolean
 	) => {
 		if (!id || !group?.current_foster_id) return;
 
@@ -403,7 +406,8 @@ export default function GroupDetail() {
 				profile.organization_id,
 				newStatus,
 				newVisibility,
-				message
+				message,
+				includeTag
 			);
 
 			// Invalidate queries
@@ -739,11 +743,12 @@ export default function GroupDetail() {
 										className="relative group cursor-pointer"
 										onClick={() => handlePhotoClick(index)}
 									>
-										<img
-											src={url}
-											alt={`Group photo ${index + 1}`}
-											className="w-24 h-24 object-cover rounded border border-gray-300 hover:opacity-80 transition-opacity"
-										/>
+									<img
+										src={getThumbnailUrl(url)}
+										alt={`Group photo ${index + 1}`}
+										loading="lazy"
+										className="w-24 h-24 object-cover rounded border border-gray-300 hover:opacity-80 transition-opacity"
+									/>
 									</div>
 								))}
 							</div>

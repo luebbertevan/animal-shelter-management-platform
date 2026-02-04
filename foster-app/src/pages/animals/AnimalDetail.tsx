@@ -40,6 +40,7 @@ import RequestDenialDialog from "../../components/fosters/RequestDenialDialog";
 import { isOffline } from "../../lib/errorUtils";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 import { supabase } from "../../lib/supabase";
+import { getThumbnailUrl } from "../../lib/photoUtils";
 import {
 	formatDateForDisplay,
 	hasMeaningfulUpdate,
@@ -369,7 +370,7 @@ export default function AnimalDetail() {
 	};
 
 	// Handle assignment confirmation
-	const handleAssignmentConfirm = async (message: string) => {
+	const handleAssignmentConfirm = async (message: string, includeTag: boolean) => {
 		if (!selectedFosterId || !id) {
 			return;
 		}
@@ -381,7 +382,8 @@ export default function AnimalDetail() {
 				id,
 				selectedFosterId,
 				profile.organization_id,
-				message
+				message,
+				includeTag
 			);
 
 			// Invalidate queries to refresh data
@@ -545,7 +547,8 @@ export default function AnimalDetail() {
 	const handleUnassign = async (
 		newStatus: AnimalStatus,
 		newVisibility: FosterVisibility,
-		message: string
+		message: string,
+		includeTag: boolean
 	) => {
 		if (!id || !animal?.current_foster_id) return;
 
@@ -559,7 +562,8 @@ export default function AnimalDetail() {
 					profile.organization_id,
 					newStatus,
 					newVisibility,
-					message
+					message,
+					includeTag
 				);
 			} else {
 				await unassignAnimal(
@@ -567,7 +571,8 @@ export default function AnimalDetail() {
 					profile.organization_id,
 					newStatus,
 					newVisibility,
-					message
+					message,
+					includeTag
 				);
 			}
 
@@ -957,8 +962,9 @@ export default function AnimalDetail() {
 											className="relative group"
 										>
 											<img
-												src={url}
+												src={getThumbnailUrl(url)}
 												alt={`Photo ${index + 1}`}
+												loading="lazy"
 												className="w-20 h-20 object-cover rounded border border-gray-300 cursor-pointer hover:opacity-90 transition-opacity"
 												onClick={() =>
 													handlePhotoClick(index)

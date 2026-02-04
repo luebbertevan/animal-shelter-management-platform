@@ -124,7 +124,7 @@ export default function NavigationBar() {
 							</NavLink>
 						) : (
 							// Coordinators see "Animals", "Groups", and "Fosters Needed" on desktop
-							<div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+							<div className="hidden min-[800px]:flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
 								<NavLink to="/animals">Animals</NavLink>
 								<NavLink to="/groups">Groups</NavLink>
 								<NavLink to="/fosters-needed">
@@ -133,7 +133,7 @@ export default function NavigationBar() {
 							</div>
 						)}
 						{isCoordinator && (
-							<div className="hidden md:flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+							<div className="hidden min-[800px]:flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
 								<NavLink to="/fosters">Fosters</NavLink>
 								<NavLink to="/foster-requests">Requests</NavLink>
 							</div>
@@ -158,7 +158,7 @@ export default function NavigationBar() {
 
 							{/* Hamburger menu button - only for coordinators on mobile */}
 							{isCoordinator && (
-								<div className="md:hidden relative" ref={menuRef}>
+								<div className="min-[800px]:hidden relative" ref={menuRef}>
 									<button
 										onClick={() => setIsMenuOpen(!isMenuOpen)}
 										className="flex items-center justify-center p-2 md:p-3 rounded-lg hover:bg-gray-100 transition-colors"

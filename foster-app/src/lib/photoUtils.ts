@@ -4,6 +4,13 @@ import { getErrorMessage } from "./errorUtils";
 // Maximum file size: 8MB (8 * 1024 * 1024 bytes)
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
 
+// Cache control: 1 year (immutable content-addressed files)
+const CACHE_CONTROL_MAX_AGE = "31536000";
+
+// Image compression settings
+const DEFAULT_MAX_WIDTH = 1920; // Max width for uploaded images
+const DEFAULT_COMPRESSION_QUALITY = 0.85; // JPEG quality (0-1)
+
 // Allowed MIME types for photos
 const ALLOWED_MIME_TYPES = [
 	"image/jpeg",
@@ -11,6 +18,167 @@ const ALLOWED_MIME_TYPES = [
 	"image/png",
 	"image/webp",
 ];
+
+// ============================================================================
+// IMAGE OPTIMIZATION UTILITIES
+// ============================================================================
+
+/**
+ * Generates an optimized image URL with Supabase Storage transformations
+ * Uses Supabase's built-in image transformation to resize and convert formats
+ * @param originalUrl - The original public URL from Supabase Storage
+ * @param width - Optional width to resize to (maintains aspect ratio)
+ * @param quality - Image quality (1-100), default 80
+ * @param format - Output format (webp recommended for best compression)
+ * @returns Optimized URL with transformation parameters
+ */
+export function getOptimizedImageUrl(
+	originalUrl: string,
+	width?: number,
+	quality: number = 80,
+	format: "webp" | "origin" = "webp"
+): string {
+	if (!originalUrl) return originalUrl;
+
+	try {
+		const url = new URL(originalUrl);
+
+		// Add transformation parameters
+		if (width) {
+			url.searchParams.set("width", width.toString());
+		}
+		url.searchParams.set("quality", quality.toString());
+		if (format !== "origin") {
+			url.searchParams.set("format", format);
+		}
+
+		return url.toString();
+	} catch {
+		// If URL parsing fails, return original
+		return originalUrl;
+	}
+}
+
+/**
+ * Generates a thumbnail URL for card/list displays
+ * @param originalUrl - The original public URL
+ * @returns Optimized URL for thumbnail display (400px width, 75 quality, webp)
+ */
+export function getThumbnailUrl(originalUrl: string): string {
+	return getOptimizedImageUrl(originalUrl, 400, 75, "webp");
+}
+
+/**
+ * Generates a medium-sized URL for detail views
+ * @param originalUrl - The original public URL
+ * @returns Optimized URL for medium display (800px width, 80 quality, webp)
+ */
+export function getMediumImageUrl(originalUrl: string): string {
+	return getOptimizedImageUrl(originalUrl, 800, 80, "webp");
+}
+
+/**
+ * Generates a full-size optimized URL for lightbox/full display
+ * @param originalUrl - The original public URL
+ * @returns Optimized URL for full display (1600px width, 85 quality, webp)
+ */
+export function getFullImageUrl(originalUrl: string): string {
+	return getOptimizedImageUrl(originalUrl, 1600, 85, "webp");
+}
+
+// ============================================================================
+// CLIENT-SIDE IMAGE COMPRESSION
+// ============================================================================
+
+/**
+ * Compresses an image file before upload to reduce file size
+ * Resizes images larger than maxWidth and applies JPEG compression
+ * @param file - The original file to compress
+ * @param maxWidth - Maximum width (default 1920px)
+ * @param quality - JPEG quality 0-1 (default 0.85)
+ * @returns Promise resolving to compressed file
+ */
+export async function compressImage(
+	file: File,
+	maxWidth: number = DEFAULT_MAX_WIDTH,
+	quality: number = DEFAULT_COMPRESSION_QUALITY
+): Promise<File> {
+	// Skip compression for small files (< 500KB) and WebP (already compressed)
+	if (file.size < 500 * 1024 || file.type === "image/webp") {
+		return file;
+	}
+
+	return new Promise((resolve) => {
+		const reader = new FileReader();
+		reader.readAsDataURL(file);
+
+		reader.onload = (e) => {
+			const img = new Image();
+			img.src = e.target?.result as string;
+
+			img.onload = () => {
+				// Calculate new dimensions
+				let width = img.width;
+				let height = img.height;
+
+				if (width > maxWidth) {
+					height = Math.round((height * maxWidth) / width);
+					width = maxWidth;
+				}
+
+				// Create canvas and draw resized image
+				const canvas = document.createElement("canvas");
+				canvas.width = width;
+				canvas.height = height;
+
+				const ctx = canvas.getContext("2d");
+				if (!ctx) {
+					resolve(file); // Fallback to original
+					return;
+				}
+
+				// Use high-quality image smoothing
+				ctx.imageSmoothingEnabled = true;
+				ctx.imageSmoothingQuality = "high";
+				ctx.drawImage(img, 0, 0, width, height);
+
+				// Convert to blob
+				canvas.toBlob(
+					(blob) => {
+						if (blob && blob.size < file.size) {
+							// Only use compressed version if smaller
+							const compressedFile = new File(
+								[blob],
+								file.name.replace(/\.[^/.]+$/, ".jpg"),
+								{
+									type: "image/jpeg",
+									lastModified: Date.now(),
+								}
+							);
+							resolve(compressedFile);
+						} else {
+							resolve(file); // Keep original if compression didn't help
+						}
+					},
+					"image/jpeg",
+					quality
+				);
+			};
+
+			img.onerror = () => {
+				resolve(file); // Fallback to original on error
+			};
+		};
+
+		reader.onerror = () => {
+			resolve(file); // Fallback to original on error
+		};
+	});
+}
+
+// ============================================================================
+// FILE VALIDATION
+// ============================================================================
 
 /**
  * Validates a file before upload
@@ -71,18 +239,21 @@ export async function uploadPhoto(
 	// Validate file before attempting upload
 	validateFile(file);
 
+	// Compress image before upload to reduce file size
+	const compressedFile = await compressImage(file);
+
 	// Generate unique filename
-	const uniqueFilename = generateUniqueFilename(file.name);
+	const uniqueFilename = generateUniqueFilename(compressedFile.name);
 
 	// Construct storage path: {organization_id}/messages/{conversation_id}/{uuid}_{filename}
 	const storagePath = `${organizationId}/messages/${conversationId}/${uniqueFilename}`;
 
 	try {
-		// Upload file to Supabase Storage
+		// Upload compressed file to Supabase Storage
 		const { data, error } = await supabase.storage
 			.from("photos")
-			.upload(storagePath, file, {
-				cacheControl: "3600", // Cache for 1 hour
+			.upload(storagePath, compressedFile, {
+				cacheControl: CACHE_CONTROL_MAX_AGE, // Cache for 1 year (immutable)
 				upsert: false, // Don't overwrite existing files
 			});
 
@@ -171,20 +342,23 @@ export async function uploadAnimalPhoto(
 	// Validate file before attempting upload
 	validateFile(file);
 
+	// Compress image before upload to reduce file size
+	const compressedFile = await compressImage(file);
+
 	// Generate unique filename with timestamp
 	const timestamp = Date.now();
-	const uniqueFilename = generateUniqueFilename(file.name);
+	const uniqueFilename = generateUniqueFilename(compressedFile.name);
 	const filenameWithTimestamp = `${timestamp}_${uniqueFilename}`;
 
 	// Construct storage path: {organization_id}/animals/{animal_id}/{timestamp}_{uuid}_{filename}
 	const storagePath = `${organizationId}/animals/${animalId}/${filenameWithTimestamp}`;
 
 	try {
-		// Upload file to Supabase Storage
+		// Upload compressed file to Supabase Storage
 		const { data, error } = await supabase.storage
 			.from("photos")
-			.upload(storagePath, file, {
-				cacheControl: "3600", // Cache for 1 hour
+			.upload(storagePath, compressedFile, {
+				cacheControl: CACHE_CONTROL_MAX_AGE, // Cache for 1 year (immutable)
 				upsert: false, // Don't overwrite existing files
 			});
 
@@ -468,20 +642,23 @@ export async function uploadGroupPhoto(
 	// Validate file before attempting upload
 	validateFile(file);
 
+	// Compress image before upload to reduce file size
+	const compressedFile = await compressImage(file);
+
 	// Generate unique filename with timestamp
 	const timestamp = Date.now();
-	const uniqueFilename = generateUniqueFilename(file.name);
+	const uniqueFilename = generateUniqueFilename(compressedFile.name);
 	const filenameWithTimestamp = `${timestamp}_${uniqueFilename}`;
 
 	// Construct storage path: {organization_id}/groups/{group_id}/{timestamp}_{uuid}_{filename}
 	const storagePath = `${organizationId}/groups/${groupId}/${filenameWithTimestamp}`;
 
 	try {
-		// Upload file to Supabase Storage
+		// Upload compressed file to Supabase Storage
 		const { data, error } = await supabase.storage
 			.from("photos")
-			.upload(storagePath, file, {
-				cacheControl: "3600", // Cache for 1 hour
+			.upload(storagePath, compressedFile, {
+				cacheControl: CACHE_CONTROL_MAX_AGE, // Cache for 1 year (immutable)
 				upsert: false, // Don't overwrite existing files
 			});
 

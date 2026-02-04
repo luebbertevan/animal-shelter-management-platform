@@ -383,10 +383,6 @@ export default function GroupsList() {
 							</button>
 						</div>
 					</div>
-					<p className="text-gray-600">
-						Browse all animal groups currently tracked in the
-						system.
-					</p>
 				</div>
 
 				{isLoading && (

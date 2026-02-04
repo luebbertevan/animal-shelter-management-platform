@@ -578,7 +578,7 @@ or maybe animal status is kept but not synced and is only interanl
 
 Decision: Foster History Handling
 We will use snapshot records for foster group assignments instead of fully tracking historical group state.
-When a group is assigned to a foster, we store a snapshot of the group’s presentation data (group info, photos, animals in the group at that time). This snapshot represents historical experience, not live state, and does not update based on later animal status changes (adoptions, moves, group edits).
+When a group is unassigned to a foster, we store a snapshot of the group’s presentation data (group info, photos, animals in the group at that time). This snapshot represents historical experience, not live state, and does not update based on later animal status changes (adoptions, moves, group edits).
 Animals remain first-class records and will continue to track foster history relationally (no snapshots). This allows animal foster history to remain accurate and correctable without duplicating data.
 This approach avoids a full schema rework, preserves meaningful foster history, and accepts that group snapshots may occasionally immortalize assignment mistakes as a deliberate UX trade-off.
 
@@ -642,7 +642,7 @@ Chat is too wide. needs a design rework
 
 Hitting enter in forms is buggy af.
 
-coordinators on mobile: weird spacing for teh headers. (fosters needed header is strange)
+coordinators on mobile: weird spacing for the headers. (fosters needed header is strange)
 
 refresh button is kinda confusing tbh
 
@@ -669,3 +669,6 @@ website variation
 muted green #678476
 light muted green #BCCCBC
 orange #C68A5F
+
+
+

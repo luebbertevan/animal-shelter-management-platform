@@ -49,17 +49,17 @@ export default function SearchInput({
 					<MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
 				</div>
 
-				{/* Input Field */}
-				<input
-					ref={inputRef}
-					type="text"
-					value={localValue}
-					onChange={(e) => setLocalValue(e.target.value)}
-					onKeyDown={handleKeyDown}
-					placeholder={placeholder}
-					disabled={disabled}
-					className="w-full pl-10 pr-10 py-2 sm:py-2.5 text-sm sm:text-base border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400"
-				/>
+			{/* Input Field */}
+			<input
+				ref={inputRef}
+				type="text"
+				value={localValue}
+				onChange={(e) => setLocalValue(e.target.value)}
+				onKeyDown={handleKeyDown}
+				placeholder={placeholder}
+				disabled={disabled}
+				className="w-full pl-10 pr-10 py-2 sm:py-2.5 text-base border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400"
+			/>
 
 				{/* Clear Button */}
 				{localValue && (
@@ -75,16 +75,16 @@ export default function SearchInput({
 				)}
 			</div>
 
-			{/* Search Button - Right Side */}
-			<button
-				type="button"
-				onClick={handleSearch}
-				disabled={disabled}
-				className="px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base font-medium bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:bg-pink-300 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-				aria-label="Search"
-			>
-				Search
-			</button>
+		{/* Search Button - Hidden on mobile (users can press Enter), visible on larger screens */}
+		<button
+			type="button"
+			onClick={handleSearch}
+			disabled={disabled}
+			className="hidden sm:block px-4 py-2.5 text-base font-medium bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:bg-pink-300 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+			aria-label="Search"
+		>
+			Search
+		</button>
 		</div>
 	);
 }

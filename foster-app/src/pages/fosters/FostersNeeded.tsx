@@ -548,21 +548,15 @@ export default function FostersNeeded() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-5xl mx-auto">
 				<div className="mb-6">
-					<div className="flex items-center justify-between mb-4">
-						<div>
-							<h1 className="text-2xl font-bold text-gray-900">
-								Fosters Needed
-							</h1>
-							<p className="text-gray-600">
-								Browse animals and groups that need foster
-								placement.
-							</p>
-						</div>
+					<div className="flex items-center justify-between mb-2">
+						<h1 className="text-2xl font-bold text-gray-900">
+							Fosters Needed
+						</h1>
 						<button
 							type="button"
 							onClick={handleRefetch}
 							disabled={isLoading || isRefetching}
-							className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
+							className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
 							aria-label="Refresh fosters needed"
 						>
 							<ArrowPathIcon

@@ -11,6 +11,7 @@ import {
 	getAnimalPhotosForGroup,
 	getLifeStageCounts,
 } from "../../lib/groupCardUtils";
+import { getThumbnailUrl } from "../../lib/photoUtils";
 
 interface GroupCardProps {
 	group: Partial<
@@ -157,8 +158,9 @@ export default function GroupCard({
 								className="relative w-full h-full overflow-hidden"
 							>
 								<img
-									src={photoUrl}
+									src={getThumbnailUrl(photoUrl)}
 									alt={`Group photo ${index + 1}`}
+									loading="lazy"
 									className="w-full h-full object-cover"
 								/>
 								{/* "+X more" overlay on last cell if there are more photos */}

@@ -6,6 +6,8 @@ import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { useAnimalForm } from "../../hooks/useAnimalForm";
 import AnimalForm from "../../components/animals/AnimalForm";
+import AnimalSelector from "../../components/animals/AnimalSelector";
+import Button from "../../components/ui/Button";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import {
 	fetchBreedSuggestions,
@@ -13,7 +15,9 @@ import {
 } from "../../lib/animalQueries";
 import { calculateDOBFromAge } from "../../lib/ageUtils";
 import { uploadAnimalPhoto } from "../../lib/photoUtils";
+import { animalToFormState } from "../../lib/animalFormUtils";
 import type {
+	Animal,
 	AnimalStatus,
 	SexSpayNeuterStatus,
 	LifeStage,
@@ -57,6 +61,9 @@ export default function NewAnimal() {
 	const [photoUploadError, setPhotoUploadError] = useState<string | null>(
 		null
 	);
+	// Copy from Animal state
+	const [isAnimalSelectorOpen, setIsAnimalSelectorOpen] = useState(false);
+	const [copiedFromAnimalName, setCopiedFromAnimalName] = useState<string | null>(null);
 
 	// Fetch breed suggestions with React Query (5-minute cache)
 	const { data: breedSuggestions = [], isLoading: isLoadingBreeds } =
@@ -108,6 +115,43 @@ export default function NewAnimal() {
 		{ value: "senior", label: "Senior" },
 		{ value: "unknown", label: "Unknown" },
 	];
+
+	// Handle copying data from selected animal
+	const handleCopyFromAnimal = (animal: Animal) => {
+		// Use animalToFormState with exclusions for name, bio, and photos
+		const copiedState = animalToFormState(animal, {
+			exclude: ["name", "bio"],
+		});
+
+		// Update all form fields with copied values
+		setStatus(copiedState.status);
+		setFosterVisibility(copiedState.fosterVisibility);
+		setSexSpayNeuterStatus(copiedState.sexSpayNeuterStatus);
+		setLifeStage(copiedState.lifeStage);
+		setPrimaryBreed(copiedState.primaryBreed);
+		setPhysicalCharacteristics(copiedState.physicalCharacteristics);
+		setMedicalNeeds(copiedState.medicalNeeds);
+		setBehavioralNeeds(copiedState.behavioralNeeds);
+		setAdditionalNotes(copiedState.additionalNotes);
+		setPriority(copiedState.priority);
+
+		// Handle date of birth - use handleDOBChange to properly calculate age
+		if (copiedState.dateOfBirth) {
+			handleDOBChange(copiedState.dateOfBirth);
+		} else {
+			// Clear DOB if source animal doesn't have one
+			handleDOBChange("");
+		}
+
+		// Set success message with animal name
+		const animalName = animal.name?.trim() || "Unnamed Animal";
+		setCopiedFromAnimalName(animalName);
+
+		// Clear the copied message after 5 seconds
+		setTimeout(() => {
+			setCopiedFromAnimalName(null);
+		}, 5000);
+	};
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -351,6 +395,38 @@ export default function NewAnimal() {
 						</button>
 					</div>
 
+					{/* Copy from Animal Section */}
+					<div className="mb-6">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setIsAnimalSelectorOpen(true)}
+							disabled={loading || uploadingPhotos}
+						>
+							Copy data from existing animal
+						</Button>
+
+						{/* Success message when data is copied */}
+						{copiedFromAnimalName && (
+							<div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
+								<svg
+									className="w-5 h-5 text-green-600 flex-shrink-0"
+									fill="currentColor"
+									viewBox="0 0 20 20"
+								>
+									<path
+										fillRule="evenodd"
+										d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+										clipRule="evenodd"
+									/>
+								</svg>
+								<span className="text-sm text-green-800">
+									Data copied from <strong>{copiedFromAnimalName}</strong>
+								</span>
+							</div>
+						)}
+					</div>
+
 					<AnimalForm
 						formState={formState}
 						setName={setName}
@@ -394,6 +470,14 @@ export default function NewAnimal() {
 					/>
 				</div>
 			</div>
+
+			{/* Animal Selector Modal for Copy from Animal */}
+			<AnimalSelector
+				isOpen={isAnimalSelectorOpen}
+				onClose={() => setIsAnimalSelectorOpen(false)}
+				onSelect={handleCopyFromAnimal}
+				title="Copy data from animal"
+			/>
 		</div>
 	);
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { getFullImageUrl } from "../../lib/photoUtils";
 
 interface PhotoLightboxProps {
 	photos: string[];
@@ -71,7 +72,7 @@ export default function PhotoLightbox({
 
 	if (!isOpen || photos.length === 0) return null;
 
-	const currentPhoto = photos[currentIndex];
+	const currentPhoto = getFullImageUrl(photos[currentIndex]);
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 transition-opacity duration-200">

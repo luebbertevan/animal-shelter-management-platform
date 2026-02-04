@@ -15,6 +15,7 @@ import {
 } from "../lib/fosterRequestQueries";
 import { formatDateForDisplay } from "../lib/metadataUtils";
 import { Link } from "react-router-dom";
+import { getThumbnailUrl } from "../lib/photoUtils";
 import type {
 	Animal,
 	AnimalGroup,
@@ -344,8 +345,9 @@ export default function Dashboard() {
 											>
 												{photo ? (
 													<img
-														src={photo}
+														src={getThumbnailUrl(photo)}
 														alt={entityName}
+														loading="lazy"
 														className="w-12 h-12 rounded-md object-cover"
 													/>
 												) : (

@@ -5,6 +5,7 @@ import type {
 	FosterVisibility,
 } from "../../types";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
+import { getThumbnailUrl } from "../../lib/photoUtils";
 
 // Helper function to create a URL-friendly slug from a name
 function createSlug(name: string | undefined | null): string {
@@ -190,8 +191,9 @@ export default function AnimalCard({
 			<div className="w-full aspect-[4/5] bg-gray-100 flex items-center justify-center relative">
 				{firstPhoto ? (
 					<img
-						src={firstPhoto.url}
+						src={getThumbnailUrl(firstPhoto.url)}
 						alt={animal.name || "Animal photo"}
+						loading="lazy"
 						className="w-full h-full object-cover"
 					/>
 				) : (

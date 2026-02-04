@@ -475,7 +475,6 @@ export default function TagSelectionModal({
 									<SearchInput
 										value={animalSearchTerm}
 										onSearch={handleAnimalSearch}
-										placeholder="Search animals..."
 									/>
 									<AnimalFiltersComponent
 										filters={animalFilters}
@@ -563,7 +562,6 @@ export default function TagSelectionModal({
 									<SearchInput
 										value={groupSearchTerm}
 										onSearch={handleGroupSearch}
-										placeholder="Search groups..."
 									/>
 									<GroupFiltersComponent
 										filters={groupFilters}
