@@ -11,7 +11,7 @@ import GroupDetail from "./pages/animals/GroupDetail";
 import NewGroup from "./pages/animals/NewGroup";
 import EditGroup from "./pages/animals/EditGroup";
 import ConversationDetail from "./pages/messaging/ConversationDetail";
-import ConversationsList from "./pages/messaging/ConversationsList";
+import MessagingPage from "./pages/messaging/MessagingPage";
 import FostersList from "./pages/fosters/FostersList";
 import FosterDetail from "./pages/fosters/FosterDetail";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -124,9 +124,11 @@ function App() {
 					path="/chats"
 					element={
 						<ProtectedRoute>
-							<ProtectedLayout>
-								<ConversationsList />
-							</ProtectedLayout>
+							<CoordinatorOnlyRoute>
+								<ProtectedLayout>
+									<MessagingPage />
+								</ProtectedLayout>
+							</CoordinatorOnlyRoute>
 						</ProtectedRoute>
 					}
 				/>

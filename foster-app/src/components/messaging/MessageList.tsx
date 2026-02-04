@@ -562,10 +562,27 @@ export default function MessageList({
 		);
 	}
 
+	// Time threshold for grouping messages (5 minutes in milliseconds)
+	const GROUP_TIME_THRESHOLD = 5 * 60 * 1000;
+
+	// Helper to check if two messages should be grouped
+	const shouldGroup = (
+		current: MessageWithMetadata,
+		other: MessageWithMetadata | undefined
+	): boolean => {
+		if (!other) return false;
+		if (current.sender_id !== other.sender_id) return false;
+		const timeDiff = Math.abs(
+			new Date(current.created_at).getTime() -
+				new Date(other.created_at).getTime()
+		);
+		return timeDiff <= GROUP_TIME_THRESHOLD;
+	};
+
 	return (
 		<div
 			ref={messagesContainerRef}
-			className="space-y-2 p-4 pb-6"
+			className="px-4 py-3"
 			style={{
 				opacity: hasScrolledToBottom ? 1 : 0,
 				transition: hasScrolledToBottom
@@ -587,8 +604,17 @@ export default function MessageList({
 				</div>
 			)}
 
-			{messages.map((message) => {
+			{messages.map((message, index) => {
 				const isOwnMessage = message.sender_id === user.id;
+				const prevMessage = index > 0 ? messages[index - 1] : undefined;
+				const nextMessage =
+					index < messages.length - 1
+						? messages[index + 1]
+						: undefined;
+
+				// Determine grouping
+				const isFirstInGroup = !shouldGroup(message, prevMessage);
+				const isLastInGroup = !shouldGroup(message, nextMessage);
 
 				return (
 					<MessageBubble
@@ -602,6 +628,8 @@ export default function MessageList({
 							tags: message.tags,
 						}}
 						isOwnMessage={isOwnMessage}
+						isFirstInGroup={isFirstInGroup}
+						isLastInGroup={isLastInGroup}
 						animalDataMap={animalDataMap}
 					/>
 				);

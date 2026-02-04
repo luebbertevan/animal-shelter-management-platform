@@ -1,6 +1,7 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type { Conversation } from "../../types";
@@ -48,7 +49,11 @@ export default function ConversationDetail() {
 	const { conversationId } = useParams<{ conversationId: string }>();
 	const { profile } = useProtectedAuth();
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const scrollableContainerRef = useRef<HTMLDivElement>(null);
+
+	// Check if coordinator - they get a back button to the chat list
+	const isCoordinator = profile.role === "coordinator";
 
 	const {
 		data: conversation,
@@ -125,48 +130,68 @@ export default function ConversationDetail() {
 		}
 	};
 
+	// Show header only if there's content (back button for coordinators or header text)
+	const showHeader = isCoordinator || headerText;
+
 	return (
-		<div className="mobile-viewport flex flex-col bg-gray-50 overflow-hidden">
-			{/* Header */}
-			<div className="bg-white border-b border-gray-200 p-4 shadow-sm flex-shrink-0">
-				{headerText && (
-					<h1 className="text-xl font-semibold text-gray-800">
-						{profile.role === "coordinator" &&
-						conversation.type === "foster_chat" &&
-						conversation.foster_profile_id ? (
-							<Link
-								to={`/fosters/${conversation.foster_profile_id}`}
-								className="text-pink-600 hover:text-pink-700 hover:underline"
-							>
-								{headerText}
-							</Link>
-						) : (
-							headerText
-						)}
-					</h1>
+		<div className="h-[calc(100dvh-3rem)] sm:h-[calc(100dvh-4rem)] md:h-[calc(100dvh-5rem)] lg:p-4 lg:bg-gray-50 overflow-hidden">
+			{/* Centered chat container with max width matching other pages on large screens */}
+			<div className="h-full max-w-5xl mx-auto flex flex-col bg-white lg:rounded-lg lg:shadow-sm">
+				{/* Header - only shown for coordinators or when there's header text */}
+				{showHeader && (
+					<div className="bg-white border-b border-gray-200 p-4 shadow-sm flex-shrink-0 lg:rounded-t-lg">
+						<div className="flex items-center gap-3">
+							{/* Back button for coordinators on mobile */}
+							{isCoordinator && (
+								<button
+									onClick={() => navigate("/chats")}
+									className="lg:hidden p-1.5 -ml-1.5 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+									aria-label="Back to chats"
+								>
+									<ArrowLeftIcon className="h-5 w-5" />
+								</button>
+							)}
+							{headerText && (
+								<h1 className="text-xl font-semibold text-gray-800">
+									{profile.role === "coordinator" &&
+									conversation.type === "foster_chat" &&
+									conversation.foster_profile_id ? (
+										<Link
+											to={`/fosters/${conversation.foster_profile_id}`}
+											className="text-pink-600 hover:text-pink-700 hover:underline"
+										>
+											{headerText}
+										</Link>
+									) : (
+										headerText
+									)}
+								</h1>
+							)}
+						</div>
+					</div>
 				)}
-			</div>
 
-			{/* Message List */}
-			<div
-				ref={scrollableContainerRef}
-				className="flex-1 overflow-y-auto min-h-0"
-			>
-				<MessageList
-					conversationId={conversation.id}
-					scrollableContainerRef={scrollableContainerRef}
-				/>
-			</div>
-
-			{/* Message Input */}
-			{conversationId && (
-				<div className="flex-shrink-0">
-					<MessageInput
-						conversationId={conversationId}
-						onMessageSent={handleMessageSent}
+				{/* Message List */}
+				<div
+					ref={scrollableContainerRef}
+					className="flex-1 overflow-y-auto min-h-0"
+				>
+					<MessageList
+						conversationId={conversation.id}
+						scrollableContainerRef={scrollableContainerRef}
 					/>
 				</div>
-			)}
+
+				{/* Message Input */}
+				{conversationId && (
+					<div className="flex-shrink-0 lg:rounded-b-lg overflow-hidden">
+						<MessageInput
+							conversationId={conversationId}
+							onMessageSent={handleMessageSent}
+						/>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }
