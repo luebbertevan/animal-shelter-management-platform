@@ -28,16 +28,52 @@ async function fetchFosterConversation(userId: string, organizationId: string) {
 	return data?.id || null;
 }
 
-// Helper component for navigation links
+// Helper function to check if a route is active
+// Uses exact match or prefix with slash to avoid /fosters matching /fosters-needed
+function isRouteActive(pathname: string, to: string): boolean {
+	return pathname === to || pathname.startsWith(to + "/");
+}
+
+// Helper component for navigation links - background style
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
 	const location = useLocation();
-	const isActive = location.pathname.startsWith(to);
+	const isActive = isRouteActive(location.pathname, to);
 
 	return (
 		<Link
 			to={to}
-			className={`text-sm sm:text-base md:text-lg lg:text-xl font-medium transition-colors ${
-				isActive ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
+			className={`text-sm sm:text-base md:text-lg font-medium transition-all duration-200 px-3 py-1.5 rounded-md ${
+				isActive
+					? "text-pink-600 bg-pink-50 font-semibold"
+					: "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+			}`}
+		>
+			{children}
+		</Link>
+	);
+}
+
+// Helper component for dropdown menu links
+function MenuNavLink({
+	to,
+	children,
+	onClick,
+}: {
+	to: string;
+	children: React.ReactNode;
+	onClick: () => void;
+}) {
+	const location = useLocation();
+	const isActive = isRouteActive(location.pathname, to);
+
+	return (
+		<Link
+			to={to}
+			onClick={onClick}
+			className={`block px-4 py-2.5 text-base font-medium transition-colors ${
+				isActive
+					? "text-pink-600 bg-pink-50"
+					: "text-gray-700 hover:text-pink-600 hover:bg-pink-50"
 			}`}
 		>
 			{children}
@@ -47,6 +83,7 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
 
 export default function NavigationBar() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { user, profile, isFoster, isCoordinator } = useProtectedAuth();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const menuRef = useRef<HTMLDivElement>(null);
@@ -102,13 +139,13 @@ export default function NavigationBar() {
 
 	return (
 		<nav className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
-			<div className="max-w-7xl mx-auto px-4">
-				<div className="flex items-center justify-between h-20">
-					<div className="flex items-center h-full py-0.5 gap-3 sm:gap-4">
+			<div className="max-w-7xl mx-auto px-3 sm:px-4">
+				<div className="flex items-center justify-between h-12 sm:h-16 md:h-20">
+					<div className="flex items-center h-full md:py-0.5 gap-2 sm:gap-3 md:gap-4">
 						<img
 							src="/co_kitty_coalition_logo.avif"
 							alt="Co Kitty Coalition"
-							className="h-full max-h-full w-auto object-contain"
+							className="h-8 sm:h-12 md:h-full md:max-h-full w-auto object-contain"
 						/>
 						<span className="hidden sm:block text-pink-600 font-semibold text-lg sm:text-xl md:text-2xl lg:text-3xl">
 							Fosty
@@ -142,18 +179,26 @@ export default function NavigationBar() {
 						<div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-2 md:ml-4">
 							<button
 								onClick={() => navigate("/dashboard")}
-								className="flex items-center justify-center p-2 md:p-3 rounded-lg hover:bg-gray-100 transition-colors"
+								className={`flex items-center justify-center p-1.5 sm:p-2 md:p-3 rounded-lg transition-all duration-200 ${
+									location.pathname === "/dashboard"
+										? "bg-pink-50 text-pink-600"
+										: "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+								}`}
 								aria-label="Home"
 							>
-								<HomeIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
+								<HomeIcon className="h-5 w-5 md:h-6 md:w-6" />
 							</button>
 
 							<button
 								onClick={handleChatClick}
-								className="flex items-center justify-center p-2 md:p-3 rounded-lg hover:bg-gray-100 transition-colors"
+								className={`flex items-center justify-center p-1.5 sm:p-2 md:p-3 rounded-lg transition-all duration-200 ${
+									location.pathname.startsWith("/chat")
+										? "bg-pink-50 text-pink-600"
+										: "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+								}`}
 								aria-label="Chat"
 							>
-								<ChatBubbleLeftIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
+								<ChatBubbleLeftIcon className="h-5 w-5 md:h-6 md:w-6" />
 							</button>
 
 							{/* Hamburger menu button - only for coordinators on mobile */}
@@ -161,55 +206,54 @@ export default function NavigationBar() {
 								<div className="min-[800px]:hidden relative" ref={menuRef}>
 									<button
 										onClick={() => setIsMenuOpen(!isMenuOpen)}
-										className="flex items-center justify-center p-2 md:p-3 rounded-lg hover:bg-gray-100 transition-colors"
+										className={`flex items-center justify-center p-1.5 sm:p-2 md:p-3 rounded-lg transition-all duration-200 ${
+											isMenuOpen
+												? "bg-pink-50 text-pink-600"
+												: "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+										}`}
 										aria-label="Menu"
 										aria-expanded={isMenuOpen}
 									>
 										{isMenuOpen ? (
-											<XMarkIcon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
+											<XMarkIcon className="h-5 w-5 md:h-6 md:w-6" />
 										) : (
-											<Bars3Icon className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
+											<Bars3Icon className="h-5 w-5 md:h-6 md:w-6" />
 										)}
 									</button>
 
 									{/* Dropdown menu */}
 									{isMenuOpen && (
-										<div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-											<div onClick={handleMenuLinkClick}>
-												<NavLink to="/animals">
-													<div className="px-4 py-2 hover:bg-gray-50">
-														Animals
-													</div>
-												</NavLink>
-											</div>
-											<div onClick={handleMenuLinkClick}>
-												<NavLink to="/groups">
-													<div className="px-4 py-2 hover:bg-gray-50">
-														Groups
-													</div>
-												</NavLink>
-											</div>
-											<div onClick={handleMenuLinkClick}>
-												<NavLink to="/fosters-needed">
-													<div className="px-4 py-2 hover:bg-gray-50">
-														Fosters Needed
-													</div>
-												</NavLink>
-											</div>
-											<div onClick={handleMenuLinkClick}>
-												<NavLink to="/fosters">
-													<div className="px-4 py-2 hover:bg-gray-50">
-														Fosters
-													</div>
-												</NavLink>
-											</div>
-											<div onClick={handleMenuLinkClick}>
-												<NavLink to="/foster-requests">
-													<div className="px-4 py-2 hover:bg-gray-50">
-														Requests
-													</div>
-												</NavLink>
-											</div>
+										<div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 overflow-hidden">
+											<MenuNavLink
+												to="/animals"
+												onClick={handleMenuLinkClick}
+											>
+												Animals
+											</MenuNavLink>
+											<MenuNavLink
+												to="/groups"
+												onClick={handleMenuLinkClick}
+											>
+												Groups
+											</MenuNavLink>
+											<MenuNavLink
+												to="/fosters-needed"
+												onClick={handleMenuLinkClick}
+											>
+												Fosters Needed
+											</MenuNavLink>
+											<MenuNavLink
+												to="/fosters"
+												onClick={handleMenuLinkClick}
+											>
+												Fosters
+											</MenuNavLink>
+											<MenuNavLink
+												to="/foster-requests"
+												onClick={handleMenuLinkClick}
+											>
+												Requests
+											</MenuNavLink>
 										</div>
 									)}
 								</div>

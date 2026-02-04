@@ -241,7 +241,7 @@ export default function FosterRequests() {
 	if (!isCoordinator) {
 		return (
 			<div className="min-h-screen p-4 bg-gray-50">
-				<div className="max-w-6xl mx-auto">
+				<div className="max-w-5xl mx-auto">
 					<div className="bg-white rounded-lg shadow-sm p-6">
 						<p className="text-gray-600">
 							This page is only accessible to coordinators.
@@ -252,28 +252,51 @@ export default function FosterRequests() {
 		);
 	}
 
-	if (isLoading) {
-		return (
-			<div className="min-h-screen p-4 bg-gray-50">
-				<div className="max-w-6xl mx-auto">
+	return (
+		<div className="min-h-screen p-4 bg-gray-50">
+			<div className="max-w-5xl mx-auto">
+				<div className="mb-6">
+					<div className="flex items-center justify-between mb-2">
+						<h1 className="text-2xl font-bold text-gray-900">
+							Foster Requests
+						</h1>
+						<button
+							type="button"
+							onClick={() => refetchRequests()}
+							disabled={isLoading || isRefetchingRequests}
+							className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
+							aria-label="Refresh foster requests"
+						>
+							<ArrowPathIcon
+								className={`h-4 w-4 sm:h-5 sm:w-5 ${
+									isRefetchingRequests ? "animate-spin" : ""
+								}`}
+							/>
+							<span className="hidden sm:inline">Refresh</span>
+						</button>
+					</div>
+					<p className="text-sm text-gray-500">
+						{totalItems} pending{" "}
+						{totalItems === 1 ? "request" : "requests"}
+					</p>
+				</div>
+
+				{isLoading && (
 					<div className="bg-white rounded-lg shadow-sm p-6">
 						<LoadingSpinner message="Loading foster requests..." />
 					</div>
-				</div>
-			</div>
-		);
-	}
+				)}
 
-	if (isError) {
-		return (
-			<div className="min-h-screen p-4 bg-gray-50">
-				<div className="max-w-6xl mx-auto">
+				{isError && (
 					<div className="bg-white rounded-lg shadow-sm p-6 border border-red-200">
 						<div className="text-red-700">
-							<p className="font-medium mb-4">
+							<p className="font-medium mb-2">
+								Unable to load foster requests right now.
+							</p>
+							<p className="text-sm mb-4">
 								{error instanceof Error
 									? error.message
-									: "Unable to load foster requests. Please try again."}
+									: "Unknown error"}
 							</p>
 							{isOffline() && (
 								<p className="text-sm mb-4">
@@ -283,109 +306,81 @@ export default function FosterRequests() {
 								</p>
 							)}
 							<button
-								onClick={() => refetchRequests()}
-								className="text-sm text-pink-600 hover:text-pink-800 flex items-center gap-1"
-							>
-								<ArrowPathIcon className="w-4 h-4" />
-								Retry
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		);
-	}
-
-	return (
-		<div className="min-h-screen p-4 bg-gray-50">
-			<div className="max-w-6xl mx-auto">
-				<div className="bg-white rounded-lg shadow-sm p-6">
-					{/* Header */}
-					<div className="mb-6">
-						<div className="flex items-center justify-between mb-2">
-							<h1 className="text-2xl font-bold text-gray-900">
-								Foster Requests
-							</h1>
-							<button
 								type="button"
 								onClick={() => refetchRequests()}
 								disabled={isLoading || isRefetchingRequests}
-								className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
-								aria-label="Refresh foster requests"
+								className="px-4 py-2 bg-pink-600 text-white rounded-md hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 							>
-								<ArrowPathIcon
-									className={`h-4 w-4 sm:h-5 sm:w-5 ${
-										isRefetchingRequests ? "animate-spin" : ""
-									}`}
-								/>
-								<span className="hidden sm:inline">Refresh</span>
+								Try Again
 							</button>
 						</div>
-						<p className="text-sm text-gray-500">
-							{totalItems} pending{" "}
-							{totalItems === 1 ? "request" : "requests"}
-						</p>
 					</div>
+				)}
 
-					{/* Search + Filters (matches FostersNeeded layout) */}
-					<div className="mb-4">
-						<div className="flex items-center gap-2">
-							<SearchInput
-								value={searchTerm}
-								onSearch={handleSearch}
-								disabled={isLoading}
-							/>
-							<FosterRequestsFilters
-								filters={filters}
-								onFiltersChange={handleFiltersChange}
-							/>
+				{!isLoading && !isError && requestItems.length === 0 && (
+					<div className="bg-white rounded-lg shadow-sm p-6">
+						<div className="text-gray-600">
+							No pending foster requests.
 						</div>
 					</div>
+				)}
 
-					{/* Active Filter Chips */}
-					{activeFilterChips.length > 0 && (
-						<div className="mb-4 flex flex-wrap gap-2">
-							{activeFilterChips.map((chip, index) => (
-								<FilterChip
-									key={index}
-									label={chip.label}
-									onRemove={chip.onRemove}
+				{!isLoading && !isError && (
+					<>
+						{/* Search + Filters (matches FostersNeeded layout) */}
+						<div className="mb-4">
+							<div className="flex items-center gap-2">
+								<SearchInput
+									value={searchTerm}
+									onSearch={handleSearch}
+									disabled={isLoading}
 								/>
-							))}
-						</div>
-					)}
-
-					{/* Results */}
-					{requestItems.length === 0 ? (
-						<div className="py-12 text-center">
-							<p className="text-gray-500">
-								No pending foster requests.
-							</p>
-						</div>
-					) : (
-						<>
-							{/* Grid of cards */}
-							<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-								{paginatedItems.map((item) =>
-									renderRequestCardItem(item, animalDataMap)
-								)}
+								<FosterRequestsFilters
+									filters={filters}
+									onFiltersChange={handleFiltersChange}
+								/>
 							</div>
+						</div>
 
-							{/* Pagination */}
-							{totalPages > 1 && (
-								<div className="mt-6">
-									<Pagination
-										currentPage={page}
-										totalPages={totalPages}
-										onPageChange={handlePageChange}
-										totalItems={totalItems}
-										itemsPerPage={pageSize}
+						{/* Active Filter Chips */}
+						{activeFilterChips.length > 0 && (
+							<div className="mb-4 flex flex-wrap gap-2">
+								{activeFilterChips.map((chip, index) => (
+									<FilterChip
+										key={index}
+										label={chip.label}
+										onRemove={chip.onRemove}
 									/>
+								))}
+							</div>
+						)}
+
+						{/* Results */}
+						{requestItems.length > 0 && (
+							<>
+								{/* Grid of cards */}
+								<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+									{paginatedItems.map((item) =>
+										renderRequestCardItem(item, animalDataMap)
+									)}
 								</div>
-							)}
-						</>
-					)}
-				</div>
+
+								{/* Pagination */}
+								{totalPages > 1 && (
+									<div className="mt-6">
+										<Pagination
+											currentPage={page}
+											totalPages={totalPages}
+											onPageChange={handlePageChange}
+											totalItems={totalItems}
+											itemsPerPage={pageSize}
+										/>
+									</div>
+								)}
+							</>
+						)}
+					</>
+				)}
 			</div>
 		</div>
 	);
