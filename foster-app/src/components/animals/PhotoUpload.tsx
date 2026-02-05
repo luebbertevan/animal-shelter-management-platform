@@ -12,6 +12,78 @@ const ALLOWED_MIME_TYPES = [
 	"image/webp",
 ];
 
+/** Shown when paste from Sheets (or similar) fails because the source blocks direct image fetch (e.g. 429). */
+const PASTE_FROM_SHEETS_HINT =
+	"Couldn't load image from this source. Paste into a Google Doc first, then copy from the Doc and paste here.";
+
+/**
+ * Extract image files from HTML string (e.g. clipboard text/html).
+ * 1) Data URLs (data:image/...;base64,...) – used by Google Doc and others.
+ * 2) HTTPS image URLs – used by some sources (e.g. Google Sheets); we try to fetch them.
+ *    CORS may block some; if so, user can paste into a Google Doc first.
+ */
+async function extractImageFilesFromHtml(html: string): Promise<File[]> {
+	const files: File[] = [];
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, "text/html");
+	const imgs = doc.querySelectorAll("img[src]");
+
+	// 1) Data URL images (sync)
+	imgs.forEach((img, index) => {
+		const src = img.getAttribute("src");
+		if (!src || !src.startsWith("data:image/")) return;
+
+		const match = src.match(/^data:(image\/[a-z+]+);base64,(.+)$/i);
+		if (!match) return;
+
+		const mimeType = match[1].toLowerCase();
+		const base64 = match[2];
+
+		if (!ALLOWED_MIME_TYPES.includes(mimeType)) return;
+
+		try {
+			const binary = atob(base64);
+			const bytes = new Uint8Array(binary.length);
+			for (let i = 0; i < binary.length; i++) {
+				bytes[i] = binary.charCodeAt(i);
+			}
+			const blob = new Blob([bytes], { type: mimeType });
+			const extension = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "png";
+			files.push(
+				new File([blob], `pasted-image-${index + 1}.${extension}`, { type: mimeType })
+			);
+		} catch {
+			// Ignore invalid base64
+		}
+	});
+
+	// 2) HTTPS image URLs (async) – e.g. Google Sheets often embeds these
+	if (files.length === 0) {
+		let urlIndex = 0;
+		for (const img of imgs) {
+			const src = img.getAttribute("src");
+			if (!src || !(src.startsWith("https://") || src.startsWith("http://"))) continue;
+
+			try {
+				const res = await fetch(src, { mode: "cors", credentials: "omit" });
+				if (!res.ok) continue;
+				const blob = await res.blob();
+				const mimeType = (blob.type || res.headers.get("content-type")?.split(";")[0]?.trim() || "image/png").toLowerCase();
+				if (!mimeType.startsWith("image/") || !ALLOWED_MIME_TYPES.includes(mimeType)) continue;
+				const extension = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "png";
+				urlIndex += 1;
+				files.push(
+					new File([blob], `pasted-image-${urlIndex}.${extension}`, { type: mimeType })
+				);
+			} catch {
+				// CORS or network error – skip this URL
+			}
+		}
+	}
+
+	return files;
+}
+
 interface SelectedPhoto {
 	file: File;
 	preview: string; // Object URL for preview
@@ -122,7 +194,7 @@ export default function PhotoUpload({
 
 	// Handle paste event for photos (keyboard shortcut - works anywhere on page)
 	useEffect(() => {
-		const handlePaste = (e: ClipboardEvent) => {
+		const handlePaste = async (e: ClipboardEvent) => {
 			// Don't handle if disabled or at max
 			if (disabled || !canAddMore) return;
 
@@ -131,7 +203,7 @@ export default function PhotoUpload({
 
 			const imageFiles: File[] = [];
 
-			// Extract image files from clipboard
+			// Extract image files from clipboard (image/* items)
 			for (let i = 0; i < items.length; i++) {
 				const item = items[i];
 				if (item.type.indexOf("image") !== -1) {
@@ -142,7 +214,20 @@ export default function PhotoUpload({
 				}
 			}
 
-			if (imageFiles.length === 0) return;
+			// If no image/* items (e.g. Google Sheets), try extracting from text/html (data URLs + HTTPS image URLs)
+			let triedHtml = false;
+			if (imageFiles.length === 0 && e.clipboardData?.types.includes("text/html")) {
+				e.preventDefault();
+				triedHtml = true;
+				const html = e.clipboardData.getData("text/html");
+				const fromHtml = await extractImageFilesFromHtml(html);
+				imageFiles.push(...fromHtml);
+			}
+
+			if (imageFiles.length === 0) {
+				if (triedHtml) setError(PASTE_FROM_SHEETS_HINT);
+				return;
+			}
 
 			// Prevent default paste behavior for images
 			e.preventDefault();
@@ -158,7 +243,7 @@ export default function PhotoUpload({
 	}, [disabled, canAddMore, processFiles]);
 
 	// Handle paste on the paste zone (for right-click paste support)
-	const handlePasteZonePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+	const handlePasteZonePaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
 		// Always prevent default and stop propagation to avoid double handling
 		e.preventDefault();
 		e.stopPropagation();
@@ -170,7 +255,7 @@ export default function PhotoUpload({
 
 		const imageFiles: File[] = [];
 
-		// Extract image files from clipboard
+		// Extract image files from clipboard (image/* items)
 		for (let i = 0; i < items.length; i++) {
 			const item = items[i];
 			if (item.type.indexOf("image") !== -1) {
@@ -181,7 +266,19 @@ export default function PhotoUpload({
 			}
 		}
 
-		if (imageFiles.length === 0) return;
+		// If no image/* items (e.g. Google Sheets), try extracting from text/html (data URLs + HTTPS image URLs)
+		let triedHtml = false;
+		if (imageFiles.length === 0 && e.clipboardData?.types.includes("text/html")) {
+			const html = e.clipboardData.getData("text/html");
+			triedHtml = true;
+			const fromHtml = await extractImageFilesFromHtml(html);
+			imageFiles.push(...fromHtml);
+		}
+
+		if (imageFiles.length === 0) {
+			if (triedHtml) setError(PASTE_FROM_SHEETS_HINT);
+			return;
+		}
 
 		setError(null);
 		processFiles(imageFiles);
@@ -229,9 +326,26 @@ export default function PhotoUpload({
 				}
 			}
 
+			// If no image/* (e.g. Google Sheets), try text/html (data URLs + HTTPS image URLs)
+			let triedHtml = false;
+			if (imageFiles.length === 0) {
+				for (const clipboardItem of clipboardItems) {
+					if (clipboardItem.types.includes("text/html")) {
+						triedHtml = true;
+						const blob = await clipboardItem.getType("text/html");
+						const html = await blob.text();
+						const fromHtml = await extractImageFilesFromHtml(html);
+						imageFiles.push(...fromHtml);
+						break;
+					}
+				}
+			}
+
 			if (imageFiles.length > 0) {
 				setError(null);
 				processFiles(imageFiles);
+			} else if (triedHtml) {
+				setError(PASTE_FROM_SHEETS_HINT);
 			}
 		} catch {
 			// User denied permission, clipboard empty, or no image in clipboard
