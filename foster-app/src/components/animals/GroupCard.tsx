@@ -35,6 +35,8 @@ interface GroupCardProps {
 		{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
 	>;
 	foster_visibility?: FosterVisibility; // Optional visibility badge for Fosters Needed page
+	/** If true, do not show "Empty group" as the life stage summary (e.g. on Fosters Needed page) */
+	hideEmptyGroupLabel?: boolean;
 	/** If true, shows "Requested" badge instead of "Foster Pending" (for current user's pending request) */
 	hasPendingRequest?: boolean;
 	/** Request ID for cancellation (needed when hasPendingRequest is true) */
@@ -85,6 +87,7 @@ export default function GroupCard({
 	group,
 	animalData,
 	foster_visibility,
+	hideEmptyGroupLabel = false,
 	hasPendingRequest = false,
 	onCancelRequest,
 	requestedByLabel,
@@ -236,12 +239,14 @@ export default function GroupCard({
 			{/* Bottom banner with name and life stage summary (matches AnimalCard) */}
 			<div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/50 to-transparent pt-8 pb-3 px-3">
 				<div className="text-white">
-					<h2 className="text-lg font-semibold mb-1 truncate">
+					<h2 className="text-lg font-semibold mb-1 break-words">
 						{group.name?.trim() || "Unnamed Group"}
 					</h2>
-					<p className="text-base text-white/90">
-						{lifeStageSummary}
-					</p>
+					{!(hideEmptyGroupLabel && lifeStageSummary === "Empty group") && (
+						<p className="text-base text-white/90">
+							{lifeStageSummary}
+						</p>
+					)}
 				</div>
 			</div>
 		</Link>

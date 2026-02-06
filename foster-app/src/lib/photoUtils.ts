@@ -1,8 +1,8 @@
 import { supabase } from "./supabase";
 import { getErrorMessage } from "./errorUtils";
 
-// Maximum file size: 8MB (8 * 1024 * 1024 bytes)
-const MAX_FILE_SIZE = 8 * 1024 * 1024;
+// Maximum file size: 10MB (10 * 1024 * 1024 bytes) — applied to compressed file
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 // Cache control: 1 year (immutable content-addressed files)
 const CACHE_CONTROL_MAX_AGE = "31536000";
@@ -11,13 +11,32 @@ const CACHE_CONTROL_MAX_AGE = "31536000";
 const DEFAULT_MAX_WIDTH = 1920; // Max width for uploaded images
 const DEFAULT_COMPRESSION_QUALITY = 0.85; // JPEG quality (0-1)
 
-// Allowed MIME types for photos
+// Allowed MIME types for photos (internal; use ALLOWED_PHOTO_MIME_TYPES for UI)
 const ALLOWED_MIME_TYPES = [
 	"image/jpeg",
 	"image/jpg",
 	"image/png",
 	"image/webp",
 ];
+
+// --- Exported for UI (PhotoUpload, MessageInput) so validation stays DRY ---
+export const PHOTO_MAX_FILE_SIZE = MAX_FILE_SIZE;
+export const ALLOWED_PHOTO_MIME_TYPES: readonly string[] = ALLOWED_MIME_TYPES;
+
+/**
+ * Validates a photo file for UI (returns error message or null). Use before adding to selection.
+ * Compress first when file is over PHOTO_MAX_FILE_SIZE, then call this on the compressed file.
+ */
+export function validatePhotoFile(file: File): string | null {
+	if (file.size > MAX_FILE_SIZE) {
+		const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+		return `File "${file.name}" is too large (${sizeMB}MB). Maximum size is 10MB.`;
+	}
+	if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+		return `File "${file.name}" is not a supported image type. Allowed types: jpeg, jpg, png, webp.`;
+	}
+	return null;
+}
 
 // ============================================================================
 // IMAGE OPTIMIZATION UTILITIES
@@ -181,25 +200,12 @@ export async function compressImage(
 // ============================================================================
 
 /**
- * Validates a file before upload
- * @param file - The file to validate
- * @throws Error if file is invalid
+ * Validates a file before upload (throws; used by upload functions).
+ * Reuses validatePhotoFile for DRY.
  */
 function validateFile(file: File): void {
-	// Check file size
-	if (file.size > MAX_FILE_SIZE) {
-		const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-		throw new Error(
-			`File size (${sizeMB}MB) exceeds maximum allowed size of 8MB`
-		);
-	}
-
-	// Check file type
-	if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-		throw new Error(
-			`File type "${file.type}" is not allowed. Allowed types: jpeg, jpg, png, webp`
-		);
-	}
+	const error = validatePhotoFile(file);
+	if (error) throw new Error(error);
 }
 
 /**
@@ -236,11 +242,9 @@ export async function uploadPhoto(
 	organizationId: string,
 	conversationId: string
 ): Promise<string> {
-	// Validate file before attempting upload
-	validateFile(file);
-
-	// Compress image before upload to reduce file size
+	// Compress first, then validate compressed size (so large originals can be accepted)
 	const compressedFile = await compressImage(file);
+	validateFile(compressedFile);
 
 	// Generate unique filename
 	const uniqueFilename = generateUniqueFilename(compressedFile.name);
@@ -261,7 +265,7 @@ export async function uploadPhoto(
 			// Handle specific error types
 			if (error.message.includes("File size exceeds")) {
 				throw new Error(
-					"File size exceeds the maximum allowed size of 8MB"
+					"File size exceeds the maximum allowed size of 10MB"
 				);
 			}
 			if (
@@ -339,11 +343,9 @@ export async function uploadAnimalPhoto(
 	organizationId: string,
 	animalId: string
 ): Promise<string> {
-	// Validate file before attempting upload
-	validateFile(file);
-
-	// Compress image before upload to reduce file size
+	// Compress first, then validate compressed size (so large originals can be accepted)
 	const compressedFile = await compressImage(file);
+	validateFile(compressedFile);
 
 	// Generate unique filename with timestamp
 	const timestamp = Date.now();
@@ -366,7 +368,7 @@ export async function uploadAnimalPhoto(
 			// Handle specific error types
 			if (error.message.includes("File size exceeds")) {
 				throw new Error(
-					"File size exceeds the maximum allowed size of 8MB"
+					"File size exceeds the maximum allowed size of 10MB"
 				);
 			}
 			if (
@@ -639,11 +641,9 @@ export async function uploadGroupPhoto(
 	organizationId: string,
 	groupId: string
 ): Promise<string> {
-	// Validate file before attempting upload
-	validateFile(file);
-
-	// Compress image before upload to reduce file size
+	// Compress first, then validate compressed size (so large originals can be accepted)
 	const compressedFile = await compressImage(file);
+	validateFile(compressedFile);
 
 	// Generate unique filename with timestamp
 	const timestamp = Date.now();
@@ -666,7 +666,7 @@ export async function uploadGroupPhoto(
 			// Handle specific error types
 			if (error.message.includes("File size exceeds")) {
 				throw new Error(
-					"File size exceeds the maximum allowed size of 8MB"
+					"File size exceeds the maximum allowed size of 10MB"
 				);
 			}
 			if (

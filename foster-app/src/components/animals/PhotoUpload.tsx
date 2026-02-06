@@ -1,16 +1,83 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { PhotoMetadata } from "../../types";
-import { getThumbnailUrl } from "../../lib/photoUtils";
+import {
+	getThumbnailUrl,
+	compressImage,
+	PHOTO_MAX_FILE_SIZE,
+	ALLOWED_PHOTO_MIME_TYPES,
+	validatePhotoFile,
+} from "../../lib/photoUtils";
 
-// Maximum file size: 8MB
-const MAX_FILE_SIZE = 8 * 1024 * 1024;
-// Allowed MIME types
-const ALLOWED_MIME_TYPES = [
-	"image/jpeg",
-	"image/jpg",
-	"image/png",
-	"image/webp",
-];
+/** Shown when paste fails because the source blocks direct image fetch (e.g. CORS, 403). */
+const PASTE_FROM_SHEETS_HINT = "Couldn't load image from this source.";
+
+/**
+ * Extract image files from HTML string (e.g. clipboard text/html).
+ * 1) Data URLs (data:image/...;base64,...) – used by Google Doc and others.
+ * 2) HTTPS image URLs – used by some sources (e.g. Google Sheets); we try to fetch them.
+ *    CORS may block some; if so, user can paste into a Google Doc first.
+ */
+async function extractImageFilesFromHtml(html: string): Promise<File[]> {
+	const files: File[] = [];
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, "text/html");
+	const imgs = doc.querySelectorAll("img[src]");
+
+	// 1) Data URL images (sync)
+	imgs.forEach((img, index) => {
+		const src = img.getAttribute("src");
+		if (!src || !src.startsWith("data:image/")) return;
+
+		const match = src.match(/^data:(image\/[a-z+]+);base64,(.+)$/i);
+		if (!match) return;
+
+		const mimeType = match[1].toLowerCase();
+		const base64 = match[2];
+
+		if (!ALLOWED_PHOTO_MIME_TYPES.includes(mimeType)) return;
+
+		try {
+			const binary = atob(base64);
+			const bytes = new Uint8Array(binary.length);
+			for (let i = 0; i < binary.length; i++) {
+				bytes[i] = binary.charCodeAt(i);
+			}
+			const blob = new Blob([bytes], { type: mimeType });
+			const extension = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "png";
+			files.push(
+				new File([blob], `pasted-image-${index + 1}.${extension}`, { type: mimeType })
+			);
+		} catch {
+			// Ignore invalid base64
+		}
+	});
+
+	// 2) HTTPS image URLs (async) – e.g. Google Sheets often embeds these
+	if (files.length === 0) {
+		let urlIndex = 0;
+		for (const img of imgs) {
+			const src = img.getAttribute("src");
+			if (!src || !(src.startsWith("https://") || src.startsWith("http://"))) continue;
+
+			try {
+				const res = await fetch(src, { mode: "cors", credentials: "omit" });
+				if (!res.ok) continue;
+				const blob = await res.blob();
+				const mimeType = (blob.type || res.headers.get("content-type")?.split(";")[0]?.trim() || "image/png").toLowerCase();
+				if (!mimeType.startsWith("image/") || !ALLOWED_PHOTO_MIME_TYPES.includes(mimeType)) continue;
+				const extension = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "png";
+				urlIndex += 1;
+				files.push(
+					new File([blob], `pasted-image-${urlIndex}.${extension}`, { type: mimeType })
+				);
+			} catch {
+				// CORS or network error – skip this URL
+			}
+		}
+	}
+
+	return files;
+}
 
 interface SelectedPhoto {
 	file: File;
@@ -47,49 +114,36 @@ export default function PhotoUpload({
 	const totalPhotos = selectedPhotos.length + existingPhotos.length;
 	const canAddMore = totalPhotos < maxPhotos;
 
-	// Validate file before adding to selection
-	const validateFile = (file: File): string | null => {
-		// Check file size
-		if (file.size > MAX_FILE_SIZE) {
-			const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-			return `File "${file.name}" is too large (${sizeMB}MB). Maximum size is 8MB.`;
-		}
-
-		// Check file type
-		if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-			return `File "${file.name}" is not a supported image type. Allowed types: jpeg, jpg, png, webp.`;
-		}
-
-		return null;
-	};
-
-	// Process files (shared between file input and paste)
+	// Process files (shared between file input and paste). Compresses oversized files first, then validates (DRY: uses photoUtils).
 	const processFiles = useCallback(
-		(files: File[]) => {
+		async (files: File[]) => {
 			const currentTotal = selectedPhotos.length + existingPhotos.length;
 			if (currentTotal + files.length > maxPhotos) {
 				setError(`Maximum ${maxPhotos} photos allowed.`);
 				return;
 			}
 
-			// Validate and add files
 			const newPhotos: SelectedPhoto[] = [];
 			const errors: string[] = [];
 
-			files.forEach((file) => {
-				const validationError = validateFile(file);
+			for (const file of files) {
+				// Compress first if over limit, then validate the result (same order as upload path)
+				let fileToAdd = file;
+				if (file.size > PHOTO_MAX_FILE_SIZE) {
+					fileToAdd = await compressImage(file);
+				}
+				const validationError = validatePhotoFile(fileToAdd);
 				if (validationError) {
 					errors.push(validationError);
 				} else {
-					// Create preview URL
-					const preview = URL.createObjectURL(file);
+					const preview = URL.createObjectURL(fileToAdd);
 					newPhotos.push({
-						file,
+						file: fileToAdd,
 						preview,
 						id: crypto.randomUUID(),
 					});
 				}
-			});
+			}
 
 			if (errors.length > 0) {
 				setError(errors.join(" "));
@@ -107,12 +161,12 @@ export default function PhotoUpload({
 	);
 
 	// Handle file selection from input
-	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const files = e.target.files;
 		if (!files || files.length === 0) return;
 
 		setError(null);
-		processFiles(Array.from(files));
+		await processFiles(Array.from(files));
 
 		// Reset file input to allow selecting the same file again
 		if (fileInputRef.current) {
@@ -120,45 +174,8 @@ export default function PhotoUpload({
 		}
 	};
 
-	// Handle paste event for photos (keyboard shortcut - works anywhere on page)
-	useEffect(() => {
-		const handlePaste = (e: ClipboardEvent) => {
-			// Don't handle if disabled or at max
-			if (disabled || !canAddMore) return;
-
-			const items = e.clipboardData?.items;
-			if (!items) return;
-
-			const imageFiles: File[] = [];
-
-			// Extract image files from clipboard
-			for (let i = 0; i < items.length; i++) {
-				const item = items[i];
-				if (item.type.indexOf("image") !== -1) {
-					const file = item.getAsFile();
-					if (file) {
-						imageFiles.push(file);
-					}
-				}
-			}
-
-			if (imageFiles.length === 0) return;
-
-			// Prevent default paste behavior for images
-			e.preventDefault();
-			setError(null);
-			processFiles(imageFiles);
-		};
-
-		// Attach to window so paste works anywhere on the form
-		window.addEventListener("paste", handlePaste);
-		return () => {
-			window.removeEventListener("paste", handlePaste);
-		};
-	}, [disabled, canAddMore, processFiles]);
-
-	// Handle paste on the paste zone (for right-click paste support)
-	const handlePasteZonePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+	// Handle paste on the paste zone only (so pasting text in other form fields is not intercepted)
+	const handlePasteZonePaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
 		// Always prevent default and stop propagation to avoid double handling
 		e.preventDefault();
 		e.stopPropagation();
@@ -170,7 +187,7 @@ export default function PhotoUpload({
 
 		const imageFiles: File[] = [];
 
-		// Extract image files from clipboard
+		// Extract image files from clipboard (image/* items)
 		for (let i = 0; i < items.length; i++) {
 			const item = items[i];
 			if (item.type.indexOf("image") !== -1) {
@@ -181,10 +198,22 @@ export default function PhotoUpload({
 			}
 		}
 
-		if (imageFiles.length === 0) return;
+		// If no image/* items (e.g. Google Sheets), try extracting from text/html (data URLs + HTTPS image URLs)
+		let triedHtml = false;
+		if (imageFiles.length === 0 && e.clipboardData?.types.includes("text/html")) {
+			const html = e.clipboardData.getData("text/html");
+			triedHtml = true;
+			const fromHtml = await extractImageFilesFromHtml(html);
+			imageFiles.push(...fromHtml);
+		}
+
+		if (imageFiles.length === 0) {
+			if (triedHtml) setError(PASTE_FROM_SHEETS_HINT);
+			return;
+		}
 
 		setError(null);
-		processFiles(imageFiles);
+		await processFiles(imageFiles);
 	};
 
 	// Block all keyboard input in the paste zone (except paste shortcuts)
@@ -229,9 +258,26 @@ export default function PhotoUpload({
 				}
 			}
 
+			// If no image/* (e.g. Google Sheets), try text/html (data URLs + HTTPS image URLs)
+			let triedHtml = false;
+			if (imageFiles.length === 0) {
+				for (const clipboardItem of clipboardItems) {
+					if (clipboardItem.types.includes("text/html")) {
+						triedHtml = true;
+						const blob = await clipboardItem.getType("text/html");
+						const html = await blob.text();
+						const fromHtml = await extractImageFilesFromHtml(html);
+						imageFiles.push(...fromHtml);
+						break;
+					}
+				}
+			}
+
 			if (imageFiles.length > 0) {
 				setError(null);
-				processFiles(imageFiles);
+				await processFiles(imageFiles);
+			} else if (triedHtml) {
+				setError(PASTE_FROM_SHEETS_HINT);
 			}
 		} catch {
 			// User denied permission, clipboard empty, or no image in clipboard
