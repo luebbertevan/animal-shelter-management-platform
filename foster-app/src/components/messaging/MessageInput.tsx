@@ -2,7 +2,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { getErrorMessage } from "../../lib/errorUtils";
-import { uploadPhoto } from "../../lib/photoUtils";
+import {
+	uploadPhoto,
+	compressImage,
+	PHOTO_MAX_FILE_SIZE,
+	validatePhotoFile,
+} from "../../lib/photoUtils";
 import {
 	transformTagsToLinks,
 	validateTagIds,
@@ -15,15 +20,6 @@ import TagSelectionModal from "./TagSelectionModal";
 
 // Maximum number of photos per message
 const MAX_PHOTOS = 10;
-// Maximum file size: 8MB
-const MAX_FILE_SIZE = 8 * 1024 * 1024;
-// Allowed MIME types
-const ALLOWED_MIME_TYPES = [
-	"image/jpeg",
-	"image/jpg",
-	"image/png",
-	"image/webp",
-];
 
 interface SelectedPhoto {
 	file: File;
@@ -332,25 +328,9 @@ export default function MessageInput({
 		}
 	};
 
-	// Validate file before adding to selection
-	const validateFile = (file: File): string | null => {
-		// Check file size
-		if (file.size > MAX_FILE_SIZE) {
-			const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-			return `File "${file.name}" is too large (${sizeMB}MB). Maximum size is 8MB.`;
-		}
-
-		// Check file type
-		if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-			return `File "${file.name}" is not a supported image type. Allowed types: jpeg, jpg, png, webp.`;
-		}
-
-		return null;
-	};
-
-	// Process files (shared between file input and paste)
+	// Process files (shared between file input and paste). Compresses oversized files first, then validates (DRY: uses photoUtils).
 	const processFiles = useCallback(
-		(files: File[]) => {
+		async (files: File[]) => {
 			if (selectedPhotos.length + files.length > MAX_PHOTOS) {
 				setPhotoError(
 					`Maximum ${MAX_PHOTOS} photos per message. Please remove some photos first.`
@@ -358,24 +338,27 @@ export default function MessageInput({
 				return;
 			}
 
-			// Validate and add files
 			const newPhotos: SelectedPhoto[] = [];
 			const errors: string[] = [];
 
-			files.forEach((file) => {
-				const validationError = validateFile(file);
+			for (const file of files) {
+				// Compress first if over limit, then validate the result (same order as upload path)
+				let fileToAdd = file;
+				if (file.size > PHOTO_MAX_FILE_SIZE) {
+					fileToAdd = await compressImage(file);
+				}
+				const validationError = validatePhotoFile(fileToAdd);
 				if (validationError) {
 					errors.push(validationError);
 				} else {
-					// Create preview URL
-					const preview = URL.createObjectURL(file);
+					const preview = URL.createObjectURL(fileToAdd);
 					newPhotos.push({
-						file,
+						file: fileToAdd,
 						preview,
 						id: crypto.randomUUID(),
 					});
 				}
-			});
+			}
 
 			if (errors.length > 0) {
 				setPhotoError(errors.join(" "));
@@ -393,12 +376,12 @@ export default function MessageInput({
 	);
 
 	// Handle file selection from input
-	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const files = e.target.files;
 		if (!files || files.length === 0) return;
 
 		setPhotoError(null);
-		processFiles(Array.from(files));
+		await processFiles(Array.from(files));
 
 		// Reset file input to allow selecting the same file again
 		if (fileInputRef.current) {
@@ -408,7 +391,7 @@ export default function MessageInput({
 
 	// Handle paste event for photos
 	useEffect(() => {
-		const handlePaste = (e: Event) => {
+		const handlePaste = async (e: Event) => {
 			// Only handle if not already at max photos
 			if (selectedPhotos.length >= MAX_PHOTOS) return;
 
@@ -434,7 +417,7 @@ export default function MessageInput({
 			// Prevent default paste behavior for images
 			clipboardEvent.preventDefault();
 			setPhotoError(null);
-			processFiles(imageFiles);
+			await processFiles(imageFiles);
 		};
 
 		// Attach to the form container

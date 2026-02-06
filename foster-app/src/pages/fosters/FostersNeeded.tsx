@@ -715,6 +715,7 @@ export default function FostersNeeded() {
 													foster_visibility={
 														item.foster_visibility
 													}
+													hideEmptyGroupLabel
 													hasPendingRequest={
 														!!pendingRequest
 													}
