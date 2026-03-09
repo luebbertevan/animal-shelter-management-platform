@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import type {
 	Animal,
@@ -6,14 +6,17 @@ import type {
 	AnimalStatus,
 	FosterVisibility,
 } from "../../types";
+import type { BulkAddAnimalRow } from "../../hooks/useBulkAddRows";
 import Input from "../ui/Input";
 import Textarea from "../ui/Textarea";
 import Toggle from "../ui/Toggle";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import ErrorMessage from "../ui/ErrorMessage";
+import InfoTooltip from "../ui/InfoTooltip";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import AnimalCard from "./AnimalCard";
+import BulkAddAnimalRows from "./BulkAddAnimalRows";
 import PhotoUpload from "./PhotoUpload";
 import Pagination from "../shared/Pagination";
 import SearchInput from "../shared/SearchInput";
@@ -42,14 +45,23 @@ interface GroupFormProps {
 	toggleAnimalSelection: (animalId: string) => void;
 
 	// Staged changes for status and foster_visibility
-	stagedStatusChanges: Map<string, AnimalStatus>;
-	stagedFosterVisibilityChanges: Map<string, FosterVisibility>;
+	stagedStatusForAll: AnimalStatus | "";
+	stagedFosterVisibilityForAll: FosterVisibility | "";
 	setStagedStatusForAll: (status: AnimalStatus | "") => void;
 	setStagedFosterVisibilityForAll: (
 		visibility: FosterVisibility | ""
 	) => void;
-	hasFosterVisibilityConflict: boolean;
-	sharedFosterVisibility: FosterVisibility | null;
+	/** Called when user explicitly selects "Select..." (true) or a visibility value (false) for the visibility dropdown. */
+	onVisibilityExplicitlyCleared?: (cleared: boolean) => void;
+	/** Raw conflict: selected animals have different visibility (before "set for all" is applied). */
+	hasFosterVisibilityConflictComputed: boolean;
+	/** True when selected animals' actual (current) visibilities differ, ignoring staged "set for all". */
+	hasConflictFromCurrentVisibility?: boolean;
+	/** When pre-existing animals are selected, their shared status/visibility (for dropdown default). */
+	sharedStatusFromSelected?: AnimalStatus | "";
+	sharedVisibilityFromSelected?: FosterVisibility | null;
+	/** True when selected animals' actual statuses differ (ignoring staged "set for all"). Used for "will be set" vs "have different" message. */
+	hasMismatchFromCurrentStatus?: boolean;
 
 	// Photo upload
 	onPhotosChange: (photos: File[]) => void;
@@ -85,6 +97,19 @@ interface GroupFormProps {
 	animalTotalItems?: number;
 	animalItemsPerPage?: number;
 	onAnimalPageChange?: (page: number) => void;
+
+	// Bulk add animals
+	bulkAddRows?: BulkAddAnimalRow[];
+	onBulkAddRow?: () => void;
+	onBulkRemoveRow?: (id: string) => void;
+	onBulkUpdateRow?: (
+		id: string,
+		field: keyof BulkAddAnimalRow,
+		value: string
+	) => void;
+	onBulkSetRowCount?: (count: number) => void;
+	bulkCanAddMore?: boolean;
+	bulkMaxRows?: number;
 }
 
 export default function GroupForm({
@@ -98,11 +123,15 @@ export default function GroupForm({
 	isErrorAnimals,
 	selectedAnimalIds,
 	toggleAnimalSelection,
-	stagedStatusChanges,
+	stagedStatusForAll,
+	stagedFosterVisibilityForAll,
 	setStagedStatusForAll,
 	setStagedFosterVisibilityForAll,
-	hasFosterVisibilityConflict,
-	sharedFosterVisibility,
+	hasFosterVisibilityConflictComputed,
+	hasConflictFromCurrentVisibility = false,
+	sharedStatusFromSelected = "",
+	sharedVisibilityFromSelected = null,
+	hasMismatchFromCurrentStatus = false,
 	onPhotosChange,
 	existingPhotos = [],
 	onRemovePhoto,
@@ -130,6 +159,14 @@ export default function GroupForm({
 	animalTotalItems,
 	animalItemsPerPage,
 	onAnimalPageChange,
+	// Bulk add props
+	bulkAddRows = [],
+	onBulkAddRow,
+	onBulkRemoveRow,
+	onBulkUpdateRow,
+	onBulkSetRowCount,
+	bulkCanAddMore = true,
+	bulkMaxRows = 30,
 }: GroupFormProps) {
 	// Generate active filter chips
 	const activeFilterChips = useMemo(() => {
@@ -249,16 +286,34 @@ export default function GroupForm({
 		return 0; // Maintain original order within each group
 	});
 
-	// Compute shared status value for the dropdown (if all selected animals have the same staged status)
-	const sharedStagedStatus = (() => {
-		if (selectedAnimalIds.length === 0) return "";
-		const statuses = selectedAnimalIds
-			.map((id) => stagedStatusChanges.get(id))
-			.filter((status): status is AnimalStatus => !!status);
-		if (statuses.length === 0) return "";
-		const uniqueStatuses = new Set(statuses);
-		return uniqueStatuses.size === 1 ? statuses[0] : "";
-	})();
+	const hasAnyAnimalsStaged =
+		selectedAnimalIds.length > 0 || bulkAddRows.length > 0;
+
+	// Only bulk-add rows (no pre-existing selected): show defaults so it's clear what new animals will get
+	const onlyBulkAdd =
+		selectedAnimalIds.length === 0 && bulkAddRows.length > 0;
+	const statusDropdownValue =
+		stagedStatusForAll ||
+		(onlyBulkAdd ? "in_shelter" : sharedStatusFromSelected) ||
+		"";
+
+	// When user explicitly selects "Select...", keep showing empty until they pick a value or selection changes
+	const [userHasClearedVisibility, setUserHasClearedVisibility] =
+		useState(false);
+	const bulkRowCount = bulkAddRows?.length ?? 0;
+	useEffect(() => {
+		// Reset "cleared" when selection changes so dropdown can show derived value for new set (deferred to avoid sync setState in effect)
+		queueMicrotask(() => setUserHasClearedVisibility(false));
+	}, [selectedAnimalIds.length, bulkRowCount]);
+	const visibilityDropdownValue = userHasClearedVisibility
+		? ""
+		: stagedFosterVisibilityForAll ||
+			(onlyBulkAdd ? "available_now" : sharedVisibilityFromSelected ?? "") ||
+			"";
+
+	// Only show visibility conflict as blocking error when user has not set "set all visibility"
+	const showVisibilityConflictError =
+		hasFosterVisibilityConflictComputed && !stagedFosterVisibilityForAll;
 
 	return (
 		<form onSubmit={onSubmit} className="space-y-6">
@@ -290,49 +345,99 @@ export default function GroupForm({
 				disabled={loading}
 			/>
 
-			{/* Set all animals status dropdown */}
-			{selectedAnimalIds.length > 0 && (
-				<Select
-					label="Set all animals status"
-					value={sharedStagedStatus}
-					onChange={(e) =>
-						setStagedStatusForAll(
-							(e.target.value || "") as AnimalStatus | ""
-						)
-					}
-					options={[
-						{ value: "", label: "Select..." },
-						{ value: "in_shelter", label: "In Shelter" },
-						{ value: "in_foster", label: "In Foster" },
-						{ value: "adopted", label: "Adopted" },
-						{ value: "medical_hold", label: "Medical Hold" },
-						{ value: "transferring", label: "Transferring" },
-					]}
+			{/* Photo Upload Section */}
+			<PhotoUpload
+				maxPhotos={10}
+				onPhotosChange={onPhotosChange}
+				existingPhotos={existingPhotos}
+				onRemovePhoto={onRemovePhoto}
+				disabled={loading}
+				error={photoError}
+			/>
+
+			{/* Bulk Add Animals Section */}
+			{onBulkAddRow && onBulkRemoveRow && onBulkUpdateRow && onBulkSetRowCount && (
+				<BulkAddAnimalRows
+					rows={bulkAddRows}
+					onAddRow={onBulkAddRow}
+					onRemoveRow={onBulkRemoveRow}
+					onUpdateRow={onBulkUpdateRow}
+					onSetRowCount={onBulkSetRowCount}
+					canAddMore={bulkCanAddMore}
+					maxRows={bulkMaxRows}
 					disabled={loading}
 				/>
 			)}
-			{selectedAnimalIds.length > 0 && (
-				<p className="text-sm text-gray-500 -mt-2">
-					Animals in the same group are allowed to have different
-					statuses
-				</p>
+
+			{/* Set all animals status dropdown */}
+			{hasAnyAnimalsStaged && (
+				<div>
+					<div className="flex items-center gap-1.5 mb-1">
+						<label
+							htmlFor="group-form-set-all-status"
+							className="text-sm font-medium text-gray-700"
+						>
+							Set all animals status
+						</label>
+						<InfoTooltip
+							content="Animals in the same group are allowed to have different statuses"
+							ariaLabel="Status info"
+						/>
+					</div>
+					<Select
+						id="group-form-set-all-status"
+						label={undefined}
+						value={statusDropdownValue}
+						onChange={(e) =>
+							setStagedStatusForAll(
+								(e.target.value || "") as AnimalStatus | ""
+							)
+						}
+						options={[
+							{ value: "", label: "Select..." },
+							{ value: "in_shelter", label: "In Shelter" },
+							{ value: "in_foster", label: "In Foster" },
+							{ value: "adopted", label: "Adopted" },
+							{ value: "medical_hold", label: "Medical Hold" },
+							{ value: "transferring", label: "Transferring" },
+						]}
+						disabled={loading}
+					/>
+					{hasMismatchFromCurrentStatus && (
+						<p className="mt-1 text-sm text-yellow-700">
+							{stagedStatusForAll
+								? "All animals in this group will be set to this status."
+								: "Grouped animals have different statuses."}
+						</p>
+					)}
+				</div>
 			)}
 
 			{/* Set all animals Visibility on Fosters Needed page dropdown */}
-			{selectedAnimalIds.length > 0 && (
+			{hasAnyAnimalsStaged && (
 				<div>
+					<div className="flex items-center gap-1.5 mb-1">
+						<label
+							htmlFor="group-form-set-all-visibility"
+							className="text-sm font-medium text-gray-700"
+						>
+							Set all animals Visibility on Fosters Needed page
+						</label>
+						<InfoTooltip
+							content="Animals in a group must have the same Visibility on Fosters Needed page."
+							ariaLabel="Visibility info"
+						/>
+					</div>
 					<Select
-						label="Set all animals Visibility on Fosters Needed page"
-						value={
-							sharedFosterVisibility !== null
-								? sharedFosterVisibility
-								: ""
-						}
-						onChange={(e) =>
-							setStagedFosterVisibilityForAll(
-								(e.target.value || "") as FosterVisibility | ""
-							)
-						}
+						id="group-form-set-all-visibility"
+						label={undefined}
+						value={visibilityDropdownValue}
+						onChange={(e) => {
+							const value = (e.target.value ||
+								"") as FosterVisibility | "";
+							setStagedFosterVisibilityForAll(value);
+							setUserHasClearedVisibility(value === "");
+						}}
 						options={[
 							{ value: "", label: "Select..." },
 							{ value: "available_now", label: "Available Now" },
@@ -348,52 +453,33 @@ export default function GroupForm({
 						]}
 						disabled={loading}
 						error={
-							hasFosterVisibilityConflict
+							hasFosterVisibilityConflictComputed &&
+							!stagedFosterVisibilityForAll
 								? errors.fosterVisibility
 								: undefined
 						}
 					/>
-					{hasFosterVisibilityConflict ? (
+					{hasFosterVisibilityConflictComputed &&
+					!stagedFosterVisibilityForAll ? (
 						<div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-							<p className="text-sm text-red-800 font-medium">
-								⚠️ Animals in a group must have the same
+							<p className="text-sm text-red-700">
+								Animals in a group must have the same
 								Visibility on Fosters Needed page
 							</p>
 						</div>
-					) : sharedFosterVisibility !== null ? (
-						<div className="mt-2 flex items-center gap-2 text-sm text-green-700">
-							<svg
-								className="w-5 h-5"
-								fill="currentColor"
-								viewBox="0 0 20 20"
-							>
-								<path
-									fillRule="evenodd"
-									d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-									clipRule="evenodd"
-								/>
-							</svg>
-							<span>All grouped animals visibility matches</span>
-						</div>
+					) : stagedFosterVisibilityForAll &&
+					  hasConflictFromCurrentVisibility ? (
+						<p className="mt-2 text-sm text-yellow-700">
+							All animals in this group will be set to this
+							visibility.
+						</p>
+					) : stagedFosterVisibilityForAll ? (
+						<p className="mt-2 text-sm text-green-700">
+							All grouped animals match this visibility.
+						</p>
 					) : null}
-					<p className="text-sm text-gray-500 mt-2">
-						Animals in a group must have the same Visibility on
-						Fosters Needed page. This controls whether the group
-						appears on the Fosters Needed page and what badge
-						message is shown.
-					</p>
 				</div>
 			)}
-
-			{/* Photo Upload Section */}
-			<PhotoUpload
-				maxPhotos={10}
-				onPhotosChange={onPhotosChange}
-				existingPhotos={existingPhotos}
-				onRemovePhoto={onRemovePhoto}
-				disabled={loading}
-				error={photoError}
-			/>
 
 			{/* Animal Selection Section */}
 			<div>
@@ -546,14 +632,14 @@ export default function GroupForm({
 				)}
 			</div>
 
-			{hasFosterVisibilityConflict && (
+			{showVisibilityConflictError && (
 				<ErrorMessage>
 					Alert: Animals in a group must have the same Visibility on
 					Fosters Needed page
 				</ErrorMessage>
 			)}
 
-			{Object.keys(errors).length > 0 && !hasFosterVisibilityConflict && (
+			{Object.keys(errors).length > 0 && !showVisibilityConflictError && (
 				<ErrorMessage>
 					Please fix the errors above before submitting.
 				</ErrorMessage>
@@ -598,7 +684,7 @@ export default function GroupForm({
 			<div className="flex gap-4">
 				<Button
 					type="submit"
-					disabled={loading || hasFosterVisibilityConflict}
+					disabled={loading || showVisibilityConflictError}
 				>
 					{loading
 						? submitButtonText.includes("Create")

@@ -282,17 +282,29 @@ export default function AnimalsList() {
 						</h1>
 						<div className="flex items-center gap-2 sm:gap-3">
 							{profile.role === "coordinator" && (
-								<Link to="/animals/new">
-									<Button
-										className="w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-2 flex items-center justify-center gap-2 whitespace-nowrap"
-										aria-label="Add animal"
-									>
-										<PlusIcon className="h-5 w-5" />
-										<span className="hidden sm:inline">
-											Add Animal
-										</span>
-									</Button>
-								</Link>
+								<>
+									<Link to="/animals/new">
+										<Button
+											className="w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-2 flex items-center justify-center gap-2 whitespace-nowrap"
+											aria-label="Add animal"
+										>
+											<PlusIcon className="h-5 w-5" />
+											<span className="hidden sm:inline">
+												Add Animal
+											</span>
+										</Button>
+									</Link>
+									<Link to="/animals/bulk-add">
+										<Button
+											variant="outline"
+											className="w-auto h-10 sm:h-auto px-2 py-0 sm:px-3 sm:py-2 flex items-center justify-center gap-1.5 whitespace-nowrap text-sm"
+											aria-label="Bulk add animals"
+										>
+											<PlusIcon className="h-4 w-4" />
+											<span>Bulk Add</span>
+										</Button>
+									</Link>
+								</>
 							)}
 							<button
 								type="button"

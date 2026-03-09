@@ -5,6 +5,8 @@ import { getFosterVisibilityFromStatus } from "../lib/metadataUtils";
 
 export interface UseGroupFormOptions {
 	initialGroup?: AnimalGroup | null;
+	/** True when user explicitly chose "Select..." for visibility; skip status→visibility sync when set. */
+	visibilityExplicitlyCleared?: boolean;
 }
 
 export interface UseGroupFormReturn {
@@ -25,6 +27,8 @@ export interface UseGroupFormReturn {
 	// Staged changes for status and foster_visibility
 	stagedStatusChanges: Map<string, AnimalStatus>; // animalId -> new status
 	stagedFosterVisibilityChanges: Map<string, FosterVisibility>; // animalId -> new foster_visibility
+	stagedStatusForAll: AnimalStatus | ""; // value for "Set all" dropdown (used for bulk-add when no selected animals)
+	stagedFosterVisibilityForAll: FosterVisibility | "";
 	setStagedStatusForAll: (status: AnimalStatus | "") => void;
 	setStagedFosterVisibilityForAll: (
 		visibility: FosterVisibility | ""
@@ -38,7 +42,7 @@ export interface UseGroupFormReturn {
 export function useGroupForm(
 	options: UseGroupFormOptions = {}
 ): UseGroupFormReturn {
-	const { initialGroup } = options;
+	const { initialGroup, visibilityExplicitlyCleared = false } = options;
 
 	// Initialize form state from group or empty
 	const initialState = initialGroup
@@ -64,6 +68,13 @@ export function useGroupForm(
 	>(new Map());
 	const [stagedFosterVisibilityChanges, setStagedFosterVisibilityChanges] =
 		useState<Map<string, FosterVisibility>>(new Map());
+
+	// "Set for all" values shown in dropdowns (used when only bulk-add rows are staged)
+	const [stagedStatusForAll, setStagedStatusForAllState] = useState<
+		AnimalStatus | ""
+	>("");
+	const [stagedFosterVisibilityForAll, setStagedFosterVisibilityForAllState] =
+		useState<FosterVisibility | "">("");
 
 	// Sync form state when initialGroup becomes available (e.g., after page reload)
 	useEffect(() => {
@@ -103,21 +114,30 @@ export function useGroupForm(
 		});
 	};
 
-	// Stage status changes for all selected animals
-	// Also automatically syncs foster_visibility for all selected animals
+	// Stage status changes for all selected animals (and store "for all" for dropdown / bulk-add)
+	// Syncs foster_visibility from status (one-directional) only when user has not explicitly set visibility to "Select..."
 	const setStagedStatusForAll = (status: AnimalStatus | "") => {
 		if (status === "") {
-			// Clear all staged status changes and foster_visibility changes
+			setStagedStatusForAllState("");
 			setStagedStatusChanges(new Map());
-			// Note: We don't clear foster_visibility changes here because the user
-			// might have manually set them. Only clear when status is set.
 			return;
 		}
 
-		// Get the corresponding foster_visibility for this status
 		const visibility = getFosterVisibilityFromStatus(status);
+		setStagedStatusForAllState(status);
 
-		// Update both status and foster_visibility for all selected animals
+		// Sync visibility from status unless user explicitly chose "Select..." for visibility
+		if (!visibilityExplicitlyCleared) {
+			setStagedFosterVisibilityForAllState(visibility);
+			setStagedFosterVisibilityChanges((prev) => {
+				const newMap = new Map(prev);
+				selectedAnimalIds.forEach((animalId) => {
+					newMap.set(animalId, visibility);
+				});
+				return newMap;
+			});
+		}
+
 		setStagedStatusChanges((prev) => {
 			const newMap = new Map(prev);
 			selectedAnimalIds.forEach((animalId) => {
@@ -125,27 +145,19 @@ export function useGroupForm(
 			});
 			return newMap;
 		});
-
-		// Sync foster_visibility for all selected animals
-		setStagedFosterVisibilityChanges((prev) => {
-			const newMap = new Map(prev);
-			selectedAnimalIds.forEach((animalId) => {
-				newMap.set(animalId, visibility);
-			});
-			return newMap;
-		});
 	};
 
-	// Stage foster_visibility changes for all selected animals
+	// Stage foster_visibility changes for all selected animals (and store "for all" for dropdown / bulk-add)
 	const setStagedFosterVisibilityForAll = (
 		visibility: FosterVisibility | ""
 	) => {
 		if (visibility === "") {
-			// Clear all staged foster_visibility changes
+			setStagedFosterVisibilityForAllState("");
 			setStagedFosterVisibilityChanges(new Map());
 			return;
 		}
 
+		setStagedFosterVisibilityForAllState(visibility);
 		setStagedFosterVisibilityChanges((prev) => {
 			const newMap = new Map(prev);
 			selectedAnimalIds.forEach((animalId) => {
@@ -181,6 +193,8 @@ export function useGroupForm(
 		toggleAnimalSelection,
 		stagedStatusChanges,
 		stagedFosterVisibilityChanges,
+		stagedStatusForAll,
+		stagedFosterVisibilityForAll,
 		setStagedStatusForAll,
 		setStagedFosterVisibilityForAll,
 		validateForm,

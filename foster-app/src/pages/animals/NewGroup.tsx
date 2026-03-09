@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -11,9 +11,21 @@ import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
-import { createGroup, findGroupContainingAnimal } from "../../lib/groupQueries";
+import { createGroup } from "../../lib/groupQueries";
 import { uploadGroupPhoto } from "../../lib/photoUtils";
-import { getGroupFosterVisibility } from "../../lib/groupUtils";
+import {
+	getGroupFormMessageState,
+	getVisibilityConflictSubmitError,
+} from "../../lib/groupUtils";
+import {
+	bulkCreateAnimals,
+	getBulkCreateGroupDefaults,
+} from "../../lib/bulkAnimalUtils";
+import { useBulkAddRows } from "../../hooks/useBulkAddRows";
+import { useGroupFormPriorityAndVisibility } from "../../hooks/useGroupFormPriorityAndVisibility";
+import { useGroupFormDuplicateCheck } from "../../hooks/useGroupFormDuplicateCheck";
+import { useEmptyGroupConfirm } from "../../hooks/useEmptyGroupConfirm";
+import { needsAllAnimalsForGroupForm } from "../../lib/filterUtils";
 import type { TimestampedPhoto } from "../../types";
 import type { AnimalFilters } from "../../components/animals/AnimalFilters";
 import { PAGE_SIZES } from "../../lib/paginationConfig";
@@ -21,6 +33,9 @@ import { PAGE_SIZES } from "../../lib/paginationConfig";
 export default function NewGroup() {
 	const navigate = useNavigate();
 	const { user, profile } = useProtectedAuth();
+
+	const [visibilityExplicitlyCleared, setVisibilityExplicitlyCleared] =
+		useState(false);
 
 	// Use the form hook (before animals are fetched)
 	const {
@@ -34,9 +49,21 @@ export default function NewGroup() {
 		setStagedFosterVisibilityForAll,
 		stagedStatusChanges,
 		stagedFosterVisibilityChanges,
+		stagedStatusForAll,
+		stagedFosterVisibilityForAll,
 		validateForm,
 		errors,
-	} = useGroupForm();
+	} = useGroupForm({ visibilityExplicitlyCleared });
+
+	const {
+		rows: bulkAddRows,
+		addRow: bulkAddRow,
+		removeRow: bulkRemoveRow,
+		updateRow: bulkUpdateRow,
+		setRowCount: bulkSetRowCount,
+		canAddMore: bulkCanAddMore,
+		maxRows: bulkMaxRows,
+	} = useBulkAddRows();
 
 	const [loading, setLoading] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
@@ -54,32 +81,16 @@ export default function NewGroup() {
 	const [animalPage, setAnimalPage] = useState(1);
 	const animalPageSize = PAGE_SIZES.GROUP_ANIMAL_SELECTION;
 
-	// Empty group confirmation modal state
-	const [showEmptyGroupConfirm, setShowEmptyGroupConfirm] = useState(false);
+	const {
+		showEmptyGroupConfirm,
+		requestEmptyGroupConfirm,
+		handleConfirmEmptyGroup,
+		handleCancelEmptyGroup,
+	} = useEmptyGroupConfirm();
 
-	// Duplicate detection modal state
-	const [duplicateModal, setDuplicateModal] = useState<{
-		isOpen: boolean;
-		animalId: string;
-		animalName: string;
-		existingGroupId: string;
-		existingGroupName: string;
-	}>({
-		isOpen: false,
-		animalId: "",
-		animalName: "",
-		existingGroupId: "",
-		existingGroupName: "",
-	});
-
-	// If filters or search are active, we need all animals for client-side filtering
-	// Otherwise, use server-side pagination
-	const needsAllAnimals = !!(
-		animalSearchTerm ||
-		Object.keys(animalFilters).some((key) => {
-			const value = animalFilters[key as keyof AnimalFilters];
-			return value !== undefined && value !== "" && value !== false;
-		})
+	const needsAllAnimals = needsAllAnimalsForGroupForm(
+		animalSearchTerm,
+		animalFilters
 	);
 
 	const animalOffset = needsAllAnimals
@@ -268,127 +279,53 @@ export default function NewGroup() {
 		);
 	}, [animals, selectedAnimalIds]);
 
-	// Compute conflict detection for foster_visibility using reusable utility
-	const {
-		sharedValue: sharedFosterVisibilityComputed,
-		hasConflict: hasFosterVisibilityConflictComputed,
-	} = useMemo(
+	// Single source of truth for status/visibility messages and conflict state (DRY with EditGroup)
+	const messageState = useMemo(
 		() =>
-			getGroupFosterVisibility(
+			getGroupFormMessageState(
 				selectedAnimals,
+				selectedAnimalIds,
+				stagedStatusChanges,
 				stagedFosterVisibilityChanges
 			),
-		[selectedAnimals, stagedFosterVisibilityChanges]
+		[
+			selectedAnimals,
+			selectedAnimalIds,
+			stagedStatusChanges,
+			stagedFosterVisibilityChanges,
+		]
 	);
 
-	// Smart priority defaulting: check if any selected animal is high priority
-	const hasHighPriorityAnimal = useMemo(() => {
-		return selectedAnimals.some((animal) => animal.priority === true);
-	}, [selectedAnimals]);
+	const { setPriorityWithTouch } = useGroupFormPriorityAndVisibility({
+		selectedAnimals,
+		setPriority,
+		selectedAnimalIdsLength: selectedAnimalIds.length,
+		bulkAddRowsLength: bulkAddRows.length,
+		setVisibilityExplicitlyCleared,
+	});
 
-	// Update priority when selected animals change (smart defaulting)
-	// Only auto-SET to high when a high priority animal is selected
-	// Never auto-clear - user must manually clear if they want
-	useEffect(() => {
-		if (hasHighPriorityAnimal && !formState.priority) {
-			// Auto-set to high if any animal is high priority and priority is currently false
-			setPriority(true);
-		}
-		// Note: We don't auto-clear priority. If user manually sets it to high,
-		// it stays high even if no high priority animals are selected.
-		// This allows coordinators to mark groups as high priority for other reasons.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [hasHighPriorityAnimal]);
-
-	// Handle animal selection with duplicate detection
-	const handleAnimalSelection = async (animalId: string) => {
-		// If deselecting, just toggle (no duplicate check needed)
-		if (selectedAnimalIds.includes(animalId)) {
-			toggleAnimalSelection(animalId);
-			return;
-		}
-
-		// If selecting, check for duplicates
-		try {
-			const existingGroup = await findGroupContainingAnimal(
-				animalId,
-				profile.organization_id
-			);
-
-			if (existingGroup) {
-				// Animal is in another group - show modal
-				const animal = animals.find((a) => a.id === animalId);
-				const animalName = animal?.name || "This animal";
-				setDuplicateModal({
-					isOpen: true,
-					animalId,
-					animalName,
-					existingGroupId: existingGroup.id,
-					existingGroupName: existingGroup.name,
-				});
-			} else {
-				// No duplicate - proceed with selection
-				toggleAnimalSelection(animalId);
-			}
-		} catch (err) {
-			console.error(
-				"Error checking for duplicate group assignment:",
-				err
-			);
-			// On error, proceed with selection (fail open)
-			toggleAnimalSelection(animalId);
-		}
-	};
-
-	// Handle "Move to new" action - add to selection (removal from old group happens on form submit)
-	const handleMoveToNew = () => {
-		const { animalId } = duplicateModal;
-
-		// Just add animal to selection - don't update database yet
-		// This allows user to change their mind before submitting
-		// The handleSubmit function will handle removing from old group and updating group_id
-		toggleAnimalSelection(animalId);
-
-		// Close modal
-		setDuplicateModal({
-			isOpen: false,
-			animalId: "",
-			animalName: "",
-			existingGroupId: "",
-			existingGroupName: "",
-		});
-	};
-
-	// Handle "Cancel" action - don't add animal
-	const handleCancelMove = () => {
-		setDuplicateModal({
-			isOpen: false,
-			animalId: "",
-			animalName: "",
-			existingGroupId: "",
-			existingGroupName: "",
-		});
-	};
-
-	// Handle empty group confirmation
-	const handleConfirmEmptyGroup = () => {
-		setShowEmptyGroupConfirm(false);
-		performSubmit();
-	};
-
-	const handleCancelEmptyGroup = () => {
-		setShowEmptyGroupConfirm(false);
-	};
+	const {
+		duplicateModal,
+		handleAnimalSelection,
+		handleMoveToNew,
+		handleCancelMove,
+	} = useGroupFormDuplicateCheck({
+		selectedAnimalIds,
+		toggleAnimalSelection,
+		animals,
+		organizationId: profile.organization_id,
+	});
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		setSubmitError(null);
 
-		// Check for foster_visibility conflicts
-		if (hasFosterVisibilityConflictComputed) {
-			setSubmitError(
-				"Animals in a group must have the same Visibility on Fosters Needed page"
-			);
+		const visibilityError = getVisibilityConflictSubmitError(
+			messageState,
+			stagedFosterVisibilityForAll
+		);
+		if (visibilityError) {
+			setSubmitError(visibilityError);
 			return;
 		}
 
@@ -397,8 +334,8 @@ export default function NewGroup() {
 		}
 
 		// Check for empty group and show confirmation modal
-		if (selectedAnimalIds.length === 0) {
-			setShowEmptyGroupConfirm(true);
+		if (selectedAnimalIds.length === 0 && bulkAddRows.length === 0) {
+			requestEmptyGroupConfirm(performSubmit);
 			return;
 		}
 
@@ -474,15 +411,43 @@ export default function NewGroup() {
 				}
 			}
 
+			// Create bulk-add animals if any
+			let bulkCreatedIds: string[] = [];
+			if (bulkAddRows.length > 0) {
+				const onlyBulkAdd = selectedAnimalIds.length === 0;
+				const defaults = getBulkCreateGroupDefaults(
+					onlyBulkAdd,
+					stagedStatusForAll,
+					stagedFosterVisibilityForAll,
+					messageState
+				);
+				const result = await bulkCreateAnimals(bulkAddRows, {
+					organizationId: profile.organization_id,
+					createdBy: user.id,
+					...defaults,
+				});
+				bulkCreatedIds = result.createdIds;
+				if (result.failedCount > 0) {
+					setSubmitError(
+						`${result.failedCount} animal(s) failed to create. ${bulkCreatedIds.length} created successfully.`
+					);
+				}
+			}
+
+			const allAnimalIds = [
+				...selectedAnimalIds,
+				...bulkCreatedIds,
+			];
+
 			// Auto-fill name with "Group of #" if no name provided
 			const groupName =
-				formState.name.trim() || `Group of ${selectedAnimalIds.length}`;
+				formState.name.trim() || `Group of ${allAnimalIds.length}`;
 
 			// Create the group
 			const newGroup = await createGroup(profile.organization_id, {
 				name: groupName,
 				description: formState.description.trim() || null,
-				animal_ids: selectedAnimalIds,
+				animal_ids: allAnimalIds,
 				priority: formState.priority,
 				created_by: user.id,
 			});
@@ -613,7 +578,7 @@ export default function NewGroup() {
 				}
 			}
 
-			// Apply staged changes to animals: status and foster_visibility
+			// Apply staged changes to existing selected animals: status and foster_visibility
 			const animalUpdates: Record<string, unknown>[] = [];
 
 			selectedAnimalIds.forEach((animalId) => {
@@ -621,15 +586,15 @@ export default function NewGroup() {
 					group_id: newGroup.id,
 				};
 
-				// Apply staged status change if any
 				const stagedStatus = stagedStatusChanges.get(animalId);
 				if (stagedStatus) {
 					update.status = stagedStatus;
 				}
 
-				// Apply staged foster_visibility change if any
 				const stagedVisibility =
-					stagedFosterVisibilityChanges.get(animalId);
+					(stagedFosterVisibilityChanges.get(animalId) ??
+						stagedFosterVisibilityForAll) ||
+					undefined;
 				if (stagedVisibility) {
 					update.foster_visibility = stagedVisibility;
 				}
@@ -637,8 +602,11 @@ export default function NewGroup() {
 				animalUpdates.push({ id: animalId, ...update });
 			});
 
-			// Update all selected animals with group_id and any staged changes
-			// We need to update each animal individually since they may have different updates
+			// Also set group_id for bulk-created animals
+			bulkCreatedIds.forEach((animalId) => {
+				animalUpdates.push({ id: animalId, group_id: newGroup.id });
+			});
+
 			const updatePromises = animalUpdates.map((update) => {
 				const { id, ...updateData } = update;
 				return supabase
@@ -698,7 +666,7 @@ export default function NewGroup() {
 							<Button
 								type="button"
 								variant="outline"
-								onClick={() => navigate("/animals")}
+								onClick={() => navigate("/groups")}
 								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
 							>
 								Cancel
@@ -710,25 +678,39 @@ export default function NewGroup() {
 						formState={formState}
 						setName={setName}
 						setDescription={setDescription}
-						setPriority={setPriority}
+						setPriority={setPriorityWithTouch}
 						errors={errors}
 						animals={paginatedAnimals}
 						isLoadingAnimals={isLoadingAnimals}
 						isErrorAnimals={isErrorAnimals}
 						selectedAnimalIds={selectedAnimalIds}
 						toggleAnimalSelection={handleAnimalSelection}
-						stagedStatusChanges={stagedStatusChanges}
-						stagedFosterVisibilityChanges={
-							stagedFosterVisibilityChanges
+						stagedStatusForAll={stagedStatusForAll}
+						stagedFosterVisibilityForAll={
+							stagedFosterVisibilityForAll
 						}
 						setStagedStatusForAll={setStagedStatusForAll}
 						setStagedFosterVisibilityForAll={
 							setStagedFosterVisibilityForAll
 						}
-						hasFosterVisibilityConflict={
-							hasFosterVisibilityConflictComputed
+						onVisibilityExplicitlyCleared={
+							setVisibilityExplicitlyCleared
 						}
-						sharedFosterVisibility={sharedFosterVisibilityComputed}
+						hasFosterVisibilityConflictComputed={
+							messageState.hasFosterVisibilityConflictComputed
+						}
+						hasConflictFromCurrentVisibility={
+							messageState.hasConflictFromCurrentVisibility
+						}
+						hasMismatchFromCurrentStatus={
+							messageState.hasMismatchFromCurrentStatus
+						}
+						sharedStatusFromSelected={
+							messageState.sharedStatusFromSelected
+						}
+						sharedVisibilityFromSelected={
+							messageState.sharedFosterVisibilityFromSelected
+						}
 						onPhotosChange={setSelectedPhotos}
 						photoError={photoUploadError}
 						onSubmit={handleSubmit}
@@ -736,6 +718,14 @@ export default function NewGroup() {
 						submitError={submitError}
 						successMessage={successMessage}
 						submitButtonText="Create Group"
+						// Bulk add props
+						bulkAddRows={bulkAddRows}
+						onBulkAddRow={bulkAddRow}
+						onBulkRemoveRow={bulkRemoveRow}
+						onBulkUpdateRow={bulkUpdateRow}
+						onBulkSetRowCount={bulkSetRowCount}
+						bulkCanAddMore={bulkCanAddMore}
+						bulkMaxRows={bulkMaxRows}
 						// Search and filter props
 						animalSearchTerm={animalSearchTerm}
 						onAnimalSearch={handleAnimalSearch}

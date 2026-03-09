@@ -208,6 +208,17 @@ export function hasActiveFilters(filters: AnimalFilters): boolean {
 }
 
 /**
+ * Whether group form should load all animals (for client-side filtering).
+ * Used by NewGroup and EditGroup to decide pagination vs full fetch.
+ */
+export function needsAllAnimalsForGroupForm(
+	animalSearchTerm: string,
+	animalFilters: AnimalFilters
+): boolean {
+	return !!(animalSearchTerm || hasActiveFilters(animalFilters));
+}
+
+/**
  * Check if any filters are active in a GroupFilters object
  */
 export function hasActiveGroupFilters(filters: GroupFilters): boolean {
