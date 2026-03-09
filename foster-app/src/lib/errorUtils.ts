@@ -17,7 +17,12 @@ export function isNetworkError(error: unknown): boolean {
 		return true;
 	}
 
-	// Check 2: Error objects with network-related messages
+	// Check 2: Supabase AuthRetryableFetchError (thrown when auth fetch fails: 522, CORS, etc.)
+	if (error instanceof Error && error.name === "AuthRetryableFetchError") {
+		return true;
+	}
+
+	// Check 3: Error objects with network-related messages
 	// Supabase or other libraries might wrap network errors in Error objects
 	// We check the message content for network-related keywords
 	if (error instanceof Error) {
@@ -33,7 +38,7 @@ export function isNetworkError(error: unknown): boolean {
 		);
 	}
 
-	// Check 3: Supabase PostgREST error objects (not Error instances)
+	// Check 4: Supabase PostgREST error objects (not Error instances)
 	// Supabase sometimes returns error objects that aren't Error instances
 	// but have a message property (e.g., { code: "...", message: "..." })
 	if (error && typeof error === "object" && "message" in error) {
@@ -51,10 +56,11 @@ export function isNetworkError(error: unknown): boolean {
 }
 
 /**
- * Gets a user-friendly error message for network errors
+ * Gets a user-friendly error message for network errors.
+ * 522/CORS/auth failures often indicate Supabase service issues, not local connectivity.
  */
 export function getNetworkErrorMessage(): string {
-	return "Unable to connect to the server. Please check your internet connection and try again.";
+	return "Unable to connect to the server. The service may be temporarily unavailable—check status.supabase.com for updates. If your connection is fine, try again in a few minutes.";
 }
 
 /**

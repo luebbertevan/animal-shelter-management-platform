@@ -10,6 +10,7 @@ import GroupsList from "./pages/animals/GroupsList";
 import GroupDetail from "./pages/animals/GroupDetail";
 import NewGroup from "./pages/animals/NewGroup";
 import EditGroup from "./pages/animals/EditGroup";
+import BulkAddAnimals from "./pages/animals/BulkAddAnimals";
 import ConversationDetail from "./pages/messaging/ConversationDetail";
 import MessagingPage from "./pages/messaging/MessagingPage";
 import FostersList from "./pages/fosters/FostersList";
@@ -55,6 +56,18 @@ function App() {
 							<ProtectedLayout>
 								<NewAnimal />
 							</ProtectedLayout>
+						</ProtectedRoute>
+					}
+				/>
+				<Route
+					path="/animals/bulk-add"
+					element={
+						<ProtectedRoute>
+							<CoordinatorOnlyRoute>
+								<ProtectedLayout>
+									<BulkAddAnimals />
+								</ProtectedLayout>
+							</CoordinatorOnlyRoute>
 						</ProtectedRoute>
 					}
 				/>
