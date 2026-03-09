@@ -1,47 +1,58 @@
-copy pasted image from xl shows up weird and the photo showcase thing the zoomed in window of each photo
+# Bug list & backlog
 
-the ui cross over point is bad in some pages and needs more testing. like middle sized screens headers look bad and the chat list page blend is too late.
+## Bug fixes
 
-sign up name auto fill dropdown with animal names lol
+- **Remove additional notes** – Remove the additional-notes field if no longer needed.
+- **Pending group request photo** – On the coordinator homepage, pending foster requests show no photo when the group has no group photo (e.g. only split animal photos). Use first group photo or first animal photo as fallback; if there are no photos for the group or animals, show the same no-photo icon used elsewhere in the app.
+- **Assignment sync** – When a foster is assigned to a group, animals added later to that group are not assigned to the foster, and removing an animal from an assigned group does not clear its assignment. Implement sync so new members get assigned and removed members get unassigned. See `ASSIGNMENT_SYNC_PLAN.md`.
 
-I can't swipe through pictures on mobile in the showcase
+---
 
-when there is a group requested, when it is listed on the pending foster requests list on the coordinators homepage the photo shows no photo instead of picture that is supose to be displayed which is the first group photo or the animals split photos. I think this is happening in one group becuase there are not group photos
- 
-quick add animals to groups name, sex, life stage
+## Improvements & polish
 
-delete all animals in group option in the delete group form (instead of just removeing them from the group)
+- **Form formatting & layout** – Revise form layout for a cleaner, more aesthetic look: reduce excess space (e.g. high-priority toggle on create/edit group forms), optimize spacing for different screen sizes (mobile especially), improve how details are displayed, and condense fields/dropdowns to cut white space and avoid an awkward spaced-out layout. Consider reordering fields to improve layout and a more intuitive flow.
+- **Pasted image / showcase zoom** – Copy-pasted image from Excel (or similar) and the photo showcase zoomed view display incorrectly; fix image handling and showcase zoom UI.
+- **Responsive breakpoints** – Headers and chat list layout break on mid-sized screens; test and fix responsive crossover points.
+- **Sign up name autofill** – Sign-up name field suggests animal names; fix autofill/attributes so it does not suggest animal names.
+- **Mobile swipe in showcase** – Enable swipe-through for photos in the showcase on mobile.
+- **Long messages → info icon** – Move long helper text (e.g. “Animals in the same group are allowed to have different statuses”) into a hoverable info icon next to the field label instead of full-width message.
+- **Animals page cleanup** – Improve formatting and layout of the animals page for a cleaner view.
+- **Sheets-style view** – Table/sheets-style view for coordinators to quickly scan animals and key info without opening each animal.
+- **Metrics** – Add or surface metrics (e.g. euthanized, deceased counts) where useful.
+- **Standardize color palette** – Use a single source of truth for all colors (e.g. theme/tokens) so palette changes apply globally.
+- **Built-in back button** – Add an in-app back control, especially for mobile PWA where there is no browser back button.
+- **Visibility/status feedback in groups** – When editing an animal’s visibility and that animal is in a group, the app correctly updates the other animals in the group to avoid conflicts; show a clear message that this is happening. For status: changing one animal’s status in a group currently affects only that animal. Consider adding an option to apply the status change to all animals in the group, since that may be the common case.
+- **Code quality pass** – Scan the codebase for duplicated logic and code smells; refactor to eliminate them. Consider a DevOps/lint or analysis tool to flag code smells.
 
-need to handle decesaced and euthinized animals (in status)
+---
 
-I think we need a sheets style view of the information. It would be a fast way for coordinators to view animals and their information instead of clicking into an animal.
+## Features (new behavior or larger scope)
 
-We need to clean up the way animals page. I think the infomration could be formatted better to create a cleaner page.
+- **Quick add animals to groups** – Quick-add flow for name, sex, life stage when adding animals to groups (aligns with bulk-add work).
+- **Delete all animals in group** – In the delete-group flow, add an option to delete all animals in the group (not only remove them from the group).
+- **Deceased / euthanized status** – Proper handling and display of deceased and euthanized in animal status (and any downstream logic).
+- **Bulk/max delete for animals** – Bulk delete animals with an optional max cap (e.g. “delete up to N”) for safety.
+- **Concurrent edit / version control** – Define behavior when two users edit the same animal or group, or when one user’s action (e.g. group creation with visibility rules) conflicts with another’s (e.g. someone else changed an animal’s visibility). Prefer a simple approach: last-write-wins for normal fields; block or reject the action when it would violate critical rules (e.g. group visibility consistency). Confirm whether this is the only place such conflicts matter and add detection or error handling as needed.
 
-we can probably get rid of additional notes maybe
+---
 
-the high priority toggle looks bad on the create/edit forms. way to much space between.
+## Future bugs / notes
 
-Messages like this:
-"Animals in the same group are allowed to have different statuses"
-take up too much screen space and should go into an infromation/question icon next to the form field header and should be like hoverable to veiw
+- _Use this section for bugs or ideas to triage later._
+- _e.g. Edge cases, rare bugs, or “nice to have” UX notes._
 
-we might want a max delete function for animals at some point
+---
 
-when I cancel from add group form it goes back to the animals list page instead of the last page (groups list page)
+## MVP next features
 
-metrics are helpful
-ex) ethunized, deceased, 
+- Bug fixing
+- Foster photos and bio editing
+- Sign up / sign in restructure (whitelist emails or sign in with Google)
+- MVP UX
+- Landing page
+- Web notifications (Firebase)
 
+## MVP+
 
-Mvp next features list
-bug fixing
-Foster photos and bio editing
-Sign up/sign in restructure (white list emails or sign in with google)
-mvp ux 
-landing page
-web notifications (firebase)
-
-Mvp+
-redesign ui and ux polish
-expo wraping for mobile app (dev acounts )
+- Redesign; UI and UX polish
+- Expo wrapping for mobile app (dev accounts)
