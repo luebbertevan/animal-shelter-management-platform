@@ -76,7 +76,6 @@ export default function AnimalSelector({
 					"physical_characteristics",
 					"medical_needs",
 					"behavioral_needs",
-					"additional_notes",
 					"bio",
 				],
 				orderBy: "created_at",

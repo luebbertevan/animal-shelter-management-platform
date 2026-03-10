@@ -17,7 +17,6 @@ export interface AnimalFormState {
 	physicalCharacteristics: string;
 	medicalNeeds: string;
 	behavioralNeeds: string;
-	additionalNotes: string;
 	bio: string;
 	priority: boolean;
 	dateOfBirth: string;
@@ -74,9 +73,6 @@ export function animalToFormState(
 		behavioralNeeds: exclude.includes("behavioralNeeds")
 			? ""
 			: animal.behavioral_needs?.trim() || "",
-		additionalNotes: exclude.includes("additionalNotes")
-			? ""
-			: animal.additional_notes?.trim() || "",
 		bio: exclude.includes("bio") ? "" : animal.bio?.trim() || "",
 		priority: exclude.includes("priority")
 			? false
@@ -107,7 +103,6 @@ export function getEmptyFormState(): AnimalFormState {
 		physicalCharacteristics: "",
 		medicalNeeds: "",
 		behavioralNeeds: "",
-		additionalNotes: "",
 		bio: "",
 		priority: false,
 		dateOfBirth: "",

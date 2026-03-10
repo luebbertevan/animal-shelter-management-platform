@@ -40,7 +40,6 @@ export default function NewAnimal() {
 		setPhysicalCharacteristics,
 		setMedicalNeeds,
 		setBehavioralNeeds,
-		setAdditionalNotes,
 		setBio,
 		setPriority,
 		handleDOBChange,
@@ -132,7 +131,6 @@ export default function NewAnimal() {
 		setPhysicalCharacteristics(copiedState.physicalCharacteristics);
 		setMedicalNeeds(copiedState.medicalNeeds);
 		setBehavioralNeeds(copiedState.behavioralNeeds);
-		setAdditionalNotes(copiedState.additionalNotes);
 		setPriority(copiedState.priority);
 
 		// Handle date of birth - use handleDOBChange to properly calculate age
@@ -201,10 +199,6 @@ export default function NewAnimal() {
 
 			if (formState.behavioralNeeds.trim()) {
 				animalData.behavioral_needs = formState.behavioralNeeds.trim();
-			}
-
-			if (formState.additionalNotes.trim()) {
-				animalData.additional_notes = formState.additionalNotes.trim();
 			}
 
 			if (formState.bio.trim()) {
@@ -439,7 +433,6 @@ export default function NewAnimal() {
 						setPhysicalCharacteristics={setPhysicalCharacteristics}
 						setMedicalNeeds={setMedicalNeeds}
 						setBehavioralNeeds={setBehavioralNeeds}
-						setAdditionalNotes={setAdditionalNotes}
 						setBio={setBio}
 						setPriority={setPriority}
 						handleDOBChange={handleDOBChange}

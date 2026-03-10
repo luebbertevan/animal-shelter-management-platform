@@ -95,7 +95,6 @@ export interface Animal {
 	photos?: PhotoMetadata[]; // Array of photo objects with url, uploaded_at, and uploaded_by
 
 	// Notes & Metadata
-	additional_notes?: string;
 	bio?: string; // Text field for animal biography - fosters will be able to edit
 	created_by?: string; // User ID who created the animal
 	created_at: string; // ISO date string

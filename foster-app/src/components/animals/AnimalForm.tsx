@@ -29,7 +29,6 @@ interface AnimalFormProps {
 	setPhysicalCharacteristics: (value: string) => void;
 	setMedicalNeeds: (value: string) => void;
 	setBehavioralNeeds: (value: string) => void;
-	setAdditionalNotes: (value: string) => void;
 	setBio: (value: string) => void;
 	setPriority: (value: boolean) => void;
 	handleDOBChange: (dob: string) => void;
@@ -84,7 +83,6 @@ export default function AnimalForm({
 	setPhysicalCharacteristics,
 	setMedicalNeeds,
 	setBehavioralNeeds,
-	setAdditionalNotes,
 	setBio,
 	setPriority,
 	handleDOBChange,
@@ -312,15 +310,6 @@ export default function AnimalForm({
 				value={formState.behavioralNeeds}
 				onChange={(e) => setBehavioralNeeds(e.target.value)}
 				placeholder="Enter behavioral needs (optional)"
-				rows={4}
-				disabled={loading}
-			/>
-
-			<Textarea
-				label="Additional Notes"
-				value={formState.additionalNotes}
-				onChange={(e) => setAdditionalNotes(e.target.value)}
-				placeholder="Enter any additional notes (optional)"
 				rows={4}
 				disabled={loading}
 			/>
