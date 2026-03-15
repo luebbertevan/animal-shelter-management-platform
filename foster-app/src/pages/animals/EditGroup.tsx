@@ -16,6 +16,7 @@ import {
 	updateGroup,
 	deleteGroup,
 } from "../../lib/groupQueries";
+import { syncUnassignAnimalsRemovedFromGroup } from "../../lib/assignmentUtils";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import {
 	getGroupFormMessageState,
@@ -623,6 +624,9 @@ export default function EditGroup() {
 
 			await updateGroup(id, profile.organization_id, groupData);
 
+			// Assignment sync: when group is assigned, newly added animals get assigned to the group's foster
+			const groupCurrentFosterId = group.current_foster_id ?? null;
+
 			// Apply staged changes to animals: status and foster_visibility
 			// When "set all visibility" is set, include all selected animals so they get that visibility
 			const allAnimalIdsToUpdate = new Set<string>([
@@ -644,9 +648,15 @@ export default function EditGroup() {
 							update.group_id = null;
 						} else if (addedAnimalIds.includes(animalId)) {
 							update.group_id = id;
+							// Assignment sync: assign newly added animals to the group's foster
+							if (groupCurrentFosterId) {
+								update.current_foster_id = groupCurrentFosterId;
+								update.status = "in_foster";
+								update.foster_visibility = "not_visible";
+							}
 						}
 
-						// Apply staged status change if any
+						// Apply staged status change if any (only when not already set by assignment sync)
 						const stagedStatus = stagedStatusChanges.get(animalId);
 						if (stagedStatus) {
 							update.status = stagedStatus;
@@ -681,6 +691,19 @@ export default function EditGroup() {
 					console.error("Error updating animals:", updateError);
 					// Don't fail the whole operation, but log the error
 				}
+			}
+
+			// Assignment sync: clear assignment for animals removed from this group
+			// (only those that were assigned to this group's foster)
+			if (
+				removedAnimalIds.length > 0 &&
+				groupCurrentFosterId
+			) {
+				await syncUnassignAnimalsRemovedFromGroup(
+					removedAnimalIds,
+					groupCurrentFosterId,
+					profile.organization_id
+				);
 			}
 
 			// Handle animals being moved from other groups (for added animals)

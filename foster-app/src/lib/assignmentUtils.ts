@@ -553,6 +553,39 @@ export async function unassignGroup(
 }
 
 /**
+ * Sync assignment when animals are removed from an assigned group.
+ * Clears current_foster_id, status, and foster_visibility only for animals
+ * that were assigned to the group's foster. Used by Edit Group when membership is updated.
+ */
+export async function syncUnassignAnimalsRemovedFromGroup(
+	animalIds: string[],
+	groupFosterId: string,
+	organizationId: string
+): Promise<void> {
+	if (animalIds.length === 0) return;
+
+	const { error } = await supabase
+		.from("animals")
+		.update({
+			current_foster_id: null,
+			status: "in_shelter",
+			foster_visibility: "available_now",
+		})
+		.in("id", animalIds)
+		.eq("organization_id", organizationId)
+		.eq("current_foster_id", groupFosterId);
+
+	if (error) {
+		throw new Error(
+			getErrorMessage(
+				error,
+				"Failed to clear assignment for removed animals. Please try again."
+			)
+		);
+	}
+}
+
+/**
  * Unassigns an individual animal from the current foster
  */
 export async function unassignAnimal(
