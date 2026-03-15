@@ -17,24 +17,26 @@ export interface BulkCreateResult {
 /**
  * Default status/visibility for bulk-create when adding to a group.
  * Single source of truth for NewGroup and EditGroup bulk-create options.
+ * Bulk-added animals must follow "set all" fields or defaults so they never
+ * create visibility conflicts; we always return explicit values (never undefined).
  */
 export function getBulkCreateGroupDefaults(
 	onlyBulkAdd: boolean,
 	stagedStatusForAll: string,
 	stagedFosterVisibilityForAll: string,
 	messageState: GroupFormMessageState
-): { groupStatus?: string; groupFosterVisibility?: string } {
+): { groupStatus: string; groupFosterVisibility: string } {
 	return {
 		groupStatus:
 			stagedStatusForAll ||
 			(onlyBulkAdd ? "in_shelter" : messageState.sharedStatusFromSelected) ||
-			undefined,
+			"in_shelter",
 		groupFosterVisibility:
 			stagedFosterVisibilityForAll ||
 			(onlyBulkAdd
 				? "available_now"
-				: messageState.sharedFosterVisibilityFromSelected ?? undefined) ||
-			undefined,
+				: messageState.sharedFosterVisibilityFromSelected ?? "available_now") ||
+			"available_now",
 	};
 }
 

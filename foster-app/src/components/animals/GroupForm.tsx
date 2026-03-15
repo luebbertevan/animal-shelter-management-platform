@@ -60,6 +60,8 @@ interface GroupFormProps {
 	/** When pre-existing animals are selected, their shared status/visibility (for dropdown default). */
 	sharedStatusFromSelected?: AnimalStatus | "";
 	sharedVisibilityFromSelected?: FosterVisibility | null;
+	/** Shared visibility of selected animals from DB only (no staged). Used to show "match" vs "will be set". */
+	sharedVisibilityFromCurrentOnly?: FosterVisibility | null;
 	/** True when selected animals' actual statuses differ (ignoring staged "set for all"). Used for "will be set" vs "have different" message. */
 	hasMismatchFromCurrentStatus?: boolean;
 
@@ -131,6 +133,7 @@ export default function GroupForm({
 	hasConflictFromCurrentVisibility = false,
 	sharedStatusFromSelected = "",
 	sharedVisibilityFromSelected = null,
+	sharedVisibilityFromCurrentOnly = null,
 	hasMismatchFromCurrentStatus = false,
 	onPhotosChange,
 	existingPhotos = [],
@@ -468,12 +471,18 @@ export default function GroupForm({
 							</p>
 						</div>
 					) : stagedFosterVisibilityForAll &&
-					  hasConflictFromCurrentVisibility ? (
+					  (hasConflictFromCurrentVisibility ||
+						sharedVisibilityFromCurrentOnly !==
+							stagedFosterVisibilityForAll) ? (
 						<p className="mt-2 text-sm text-yellow-700">
 							All animals in this group will be set to this
 							visibility.
 						</p>
-					) : stagedFosterVisibilityForAll ? (
+					) : stagedFosterVisibilityForAll &&
+					  sharedVisibilityFromCurrentOnly ===
+						stagedFosterVisibilityForAll &&
+					  selectedAnimalIds.length + (bulkAddRows?.length ?? 0) >
+						1 ? (
 						<p className="mt-2 text-sm text-green-700">
 							All grouped animals match this visibility.
 						</p>

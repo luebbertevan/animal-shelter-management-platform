@@ -41,6 +41,8 @@
 - _Use this section for bugs or ideas to triage later._
 - _e.g. Edge cases, rare bugs, or “nice to have” UX notes._
 
+- We might want a request unassignment button for when a group is adopted for example and the coordinators have not unassigned the group yet.
+
 ---
 
 ## MVP next features

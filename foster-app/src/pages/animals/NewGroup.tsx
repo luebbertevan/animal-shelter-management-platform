@@ -711,6 +711,9 @@ export default function NewGroup() {
 						sharedVisibilityFromSelected={
 							messageState.sharedFosterVisibilityFromSelected
 						}
+						sharedVisibilityFromCurrentOnly={
+							messageState.sharedFosterVisibilityFromCurrentOnly
+						}
 						onPhotosChange={setSelectedPhotos}
 						photoError={photoUploadError}
 						onSubmit={handleSubmit}
