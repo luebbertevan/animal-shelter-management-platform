@@ -329,9 +329,45 @@ export default function Dashboard() {
 									const entityLink = isGroup
 										? `/groups/${request.group?.id}`
 										: `/animals/${request.animal?.id}`;
-									const photo =
-										request.animal?.photos?.[0]?.url ||
-										request.group?.group_photos?.[0]?.url;
+
+									// Photo selection:
+									// 1. If this is an animal request, use the animal's first photo.
+									// 2. If this is a group request, prefer the group's first photo.
+									// 3. If the group has no group photos, fall back to the first animal
+									//    in the group that has a photo (using animalDataMap).
+									let photo: string | undefined;
+
+									if (request.animal?.photos?.length) {
+										photo = request.animal.photos[0]?.url || undefined;
+									} else if (request.group) {
+										if (
+											request.group.group_photos &&
+											request.group.group_photos.length > 0
+										) {
+											photo =
+												request.group.group_photos[0]
+													?.url || undefined;
+										} else if (
+											request.group.animal_ids &&
+											request.group.animal_ids.length > 0
+										) {
+											for (const animalId of request.group
+												.animal_ids) {
+												const animalData =
+													animalDataMap.get(animalId);
+												const animalPhotoUrl =
+													animalData?.photos &&
+													animalData.photos.length > 0
+														? animalData.photos[0]
+																.url
+														: undefined;
+												if (animalPhotoUrl) {
+													photo = animalPhotoUrl;
+													break;
+												}
+											}
+										}
+									}
 
 									return (
 										<li

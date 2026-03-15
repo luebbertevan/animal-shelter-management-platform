@@ -35,7 +35,6 @@ export interface UseAnimalFormReturn {
 	setPhysicalCharacteristics: (value: string) => void;
 	setMedicalNeeds: (value: string) => void;
 	setBehavioralNeeds: (value: string) => void;
-	setAdditionalNotes: (value: string) => void;
 	setBio: (value: string) => void;
 	setPriority: (value: boolean) => void;
 	// Handlers
@@ -94,9 +93,6 @@ export function useAnimalForm(
 	const [behavioralNeeds, setBehavioralNeeds] = useState(
 		initialState.behavioralNeeds
 	);
-	const [additionalNotes, setAdditionalNotes] = useState(
-		initialState.additionalNotes
-	);
 	const [bio, setBio] = useState(initialState.bio);
 	const [priority, setPriority] = useState(initialState.priority);
 	const [dateOfBirth, setDateOfBirth] = useState(initialState.dateOfBirth);
@@ -132,7 +128,6 @@ export function useAnimalForm(
 				setPhysicalCharacteristics(animalState.physicalCharacteristics);
 				setMedicalNeeds(animalState.medicalNeeds);
 				setBehavioralNeeds(animalState.behavioralNeeds);
-				setAdditionalNotes(animalState.additionalNotes);
 				setBio(animalState.bio);
 				setPriority(animalState.priority);
 				setDateOfBirth(animalState.dateOfBirth);
@@ -436,7 +431,6 @@ export function useAnimalForm(
 		physicalCharacteristics,
 		medicalNeeds,
 		behavioralNeeds,
-		additionalNotes,
 		bio,
 		priority,
 		dateOfBirth,
@@ -455,7 +449,6 @@ export function useAnimalForm(
 		setPhysicalCharacteristics,
 		setMedicalNeeds,
 		setBehavioralNeeds,
-		setAdditionalNotes,
 		setBio,
 		setPriority,
 		handleDOBChange,

@@ -3,6 +3,8 @@ import type { Animal, AnimalStatus, FosterVisibility } from "../types";
 /** Derived state for GroupForm status/visibility messages and conflict UI (single source of truth for NewGroup + EditGroup). */
 export interface GroupFormMessageState {
 	sharedFosterVisibilityFromSelected: FosterVisibility | null;
+	/** Shared visibility of selected animals from DB only (no staged changes). Used to show "match" vs "will be set". */
+	sharedFosterVisibilityFromCurrentOnly: FosterVisibility | null;
 	hasFosterVisibilityConflictComputed: boolean;
 	hasConflictFromCurrentVisibility: boolean;
 	sharedStatusFromSelected: AnimalStatus | "";
@@ -121,10 +123,10 @@ export function getGroupFormMessageState(
 		selectedAnimals,
 		stagedFosterVisibilityChanges
 	);
-	const hasConflictFromCurrentVisibility = getGroupFosterVisibility(
-		selectedAnimals,
-		undefined
-	).hasConflict;
+	const {
+		sharedValue: sharedFosterVisibilityFromCurrentOnly,
+		hasConflict: hasConflictFromCurrentVisibility,
+	} = getGroupFosterVisibility(selectedAnimals, undefined);
 
 	let sharedStatusFromSelected: AnimalStatus | "" = "";
 	if (selectedAnimalIds.length > 0) {
@@ -151,6 +153,8 @@ export function getGroupFormMessageState(
 	return {
 		sharedFosterVisibilityFromSelected:
 			sharedFosterVisibilityFromSelected ?? null,
+		sharedFosterVisibilityFromCurrentOnly:
+			sharedFosterVisibilityFromCurrentOnly ?? null,
 		hasFosterVisibilityConflictComputed,
 		hasConflictFromCurrentVisibility,
 		sharedStatusFromSelected,

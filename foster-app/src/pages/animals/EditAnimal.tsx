@@ -69,7 +69,6 @@ export default function EditAnimal() {
 		setPhysicalCharacteristics,
 		setMedicalNeeds,
 		setBehavioralNeeds,
-		setAdditionalNotes,
 		setBio,
 		setPriority,
 		handleDOBChange,
@@ -209,10 +208,9 @@ export default function EditAnimal() {
 		setSexSpayNeuterStatus(copiedState.sexSpayNeuterStatus);
 		setLifeStage(copiedState.lifeStage);
 		setPrimaryBreed(copiedState.primaryBreed);
-		setPhysicalCharacteristics(copiedState.physicalCharacteristics);
-		setMedicalNeeds(copiedState.medicalNeeds);
-		setBehavioralNeeds(copiedState.behavioralNeeds);
-		setAdditionalNotes(copiedState.additionalNotes);
+				setPhysicalCharacteristics(copiedState.physicalCharacteristics);
+				setMedicalNeeds(copiedState.medicalNeeds);
+				setBehavioralNeeds(copiedState.behavioralNeeds);
 		setPriority(copiedState.priority);
 
 		// Handle date of birth - use handleDOBChange to properly calculate age
@@ -328,12 +326,6 @@ export default function EditAnimal() {
 				animalData.behavioral_needs = formState.behavioralNeeds.trim();
 			} else {
 				animalData.behavioral_needs = null;
-			}
-
-			if (formState.additionalNotes.trim()) {
-				animalData.additional_notes = formState.additionalNotes.trim();
-			} else {
-				animalData.additional_notes = null;
 			}
 
 			if (formState.bio.trim()) {
@@ -690,7 +682,6 @@ export default function EditAnimal() {
 						setPhysicalCharacteristics={setPhysicalCharacteristics}
 						setMedicalNeeds={setMedicalNeeds}
 						setBehavioralNeeds={setBehavioralNeeds}
-						setAdditionalNotes={setAdditionalNotes}
 						setBio={setBio}
 						setPriority={setPriority}
 						handleDOBChange={handleDOBChange}

@@ -1004,12 +1004,6 @@ export default function AnimalDetail() {
 							value={animal.behavioral_needs || null}
 						/>
 
-						{/* Additional Notes */}
-						<FieldDisplay
-							label="Additional Notes"
-							value={animal.additional_notes || null}
-						/>
-
 						{/* Adoption Bio */}
 						<FieldDisplay
 							label="Adoption Bio"

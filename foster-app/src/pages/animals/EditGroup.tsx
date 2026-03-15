@@ -16,6 +16,7 @@ import {
 	updateGroup,
 	deleteGroup,
 } from "../../lib/groupQueries";
+import { syncUnassignAnimalsRemovedFromGroup } from "../../lib/assignmentUtils";
 import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
 import {
 	getGroupFormMessageState,
@@ -623,6 +624,18 @@ export default function EditGroup() {
 
 			await updateGroup(id, profile.organization_id, groupData);
 
+			// Assignment sync: when group is assigned, newly added animals get assigned to the group's foster
+			const groupCurrentFosterId = group.current_foster_id ?? null;
+
+			// Form-intended status/visibility for newly added animals (same as bulk-create defaults)
+			// so we don't overwrite with in_foster/not_visible when group has a foster
+			const formDefaultsForAdded = getBulkCreateGroupDefaults(
+				selectedAnimalIds.length === 0,
+				stagedStatusForAll,
+				stagedFosterVisibilityForAll,
+				messageState
+			);
+
 			// Apply staged changes to animals: status and foster_visibility
 			// When "set all visibility" is set, include all selected animals so they get that visibility
 			const allAnimalIdsToUpdate = new Set<string>([
@@ -638,27 +651,36 @@ export default function EditGroup() {
 				const updatePromises = Array.from(allAnimalIdsToUpdate).map(
 					(animalId) => {
 						const update: Record<string, unknown> = {};
+						const isAdded = addedAnimalIds.includes(animalId);
 
 						// Handle group_id changes
 						if (removedAnimalIds.includes(animalId)) {
 							update.group_id = null;
-						} else if (addedAnimalIds.includes(animalId)) {
+						} else if (isAdded) {
 							update.group_id = id;
+							// Assignment sync: assign to group's foster only; do not force status/visibility
+							if (groupCurrentFosterId) {
+								update.current_foster_id = groupCurrentFosterId;
+							}
 						}
 
-						// Apply staged status change if any
+						// Status: staged per-animal, or for newly added use form-intended value
 						const stagedStatus = stagedStatusChanges.get(animalId);
 						if (stagedStatus) {
 							update.status = stagedStatus;
+						} else if (isAdded) {
+							update.status = formDefaultsForAdded.groupStatus;
 						}
 
-						// Apply staged foster_visibility (explicit per-animal or "set for all")
+						// Visibility: staged per-animal or "set for all", or for newly added use form-intended value
 						const stagedVisibility =
-							(stagedFosterVisibilityChanges.get(animalId) ??
-								stagedFosterVisibilityForAll) ||
-							undefined;
+							stagedFosterVisibilityChanges.get(animalId) ??
+							(stagedFosterVisibilityForAll || undefined);
 						if (stagedVisibility) {
 							update.foster_visibility = stagedVisibility;
+						} else if (isAdded) {
+							update.foster_visibility =
+								formDefaultsForAdded.groupFosterVisibility;
 						}
 
 						// Only update if there are changes
@@ -681,6 +703,19 @@ export default function EditGroup() {
 					console.error("Error updating animals:", updateError);
 					// Don't fail the whole operation, but log the error
 				}
+			}
+
+			// Assignment sync: clear assignment for animals removed from this group
+			// (only those that were assigned to this group's foster)
+			if (
+				removedAnimalIds.length > 0 &&
+				groupCurrentFosterId
+			) {
+				await syncUnassignAnimalsRemovedFromGroup(
+					removedAnimalIds,
+					groupCurrentFosterId,
+					profile.organization_id
+				);
 			}
 
 			// Handle animals being moved from other groups (for added animals)
@@ -861,6 +896,9 @@ export default function EditGroup() {
 						}
 						sharedVisibilityFromSelected={
 							messageState.sharedFosterVisibilityFromSelected
+						}
+						sharedVisibilityFromCurrentOnly={
+							messageState.sharedFosterVisibilityFromCurrentOnly
 						}
 						onPhotosChange={setSelectedPhotos}
 						existingPhotos={(group.group_photos || []).filter(
