@@ -86,6 +86,10 @@ interface GroupFormProps {
 	onDeleteCancel?: () => void;
 	onDeleteConfirm?: () => void;
 	deleting?: boolean;
+	/** When true, show option to unassign all animals from current foster before delete */
+	groupHasFoster?: boolean;
+	unassignBeforeDelete?: boolean;
+	onUnassignBeforeDeleteChange?: (value: boolean) => void;
 
 	// Search and filters for animal selection (optional)
 	animalSearchTerm?: string;
@@ -151,6 +155,9 @@ export default function GroupForm({
 	onDeleteCancel,
 	onDeleteConfirm,
 	deleting = false,
+	groupHasFoster = false,
+	unassignBeforeDelete = false,
+	onUnassignBeforeDeleteChange,
 	// Search and filter props
 	animalSearchTerm,
 	onAnimalSearch,
@@ -666,11 +673,31 @@ export default function GroupForm({
 
 			{showDeleteConfirm && (
 				<div className="bg-red-50 border border-red-200 rounded-md p-4">
-					<p className="text-sm text-red-800 mb-3">
+					<p className="text-sm text-red-800 mb-2">
 						Are you sure you want to delete this group? The animals
 						in this group will remain but will no longer be grouped
 						together.
 					</p>
+					{groupHasFoster && (
+						<p className="text-sm text-red-800 mb-3">
+							If the group was assigned to a foster, those
+							animals will no longer be assigned to that foster.
+						</p>
+					)}
+					{groupHasFoster && onUnassignBeforeDeleteChange && (
+						<label className="flex items-center gap-2 mb-3 text-sm text-red-800 cursor-pointer">
+							<input
+								type="checkbox"
+								checked={unassignBeforeDelete}
+								onChange={(e) =>
+									onUnassignBeforeDeleteChange(e.target.checked)
+								}
+								disabled={deleting}
+								className="rounded border-red-300 text-red-600 focus:ring-red-500"
+							/>
+							Unassign all animals from current foster
+						</label>
+					)}
 					<div className="flex gap-2">
 						<Button
 							variant="outline"
