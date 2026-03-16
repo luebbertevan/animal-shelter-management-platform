@@ -730,7 +730,7 @@ export default function EditAnimal() {
 					{group && (
 						<ConfirmModal
 							isOpen={showGroupConflictModal}
-							title="Group Visibility Conflict"
+							title="Group visibility conflict"
 							message={
 								<>
 									<p className="mb-2">
@@ -742,7 +742,7 @@ export default function EditAnimal() {
 									</p>
 									<p className="mb-2">
 										All animals in a group must have the
-										same Visibility on Fosters Needed page.
+										same visibility on Fosters Needed page.
 									</p>
 									<p>
 										Would you like to change all animals in

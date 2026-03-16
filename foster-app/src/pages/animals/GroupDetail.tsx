@@ -72,6 +72,24 @@ export default function GroupDetail() {
 	const [isUnassignmentDialogOpen, setIsUnassignmentDialogOpen] = useState(false);
 	const [unassignmentError, setUnassignmentError] = useState<string | null>(null);
 
+	// When assigning group and some animals have a different foster: show choice (assign animals to selected foster OR assign group to other foster)
+	const [showAssignChoiceModal, setShowAssignChoiceModal] = useState(false);
+	const [assignChoiceOtherFosterId, setAssignChoiceOtherFosterId] = useState<string | null>(null);
+
+	// Other foster's name for the assign-choice modal
+	const { data: assignChoiceOtherFosterName } = useQuery<string | null, Error>({
+		queryKey: ["foster", assignChoiceOtherFosterId],
+		queryFn: async () => {
+			if (!assignChoiceOtherFosterId) return null;
+			const foster = await fetchFosterById(
+				assignChoiceOtherFosterId,
+				profile.organization_id
+			);
+			return foster.full_name || foster.email || "Foster";
+		},
+		enabled: !!assignChoiceOtherFosterId && showAssignChoiceModal,
+	});
+
 	const {
 		data: group,
 		isLoading: isLoadingGroup,
@@ -117,6 +135,7 @@ export default function GroupDetail() {
 						"date_of_birth",
 						"group_id",
 						"foster_visibility",
+						"current_foster_id",
 					],
 				}
 			);
@@ -213,12 +232,50 @@ export default function GroupDetail() {
 		setSelectedFosterId(fosterId);
 		setSelectedFosterName(fosterName);
 		setIsFosterSelectorOpen(false);
-		setIsConfirmationDialogOpen(true);
 		setAssignmentError(null);
+
+		// Enforce all animals assigned to same person: if some have a different foster, show choice modal
+		const animalsWithOtherFoster = animals.filter(
+			(a) => a.current_foster_id && a.current_foster_id !== fosterId
+		);
+		if (animalsWithOtherFoster.length > 0) {
+			// Other foster = group's current foster, or the foster those animals have
+			const otherFosterId =
+				group?.current_foster_id ||
+				animalsWithOtherFoster[0]?.current_foster_id ||
+				null;
+			setAssignChoiceOtherFosterId(otherFosterId);
+			setShowAssignChoiceModal(true);
+			return;
+		}
+		setIsConfirmationDialogOpen(true);
+	};
+
+	// Assign choice: user chose "Assign animal(s) to [selected foster]" — open assignment dialog
+	const handleAssignChoiceAssignToSelected = () => {
+		setShowAssignChoiceModal(false);
+		setAssignChoiceOtherFosterId(null);
+		setIsConfirmationDialogOpen(true);
+	};
+
+	// Assign choice: user chose "Assign group to [other foster]" — switch selection to other foster and open assignment dialog
+	const handleAssignChoiceAssignToOther = () => {
+		if (!assignChoiceOtherFosterId || !assignChoiceOtherFosterName) return;
+		setSelectedFosterId(assignChoiceOtherFosterId);
+		setSelectedFosterName(assignChoiceOtherFosterName);
+		setShowAssignChoiceModal(false);
+		setAssignChoiceOtherFosterId(null);
+		setIsConfirmationDialogOpen(true);
 	};
 
 	// Handle assignment confirmation
-	const handleAssignmentConfirm = async (message: string, includeTag: boolean) => {
+	const handleAssignmentConfirm = async (
+		message: string,
+		includeTag: boolean,
+		notifyFoster: boolean,
+		newStatus?: AnimalStatus,
+		newVisibility?: FosterVisibility
+	) => {
 		if (!selectedFosterId || !id) {
 			return;
 		}
@@ -231,10 +288,12 @@ export default function GroupDetail() {
 				selectedFosterId,
 				profile.organization_id,
 				message,
-				includeTag
+				includeTag,
+				notifyFoster,
+				newStatus ?? "in_foster",
+				newVisibility ?? "not_visible"
 			);
 
-			// Invalidate queries to refresh data
 			await queryClient.invalidateQueries({
 				queryKey: ["groups", user.id, profile.organization_id, id],
 			});
@@ -245,7 +304,6 @@ export default function GroupDetail() {
 				queryKey: ["group-animals", user.id, profile.organization_id],
 			});
 
-			// Close dialog and reset state
 			setIsConfirmationDialogOpen(false);
 			setSelectedFosterId(null);
 			setSelectedFosterName(null);
@@ -394,7 +452,8 @@ export default function GroupDetail() {
 		newStatus: AnimalStatus,
 		newVisibility: FosterVisibility,
 		message: string,
-		includeTag: boolean
+		includeTag: boolean,
+		notifyFoster: boolean
 	) => {
 		if (!id || !group?.current_foster_id) return;
 
@@ -407,7 +466,8 @@ export default function GroupDetail() {
 				newStatus,
 				newVisibility,
 				message,
-				includeTag
+				includeTag,
+				notifyFoster
 			);
 
 			// Invalidate queries
@@ -602,16 +662,27 @@ export default function GroupDetail() {
 									</div>
 								)}
 
-								{/* Assign Foster Button (only if not assigned) */}
+								{/* Assign Foster Button (only if not assigned); disabled when group has no animals */}
 								{!group.current_foster_id && (
 									<div className="space-y-2">
 										<button
 											type="button"
 											onClick={() => {
-												setIsFosterSelectorOpen(true);
+												const hasAnimals = (group.animal_ids?.length ?? 0) > 0;
+												if (!hasAnimals) {
+													setAssignmentError(
+														"This group has no animals. Add animals to the group before assigning."
+													);
+													return;
+												}
 												setAssignmentError(null);
+												setIsFosterSelectorOpen(true);
 											}}
-											className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+											className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors ${
+												(group.animal_ids?.length ?? 0) === 0
+													? "bg-gray-300 text-gray-500 cursor-not-allowed"
+													: "bg-pink-500 text-white hover:bg-pink-600"
+											}`}
 										>
 											Assign Foster
 										</button>
@@ -767,7 +838,7 @@ export default function GroupDetail() {
 							</div>
 						)}
 
-						{/* Visibility on Fosters Needed page */}
+						{/* Visibility on Fosters Needed page (label: first word capital) */}
 						<FieldDisplay
 							label="Visibility on Fosters Needed page"
 							value={
@@ -782,7 +853,7 @@ export default function GroupDetail() {
 							<div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
 								<p className="text-sm text-red-800 font-medium">
 									⚠️ Warning: Animals in this group have
-									different Visibility on Fosters Needed page
+									different visibility on Fosters Needed page
 									values. This may indicate a data
 									inconsistency.
 								</p>
@@ -890,6 +961,74 @@ export default function GroupDetail() {
 				}
 			/>
 
+			{/* Assignment choice: some animals have different foster — choose who gets the group */}
+			{showAssignChoiceModal &&
+				selectedFosterId &&
+				selectedFosterName &&
+				assignChoiceOtherFosterId &&
+				group && (
+					<>
+						<div
+							className="fixed inset-0 z-40"
+							style={{
+								backgroundColor: "rgba(0, 0, 0, 0.65)",
+								backdropFilter: "blur(4px)",
+								WebkitBackdropFilter: "blur(4px)",
+							}}
+							onClick={() => {
+								setShowAssignChoiceModal(false);
+								setAssignChoiceOtherFosterId(null);
+								setSelectedFosterId(null);
+								setSelectedFosterName(null);
+							}}
+						/>
+						<div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+							<div
+								className="bg-white rounded-lg shadow-xl w-full max-w-md pointer-events-auto p-6"
+								onClick={(e) => e.stopPropagation()}
+							>
+								<h3 className="text-lg font-semibold text-gray-900 mb-2">
+									Animals assigned to different foster
+								</h3>
+								<p className="text-sm text-gray-600 mb-4">
+									Some animals in this group are assigned to another foster. Assign
+									the whole group to one foster so everyone matches.
+								</p>
+								<div className="flex flex-col gap-2">
+									<button
+										type="button"
+										onClick={() => {
+											setShowAssignChoiceModal(false);
+											setAssignChoiceOtherFosterId(null);
+											setSelectedFosterId(null);
+											setSelectedFosterName(null);
+										}}
+										className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+									>
+										Cancel
+									</button>
+									<button
+										type="button"
+										onClick={handleAssignChoiceAssignToSelected}
+										className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 text-sm font-medium"
+									>
+										Assign {animals.filter((a) => a.current_foster_id !== selectedFosterId).length} animal(s) to {selectedFosterName}
+									</button>
+									{assignChoiceOtherFosterName && (
+										<button
+											type="button"
+											onClick={handleAssignChoiceAssignToOther}
+											className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 text-sm font-medium"
+										>
+											Assign group to {assignChoiceOtherFosterName}
+										</button>
+									)}
+								</div>
+							</div>
+						</div>
+					</>
+				)}
+
 			{/* Assignment Confirmation Dialog */}
 			{selectedFosterId && selectedFosterName && group && (
 				<AssignmentConfirmationDialog
@@ -905,6 +1044,9 @@ export default function GroupDetail() {
 					animalOrGroupName={group.name || "Unnamed Group"}
 					isGroup={true}
 					animalCount={animals.length}
+					groupAnimalNames={animals.map(
+						(a) => a.name || "Unnamed animal"
+					)}
 				/>
 			)}
 

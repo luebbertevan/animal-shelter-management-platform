@@ -124,9 +124,24 @@ export default function GroupCard({
 
 	const photoCount = displayPhotos.length;
 	const gridClasses = hasGroupPhoto ? "" : getGridLayoutClasses(photoCount);
+
+	// Remaining count should reflect animals that have photos, not animals with no photos.
+	// This keeps the "+X more" behavior only for cases where there are more photo-capable
+	// animals than we can display (e.g. > max grid photos), without penalizing animals
+	// that simply don't have photos.
+	const totalAnimalsWithPhotos =
+		!hasGroupPhoto && animalData && group.animal_ids
+			? group.animal_ids.reduce((count, animalId) => {
+					const animal = animalData.get(animalId);
+					return animal?.photos && animal.photos.length > 0
+						? count + 1
+						: count;
+			  }, 0)
+			: 0;
+
 	const remainingCount =
 		!hasGroupPhoto && animalData && group.animal_ids
-			? group.animal_ids.length - photoCount
+			? Math.max(totalAnimalsWithPhotos - photoCount, 0)
 			: 0;
 
 	// Get life stage summary

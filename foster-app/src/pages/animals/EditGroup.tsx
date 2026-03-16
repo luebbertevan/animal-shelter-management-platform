@@ -16,8 +16,16 @@ import {
 	updateGroup,
 	deleteGroup,
 } from "../../lib/groupQueries";
-import { syncUnassignAnimalsRemovedFromGroup } from "../../lib/assignmentUtils";
-import { fetchAnimals, fetchAnimalsCount } from "../../lib/animalQueries";
+import {
+	syncUnassignAnimalsRemovedFromGroup,
+	unassignAnimalsWithOneMessage,
+	unassignGroup,
+	assignGroupToFoster,
+} from "../../lib/assignmentUtils";
+import UnassignmentDialog from "../../components/animals/UnassignmentDialog";
+import AssignmentConfirmationDialog from "../../components/animals/AssignmentConfirmationDialog";
+import { fetchFosterById } from "../../lib/fosterQueries";
+import { fetchAnimals, fetchAnimalsCount, fetchAnimalsByIds } from "../../lib/animalQueries";
 import {
 	getGroupFormMessageState,
 	getVisibilityConflictSubmitError,
@@ -29,9 +37,13 @@ import {
 import { useBulkAddRows } from "../../hooks/useBulkAddRows";
 import { useGroupFormPriorityAndVisibility } from "../../hooks/useGroupFormPriorityAndVisibility";
 import { useGroupFormDuplicateCheck } from "../../hooks/useGroupFormDuplicateCheck";
-import { useEmptyGroupConfirm } from "../../hooks/useEmptyGroupConfirm";
 import { needsAllAnimalsForGroupForm } from "../../lib/filterUtils";
-import type { Animal, TimestampedPhoto } from "../../types";
+import type {
+	Animal,
+	TimestampedPhoto,
+	AnimalStatus,
+	FosterVisibility,
+} from "../../types";
 import { uploadGroupPhoto, deleteGroupPhoto } from "../../lib/photoUtils";
 import type { AnimalFilters } from "../../components/animals/AnimalFilters";
 import { PAGE_SIZES } from "../../lib/paginationConfig";
@@ -105,6 +117,7 @@ export default function EditGroup() {
 					"group_id",
 					"foster_visibility",
 					"life_stage",
+					"current_foster_id",
 				],
 				orderBy: "created_at",
 				orderDirection: "desc",
@@ -340,17 +353,74 @@ export default function EditGroup() {
 		null
 	);
 
-	const {
-		showEmptyGroupConfirm,
-		requestEmptyGroupConfirm,
-		handleConfirmEmptyGroup,
-		handleCancelEmptyGroup,
-	} = useEmptyGroupConfirm();
-
 	// Delete group confirmation modal state
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
+	const [unassignBeforeDelete, setUnassignBeforeDelete] = useState(true);
+
+	// When true, user confirmed delete with "unassign" on – show UnassignmentDialog then delete
+	const [showUnassignmentForDelete, setShowUnassignmentForDelete] =
+		useState(false);
+
+	// Remove-from-group unassignment flow: choice modal and then optional UnassignmentDialog
+	const [removeFromGroupChoice, setRemoveFromGroupChoice] = useState<{
+		removedIds: string[];
+		removedNames: string[];
+	} | null>(null);
+	const [unassignmentDialogForRemoved, setUnassignmentDialogForRemoved] =
+		useState(false);
+	const [unassignmentErrorForRemoved, setUnassignmentErrorForRemoved] =
+		useState<string | null>(null);
+
+	// Added animals already assigned: choice modal — list all animals and fosters; options: assign group to [each foster] or unassign all
+	type AddChoiceAnimal = {
+		id: string;
+		name: string | null;
+		fosterId: string;
+		fosterName: string;
+	};
+	type AddChoiceModal = {
+		animals: AddChoiceAnimal[];
+		groupFosterId: string | null;
+		groupFosterName: string | null;
+	};
+	const [addChoiceModal, setAddChoiceModal] = useState<AddChoiceModal | null>(null);
+	// When user picks "Assign group to [foster]" we store which foster and which animals to unassign first
+	const [addChoicePendingAssign, setAddChoicePendingAssign] = useState<{
+		fosterId: string;
+		fosterName: string;
+		// Per-foster unassignment steps; we show ONE dialog per foster.
+		unassignQueue: {
+			fosterId: string;
+			fosterName: string;
+			animals: AddChoiceAnimal[];
+		}[];
+	} | null>(null);
+	// When user picks "Unassign all animals" we open one dialog, then unassign each foster's animals
+	const [addChoicePendingUnassignAll, setAddChoicePendingUnassignAll] = useState<AddChoiceAnimal[] | null>(null);
+
+	// Foster name for unassignment dialog when removing animals from group
+	const { data: fosterNameForRemoved } = useQuery<string | null, Error>({
+		queryKey: [
+			"foster",
+			group?.current_foster_id,
+			profile.organization_id,
+		],
+		queryFn: async () => {
+			if (!group?.current_foster_id) return null;
+			const foster = await fetchFosterById(
+				group.current_foster_id,
+				profile.organization_id
+			);
+			return foster.full_name || foster.email || "Foster";
+		},
+		enabled:
+			(!!removeFromGroupChoice ||
+				unassignmentDialogForRemoved === true ||
+				showUnassignmentForDelete === true) &&
+			!!group?.current_foster_id,
+	});
 
 	// Handle photo removal - track photos to delete
 	const handleRemovePhoto = (photoUrl: string) => {
@@ -364,9 +434,18 @@ export default function EditGroup() {
 			return;
 		}
 
-		// Confirm deletion
+		// First click: show confirm (default unassign toggle on)
 		if (!showDeleteConfirm) {
 			setShowDeleteConfirm(true);
+			setUnassignBeforeDelete(true);
+			return;
+		}
+
+		// If unassign toggle is on and group has animals, show full unassignment dialog instead of deleting immediately
+		const hasAnimals = (group.animal_ids?.length ?? 0) > 0;
+		if (unassignBeforeDelete && group.current_foster_id && hasAnimals) {
+			setShowDeleteConfirm(false);
+			setShowUnassignmentForDelete(true);
 			return;
 		}
 
@@ -375,11 +454,8 @@ export default function EditGroup() {
 
 		try {
 			checkOfflineAndThrow();
-
 			await deleteGroup(id, profile.organization_id, group.group_photos);
 
-			// Remove the deleted group from cache and invalidate the list
-			// Don't invalidate the specific group query as it no longer exists (would cause 406 error)
 			queryClient.removeQueries({
 				queryKey: ["groups", user.id, profile.organization_id, id],
 			});
@@ -389,8 +465,6 @@ export default function EditGroup() {
 			queryClient.invalidateQueries({
 				queryKey: ["animals", user.id, profile.organization_id],
 			});
-
-			// Navigate to groups list
 			navigate("/groups", { replace: true });
 		} catch (err) {
 			console.error("Error deleting group:", err);
@@ -402,6 +476,322 @@ export default function EditGroup() {
 			);
 			setDeleting(false);
 			setShowDeleteConfirm(false);
+		}
+	};
+
+	// After user confirms in UnassignmentDialog for delete: unassign then delete
+	const handleUnassignForDeleteConfirm = async (
+		newStatus: AnimalStatus,
+		newVisibility: FosterVisibility,
+		message: string,
+		includeTag: boolean,
+		notifyFoster: boolean
+	) => {
+		if (!id || !group) return;
+		setDeleteError(null);
+		try {
+			checkOfflineAndThrow();
+			await unassignGroup(
+				id,
+				profile.organization_id,
+				newStatus,
+				newVisibility,
+				message,
+				includeTag,
+				notifyFoster
+			);
+			await deleteGroup(id, profile.organization_id, group.group_photos);
+
+			queryClient.removeQueries({
+				queryKey: ["groups", user.id, profile.organization_id, id],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["groups", user.id, profile.organization_id],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["animals", user.id, profile.organization_id],
+			});
+			if (group.current_foster_id) {
+				queryClient.invalidateQueries({
+					queryKey: ["foster", group.current_foster_id],
+				});
+			}
+			queryClient.invalidateQueries({
+				queryKey: ["fosters-needed-all-animals"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["fosters-needed-groups"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["org-pending-requests"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["foster-requests"],
+			});
+
+			setShowUnassignmentForDelete(false);
+			navigate("/groups", { replace: true });
+		} catch (err) {
+			console.error("Error unassigning/deleting group:", err);
+			setDeleteError(
+				getErrorMessage(
+					err,
+					"Failed to unassign or delete group. Please try again."
+				)
+			);
+		}
+	};
+
+	// Remove-from-group: "Just remove" – silent sync only
+	const handleJustRemoveFromGroup = () => {
+		setRemoveFromGroupChoice(null);
+		performSubmit({ skipSyncUnassignForRemoved: true });
+	};
+
+	// Remove-from-group: open full unassignment dialog
+	const handleUnassignAndNotifyRemoved = () => {
+		setUnassignmentDialogForRemoved(true);
+	};
+
+	// Remove-from-group: confirm full unassign (after UnassignmentDialog) – one message for all
+	const handleUnassignRemovedConfirm = async (
+		newStatus: AnimalStatus,
+		newVisibility: FosterVisibility,
+		message: string,
+		includeTag: boolean,
+		notifyFoster: boolean
+	) => {
+		if (!id || !group || !group.current_foster_id || !removeFromGroupChoice) return;
+		setUnassignmentErrorForRemoved(null);
+		try {
+			await performSubmit({
+				skipSyncUnassignForRemoved: true,
+				skipSuccessAndNavigate: true,
+			});
+			await unassignAnimalsWithOneMessage(
+				removeFromGroupChoice.removedIds,
+				group.current_foster_id,
+				profile.organization_id,
+				newStatus,
+				newVisibility,
+				message,
+				includeTag,
+				notifyFoster
+			);
+			queryClient.invalidateQueries({
+				queryKey: ["foster", group.current_foster_id],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["fosters-needed-all-animals"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["fosters-needed-groups"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["org-pending-requests"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["foster-requests"],
+			});
+			setRemoveFromGroupChoice(null);
+			setUnassignmentDialogForRemoved(false);
+			setSuccessMessage("Group updated and animals unassigned.");
+			setTimeout(() => {
+				navigate(`/groups/${id}`, { replace: true });
+			}, 1500);
+		} catch (err) {
+			setUnassignmentErrorForRemoved(
+				err instanceof Error
+					? err.message
+					: "Failed to unassign. Please try again."
+			);
+		}
+	};
+
+	// Distinct fosters for modal buttons (from animals + group foster if any)
+	const addChoiceDistinctFosters = useMemo(() => {
+		if (!addChoiceModal) return [];
+		const byId = new Map<string, string>();
+		for (const a of addChoiceModal.animals) {
+			byId.set(a.fosterId, a.fosterName);
+		}
+		if (
+			addChoiceModal.groupFosterId &&
+			!byId.has(addChoiceModal.groupFosterId)
+		) {
+			byId.set(
+				addChoiceModal.groupFosterId,
+				addChoiceModal.groupFosterName || "Foster"
+			);
+		}
+		return Array.from(byId.entries()).map(([fosterId, fosterName]) => ({
+			fosterId,
+			fosterName,
+		}));
+	}, [addChoiceModal]);
+
+	// Add-choice: assign group to [foster] — unassign animals with other fosters, then performSubmit + assignGroupToFoster if needed
+	const handleAddChoiceAssignGroupToFoster = (fosterId: string, fosterName: string) => {
+		if (!addChoiceModal) return;
+		const animalsToUnassign = addChoiceModal.animals.filter(
+			(a) => a.fosterId !== fosterId
+		);
+		const byFoster = new Map<string, { fosterName: string; animals: AddChoiceAnimal[] }>();
+		for (const a of animalsToUnassign) {
+			const existing = byFoster.get(a.fosterId);
+			if (existing) {
+				existing.animals.push(a);
+			} else {
+				byFoster.set(a.fosterId, { fosterName: a.fosterName, animals: [a] });
+			}
+		}
+		setAddChoicePendingAssign({
+			fosterId,
+			fosterName,
+			unassignQueue: Array.from(byFoster.entries()).map(([fid, v]) => ({
+				fosterId: fid,
+				fosterName: v.fosterName,
+				animals: v.animals,
+			})),
+		});
+		setAddChoiceModal(null);
+	};
+
+	// Add-choice: unassign all animals — open unassignment dialog; on confirm unassign per foster then performSubmit
+	const handleAddChoiceUnassignAll = () => {
+		if (!addChoiceModal) return;
+		setAddChoicePendingUnassignAll([...addChoiceModal.animals]);
+		setAddChoiceModal(null);
+	};
+
+	// Add-choice: first step — unassign animals from their current fosters (show UnassignmentDialog); on confirm run unassigns then show assignment dialog
+	const handleAddChoiceUnassignFirstConfirm = async (
+		newStatus: AnimalStatus,
+		newVisibility: FosterVisibility,
+		message: string,
+		includeTag: boolean,
+		notifyFoster: boolean
+	) => {
+		if (!addChoicePendingAssign || addChoicePendingAssign.unassignQueue.length === 0) return;
+		setUnassignmentErrorForRemoved(null);
+		try {
+			const current = addChoicePendingAssign.unassignQueue[0];
+			await unassignAnimalsWithOneMessage(
+				current.animals.map((a) => a.id),
+				current.fosterId,
+				profile.organization_id,
+				newStatus,
+				newVisibility,
+				message,
+				includeTag,
+				notifyFoster
+			);
+			await queryClient.invalidateQueries({ queryKey: ["foster", current.fosterId] });
+			setAddChoicePendingAssign((prev) =>
+				prev ? { ...prev, unassignQueue: prev.unassignQueue.slice(1) } : null
+			);
+		} catch (err) {
+			setUnassignmentErrorForRemoved(
+				err instanceof Error
+					? err.message
+					: "Failed to unassign. Please try again."
+			);
+		}
+	};
+
+	// Add-choice assignment confirm (second step): performSubmit then assignGroupToFoster if needed; unassigns already done in first step
+	const handleAddChoiceAssignmentConfirm = async (
+		message: string,
+		includeTag: boolean,
+		notifyFoster: boolean
+	) => {
+		if (!id || !group || !addChoicePendingAssign) return;
+		setSubmitError(null);
+		try {
+			await performSubmit({});
+			const needAssign =
+				group.current_foster_id !== addChoicePendingAssign.fosterId;
+			if (needAssign) {
+				await assignGroupToFoster(
+					id,
+					addChoicePendingAssign.fosterId,
+					profile.organization_id,
+					message,
+					includeTag,
+					notifyFoster,
+					(stagedStatusForAll as AnimalStatus) || "in_foster",
+					(stagedFosterVisibilityForAll as FosterVisibility) || "not_visible"
+				);
+			}
+			queryClient.invalidateQueries({
+				queryKey: ["groups", user.id, profile.organization_id, id],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["foster", addChoicePendingAssign.fosterId],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["group-animals", user.id, profile.organization_id],
+			});
+			setAddChoicePendingAssign(null);
+			setSuccessMessage("Group updated and assigned successfully.");
+			setTimeout(() => navigate(`/groups/${id}`, { replace: true }), 1500);
+		} catch (err) {
+			setSubmitError(
+				getErrorMessage(err, "Failed to assign group. Please try again.")
+			);
+		}
+	};
+
+	// Add-choice unassign-all confirm: unassign each foster's animals (one message per foster), then performSubmit
+	const handleAddChoiceUnassignAllConfirm = async (
+		newStatus: AnimalStatus,
+		newVisibility: FosterVisibility,
+		message: string,
+		includeTag: boolean,
+		notifyFoster: boolean
+	) => {
+		if (!id || !group || !addChoicePendingUnassignAll?.length) return;
+		setUnassignmentErrorForRemoved(null);
+		try {
+			const byFoster = new Map<string, AddChoiceAnimal[]>();
+			for (const a of addChoicePendingUnassignAll) {
+				const list = byFoster.get(a.fosterId) ?? [];
+				list.push(a);
+				byFoster.set(a.fosterId, list);
+			}
+			for (const [fosterId, list] of byFoster) {
+				await unassignAnimalsWithOneMessage(
+					list.map((a) => a.id),
+					fosterId,
+					profile.organization_id,
+					newStatus,
+					newVisibility,
+					message,
+					includeTag,
+					notifyFoster
+				);
+			}
+			await performSubmit({});
+			for (const a of addChoicePendingUnassignAll) {
+				queryClient.invalidateQueries({
+					queryKey: ["foster", a.fosterId],
+				});
+			}
+			queryClient.invalidateQueries({
+				queryKey: ["groups", user.id, profile.organization_id, id],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["group-animals", user.id, profile.organization_id],
+			});
+			setAddChoicePendingUnassignAll(null);
+			setSuccessMessage("Group updated and animals unassigned.");
+			setTimeout(() => navigate(`/groups/${id}`, { replace: true }), 1500);
+		} catch (err) {
+			setUnassignmentErrorForRemoved(
+				err instanceof Error
+					? err.message
+					: "Failed to unassign. Please try again."
+			);
 		}
 	};
 
@@ -433,18 +823,87 @@ export default function EditGroup() {
 			return;
 		}
 
-		// Check for empty group and show confirmation modal
-		if (selectedAnimalIds.length === 0 && bulkAddRows.length === 0) {
-			requestEmptyGroupConfirm(performSubmit);
+		// If removing animals from an assigned group, offer unassign + notify
+		const originalAnimalIds = group.animal_ids || [];
+		const removedAnimalIds = originalAnimalIds.filter(
+			(animalId) => !selectedAnimalIds.includes(animalId)
+		);
+		if (
+			removedAnimalIds.length > 0 &&
+			group.current_foster_id
+		) {
+			const removedAnimalsData = await fetchAnimalsByIds(
+				removedAnimalIds,
+				profile.organization_id,
+				{ fields: ["id", "name"] }
+			);
+			setRemoveFromGroupChoice({
+				removedIds: removedAnimalIds,
+				removedNames: removedAnimalsData.map(
+					(a) => a.name?.trim() || "Unnamed animal"
+				),
+			});
 			return;
 		}
 
+		// If adding animals that are already assigned to a foster, offer choice; list all and show assign-group or unassign-all
+		const addedAnimalIds = selectedAnimalIds.filter(
+			(id) => !originalAnimalIds.includes(id)
+		);
+		if (addedAnimalIds.length > 0) {
+			const addedAnimalsData = await fetchAnimalsByIds(
+				addedAnimalIds,
+				profile.organization_id,
+				{ fields: ["id", "name", "current_foster_id"] }
+			);
+			const withFoster = addedAnimalsData.filter(
+				(a): a is Animal & { current_foster_id: string } => !!a.current_foster_id
+			);
+			if (withFoster.length > 0) {
+				const fosterIds = [...new Set(withFoster.map((a) => a.current_foster_id))];
+				const fosterNames = await Promise.all(
+					fosterIds.map((fid) =>
+						fetchFosterById(fid, profile.organization_id).then(
+							(f) => f.full_name || f.email || "Foster"
+						)
+					)
+				);
+				const fosterIdToName = new Map(
+					fosterIds.map((fid, i) => [fid, fosterNames[i]])
+				);
+				const groupFosterId = group.current_foster_id ?? null;
+				let groupFosterName: string | null = null;
+				if (groupFosterId) {
+					const gf = await fetchFosterById(
+						groupFosterId,
+						profile.organization_id
+					);
+					groupFosterName = gf.full_name || gf.email || "Foster";
+				}
+				setAddChoiceModal({
+					animals: withFoster.map((a) => ({
+						id: a.id,
+						name: a.name ?? null,
+						fosterId: a.current_foster_id,
+						fosterName: fosterIdToName.get(a.current_foster_id) ?? "Foster",
+					})),
+					groupFosterId,
+					groupFosterName,
+				});
+				return;
+			}
+		}
+
 		// Proceed with submission
-		await performSubmit();
+		await performSubmit({});
 	};
 
 	// Perform the actual group update
-	const performSubmit = async () => {
+	type PerformSubmitOptions = {
+		skipSyncUnassignForRemoved?: boolean;
+		skipSuccessAndNavigate?: boolean;
+	};
+	const performSubmit = async (options: PerformSubmitOptions = {}) => {
 		if (!id || !group) {
 			setSubmitError("Group ID is required");
 			return;
@@ -706,8 +1165,9 @@ export default function EditGroup() {
 			}
 
 			// Assignment sync: clear assignment for animals removed from this group
-			// (only those that were assigned to this group's foster)
+			// (only when not doing full unassign + notify; caller runs unassignAnimal per animal)
 			if (
+				!options.skipSyncUnassignForRemoved &&
 				removedAnimalIds.length > 0 &&
 				groupCurrentFosterId
 			) {
@@ -792,11 +1252,16 @@ export default function EditGroup() {
 				queryKey: ["group-animals", user.id, profile.organization_id],
 			});
 
-			setSuccessMessage("Group updated successfully!");
-
-			setTimeout(() => {
-				navigate(`/groups/${id}`, { replace: true });
-			}, 1500);
+			if (!options.skipSuccessAndNavigate) {
+				const successMsg =
+					addedAnimalIds.length > 0 && groupCurrentFosterId
+						? "Group edited and animals assigned successfully!"
+						: "Group updated successfully!";
+				setSuccessMessage(successMsg);
+				setTimeout(() => {
+					navigate(`/groups/${id}`, { replace: true });
+				}, 1500);
+			}
 		} catch (err) {
 			console.error("Unexpected error:", err);
 			setSubmitError(
@@ -926,9 +1391,14 @@ export default function EditGroup() {
 						onDeleteCancel={() => {
 							setShowDeleteConfirm(false);
 							setDeleteError(null);
+							setUnassignBeforeDelete(false);
 						}}
 						onDeleteConfirm={handleDelete}
 						deleting={deleting}
+						groupHasFoster={!!group.current_foster_id}
+						groupHasAnimals={(group.animal_ids?.length ?? 0) > 0}
+						unassignBeforeDelete={unassignBeforeDelete}
+						onUnassignBeforeDeleteChange={setUnassignBeforeDelete}
 						// Search and filter props
 						animalSearchTerm={animalSearchTerm}
 						onAnimalSearch={handleAnimalSearch}
@@ -970,17 +1440,272 @@ export default function EditGroup() {
 					variant="default"
 				/>
 
-				{/* Empty Group Confirmation Modal */}
-				<ConfirmModal
-					isOpen={showEmptyGroupConfirm}
-					title="Empty Group"
-					message="This group has no animals. Are you sure you want to save an empty group?"
-					confirmLabel="Save Empty Group"
-					cancelLabel="Cancel"
-					onConfirm={handleConfirmEmptyGroup}
-					onCancel={handleCancelEmptyGroup}
-					variant="default"
-				/>
+				{/* Added animals already assigned: choice modal — list each animal/foster, then assign-group or unassign-all */}
+				{addChoiceModal && (
+					<>
+						<div
+							className="fixed inset-0 z-40"
+							style={{
+								backgroundColor: "rgba(0, 0, 0, 0.65)",
+								backdropFilter: "blur(4px)",
+								WebkitBackdropFilter: "blur(4px)",
+							}}
+							onClick={() => setAddChoiceModal(null)}
+							aria-hidden
+						/>
+						<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+							<div
+								className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+								onClick={(e) => e.stopPropagation()}
+							>
+								<h3 className="text-lg font-semibold text-gray-900 mb-2">
+									Animals already assigned
+								</h3>
+								<p className="text-sm text-gray-700 mb-2">
+									{addChoiceModal.animals
+										.map(
+											(a) =>
+												`${a.name || "Unnamed animal"} is assigned to ${a.fosterName}.`
+										)
+										.join(" ")}
+								</p>
+								<p className="text-sm text-gray-700 mb-4">
+									All animals in a group must be assigned to the same foster.
+								</p>
+								<div className="flex flex-col gap-2">
+									<Button
+										variant="outline"
+										onClick={() => setAddChoiceModal(null)}
+									>
+										Cancel
+									</Button>
+									{addChoiceDistinctFosters.map(({ fosterId, fosterName }) => (
+										<Button
+											key={fosterId}
+											variant="primary"
+											onClick={() =>
+												handleAddChoiceAssignGroupToFoster(fosterId, fosterName)
+											}
+										>
+											Assign group to {fosterName}
+										</Button>
+									))}
+									<Button
+										variant="outline"
+										className="border-pink-500 text-pink-600 hover:bg-pink-50"
+										onClick={handleAddChoiceUnassignAll}
+									>
+										Unassign all animals
+									</Button>
+								</div>
+							</div>
+						</div>
+					</>
+				)}
+
+				{/* Add-choice: step 1 — unassign animals from their current fosters (then step 2 will show assignment dialog) */}
+				{addChoicePendingAssign &&
+					addChoicePendingAssign.unassignQueue.length > 0 && (
+					<UnassignmentDialog
+						isOpen={true}
+						onClose={() => setAddChoicePendingAssign(null)}
+						onConfirm={handleAddChoiceUnassignFirstConfirm}
+						fosterName={addChoicePendingAssign.unassignQueue[0].fosterName}
+						animalOrGroupName={
+							addChoicePendingAssign.unassignQueue[0].animals.length === 1
+								? (addChoicePendingAssign.unassignQueue[0].animals[0].name || "1 animal")
+								: `${addChoicePendingAssign.unassignQueue[0].animals.length} animals`
+						}
+						isGroup={false}
+						animalCount={addChoicePendingAssign.unassignQueue[0].animals.length}
+						animalNames={addChoicePendingAssign.unassignQueue[0].animals.map(
+							(a) => a.name || "Unnamed animal"
+						)}
+						hideStatusVisibility={true}
+						fixedVisibility={(stagedFosterVisibilityForAll as FosterVisibility) || "available_now"}
+					/>
+				)}
+				{/* Add-choice: step 2 — assignment dialog (assign group to foster); only when no animals left to unassign */}
+				{addChoicePendingAssign &&
+					addChoicePendingAssign.unassignQueue.length === 0 &&
+					group && (
+					<AssignmentConfirmationDialog
+						isOpen={true}
+						onClose={() => setAddChoicePendingAssign(null)}
+						onConfirm={handleAddChoiceAssignmentConfirm}
+						fosterName={addChoicePendingAssign.fosterName}
+						animalOrGroupName={group.name || "Unnamed Group"}
+						isGroup={true}
+						animalCount={selectedAnimalIds.length + bulkAddRows.length}
+						groupAnimalNames={[
+							...selectedAnimals.map((a) => a.name || "Unnamed animal"),
+							...bulkAddRows.map(
+								(row) => row.name?.trim() || "Unnamed animal"
+							),
+						]}
+						hideStatusVisibility={true}
+						defaultStatus={(stagedStatusForAll as AnimalStatus) || "in_foster"}
+						defaultVisibility={(stagedFosterVisibilityForAll as FosterVisibility) || "not_visible"}
+					/>
+				)}
+
+				{/* Add-choice: unassign-all dialog; visibility fixed to group form */}
+				{addChoicePendingUnassignAll && addChoicePendingUnassignAll.length > 0 && (
+					<UnassignmentDialog
+						isOpen={true}
+						onClose={() => setAddChoicePendingUnassignAll(null)}
+						onConfirm={handleAddChoiceUnassignAllConfirm}
+						fosterName="Current foster(s)"
+						animalOrGroupName="animals"
+						isGroup={false}
+						animalCount={addChoicePendingUnassignAll.length}
+						animalNames={addChoicePendingUnassignAll.map(
+							(a) => a.name || "Unnamed animal"
+						)}
+						hideStatusVisibility={true}
+						fixedVisibility={(stagedFosterVisibilityForAll as FosterVisibility) || "available_now"}
+					/>
+				)}
+
+				{/* Remove from group: choice modal (hide when UnassignmentDialog is open) */}
+				{removeFromGroupChoice && !unassignmentDialogForRemoved && (
+					<>
+						<div
+							className="fixed inset-0 z-40"
+							style={{
+								backgroundColor: "rgba(0, 0, 0, 0.65)",
+								backdropFilter: "blur(4px)",
+								WebkitBackdropFilter: "blur(4px)",
+							}}
+							onClick={() => setRemoveFromGroupChoice(null)}
+							aria-hidden
+						/>
+						<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+							<div
+								className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+								onClick={(e) => e.stopPropagation()}
+							>
+								<h3 className="text-lg font-semibold text-gray-900 mb-6">
+									You are removing{" "}
+									{removeFromGroupChoice.removedNames.length === 1
+										? removeFromGroupChoice.removedNames[0]
+										: removeFromGroupChoice.removedNames.length === 2
+										? `${removeFromGroupChoice.removedNames[0]} and ${removeFromGroupChoice.removedNames[1]}`
+										: (() => {
+												const allButLast =
+													removeFromGroupChoice.removedNames
+														.slice(0, -1)
+														.join(", ");
+												const last =
+													removeFromGroupChoice.removedNames[
+														removeFromGroupChoice.removedNames.length - 1
+													];
+												return `${allButLast}, and ${last}`;
+										  })()}
+									.{" "}
+									{`They are currently assigned to ${
+										fosterNameForRemoved || "the group’s foster"
+									}.`}
+								</h3>
+								<div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3">
+									<Button
+										variant="outline"
+										onClick={() =>
+											setRemoveFromGroupChoice(null)
+										}
+									>
+										Cancel
+									</Button>
+									<Button
+										variant="outline"
+										className="border-pink-500 text-pink-600 hover:bg-pink-50 focus:ring-pink-500"
+										onClick={handleJustRemoveFromGroup}
+									>
+										Remove only
+									</Button>
+									<Button
+										variant="primary"
+										onClick={handleUnassignAndNotifyRemoved}
+									>
+										Remove and unassign
+									</Button>
+								</div>
+							</div>
+						</div>
+					</>
+				)}
+
+				{/* Remove from group: full unassignment dialog (reuses UnassignmentDialog); status/visibility from group form */}
+				{unassignmentDialogForRemoved && removeFromGroupChoice && (
+					<UnassignmentDialog
+						isOpen={true}
+						onClose={() => {
+							setUnassignmentDialogForRemoved(false);
+							setRemoveFromGroupChoice(null);
+							setUnassignmentErrorForRemoved(null);
+						}}
+						onConfirm={handleUnassignRemovedConfirm}
+						fosterName={fosterNameForRemoved ?? "Foster"}
+						animalOrGroupName={
+							removeFromGroupChoice.removedIds.length === 1
+								? removeFromGroupChoice.removedNames[0]
+								: `${removeFromGroupChoice.removedIds.length} animals`
+						}
+						isGroup={false}
+						animalCount={removeFromGroupChoice.removedIds.length}
+						animalNames={removeFromGroupChoice.removedNames}
+						// Allow coordinator to set status/visibility here, same as animal unassignment flow.
+						// Defaults (in_shelter / available_now) come from UnassignmentDialog.
+					/>
+				)}
+
+				{unassignmentErrorForRemoved && (
+					<div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+						<p className="text-sm">{unassignmentErrorForRemoved}</p>
+						<button
+							type="button"
+							onClick={() =>
+								setUnassignmentErrorForRemoved(null)
+							}
+							className="absolute top-1 right-1 text-red-700 hover:text-red-900"
+							aria-label="Dismiss"
+						>
+							×
+						</button>
+					</div>
+				)}
+
+				{/* Unassignment dialog for delete (when user confirmed delete with unassign toggle on); status/visibility from group form */}
+				{showUnassignmentForDelete && group && (
+					<UnassignmentDialog
+						isOpen={true}
+						onClose={() => {
+							setShowUnassignmentForDelete(false);
+							setDeleteError(null);
+						}}
+						onConfirm={handleUnassignForDeleteConfirm}
+						fosterName={fosterNameForRemoved ?? "Foster"}
+						animalOrGroupName={group.name || "Unnamed Group"}
+						isGroup={true}
+						animalCount={group.animal_ids?.length ?? 0}
+						hideStatusVisibility={true}
+						fixedVisibility={(stagedFosterVisibilityForAll as FosterVisibility) || "available_now"}
+					/>
+				)}
+
+				{deleteError && (
+					<div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+						<p className="text-sm">{deleteError}</p>
+						<button
+							type="button"
+							onClick={() => setDeleteError(null)}
+							className="absolute top-1 right-1 text-red-700 hover:text-red-900"
+							aria-label="Dismiss"
+						>
+							×
+						</button>
+					</div>
+				)}
 			</div>
 		</div>
 	);

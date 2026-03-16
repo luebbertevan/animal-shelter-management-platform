@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import type { BulkAddAnimalRow } from "../../hooks/useBulkAddRows";
 import type { AnimalStatus } from "../../types";
 import { getFosterVisibilityFromStatus } from "../../lib/metadataUtils";
@@ -68,17 +68,18 @@ export default function BulkAddAnimalRows({
 	const [visibilityManuallySetRowIds, setVisibilityManuallySetRowIds] =
 		useState<Set<string>>(new Set());
 
-	// Prune set when rows are removed so we don't keep stale ids
-	useEffect(() => {
-		const rowIds = new Set(rows.map((r) => r.id));
-		setVisibilityManuallySetRowIds((prev) => {
-			const next = new Set(prev);
-			for (const id of next) {
-				if (!rowIds.has(id)) next.delete(id);
-			}
-			return next;
+	// Derive pruned set (only ids that still exist in rows) so we don't rely on stale ids
+	const rowIdSet = useMemo(
+		() => new Set(rows.map((r) => r.id)),
+		[rows]
+	);
+	const prunedManuallySetIds = useMemo(() => {
+		const next = new Set<string>();
+		visibilityManuallySetRowIds.forEach((id) => {
+			if (rowIdSet.has(id)) next.add(id);
 		});
-	}, [rows]);
+		return next;
+	}, [visibilityManuallySetRowIds, rowIdSet]);
 
 	// Derive display value when not editing so we don't need an effect to sync from rows.length
 	const displayValue = isEditing ? inputValue : String(rows.length);
@@ -111,7 +112,7 @@ export default function BulkAddAnimalRows({
 		if (
 			showPerRowStatusVisibility &&
 			value &&
-			!visibilityManuallySetRowIds.has(rowId)
+			!prunedManuallySetIds.has(rowId)
 		) {
 			const visibility = getFosterVisibilityFromStatus(
 				value as AnimalStatus

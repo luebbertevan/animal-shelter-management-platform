@@ -170,6 +170,7 @@ export default function AnimalDetail() {
 	// Unassignment state
 	const [isUnassignmentDialogOpen, setIsUnassignmentDialogOpen] = useState(false);
 	const [unassignmentError, setUnassignmentError] = useState<string | null>(null);
+	const [unassignBlockedError, setUnassignBlockedError] = useState<string | null>(null);
 
 	// Group assignment dialog state
 	const [isGroupAssignmentDialogOpen, setIsGroupAssignmentDialogOpen] = useState(false);
@@ -369,8 +370,16 @@ export default function AnimalDetail() {
 		setAssignmentError(null);
 	};
 
-	// Handle assignment confirmation
-	const handleAssignmentConfirm = async (message: string, includeTag: boolean) => {
+	// Handle assignment confirmation (status/visibility only used for group assignment in GroupDetail)
+	const handleAssignmentConfirm = async (
+		message: string,
+		includeTag: boolean,
+		notifyFoster: boolean,
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- optional args from AssignmentConfirmationDialog when isGroup; not used for single-animal assignment
+		_newStatus?: AnimalStatus,
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- optional args from AssignmentConfirmationDialog when isGroup; not used for single-animal assignment
+		_newVisibility?: FosterVisibility
+	) => {
 		if (!selectedFosterId || !id) {
 			return;
 		}
@@ -383,7 +392,8 @@ export default function AnimalDetail() {
 				selectedFosterId,
 				profile.organization_id,
 				message,
-				includeTag
+				includeTag,
+				notifyFoster
 			);
 
 			// Invalidate queries to refresh data
@@ -548,7 +558,8 @@ export default function AnimalDetail() {
 		newStatus: AnimalStatus,
 		newVisibility: FosterVisibility,
 		message: string,
-		includeTag: boolean
+		includeTag: boolean,
+		notifyFoster: boolean
 	) => {
 		if (!id || !animal?.current_foster_id) return;
 
@@ -563,7 +574,8 @@ export default function AnimalDetail() {
 					newStatus,
 					newVisibility,
 					message,
-					includeTag
+					includeTag,
+					notifyFoster
 				);
 			} else {
 				await unassignAnimal(
@@ -572,7 +584,8 @@ export default function AnimalDetail() {
 					newStatus,
 					newVisibility,
 					message,
-					includeTag
+					includeTag,
+					notifyFoster
 				);
 			}
 
@@ -714,26 +727,36 @@ export default function AnimalDetail() {
 												</span>
 											)}
 										</div>
-										{/* Unassign button - always show, clickable but shows alert if in a group */}
-										<button
-											type="button"
-											onClick={() => {
-												if (animal.group_id) {
-													alert(
-														"This animal is part of a group. Please manage assignments from the group detail page."
-													);
-													return;
-												}
-												setIsUnassignmentDialogOpen(true);
-											}}
-											className={`px-3 py-1.5 border border-gray-300 text-gray-700 rounded text-sm font-medium transition-colors ${
-												animal.group_id
-													? "opacity-50 cursor-not-allowed"
-													: "hover:bg-gray-50"
-											}`}
-										>
-											Unassign
-										</button>
+										{/* Unassign button - when in a group, show error below instead of opening dialog */}
+										<div className="space-y-2">
+											<button
+												type="button"
+												onClick={() => {
+													if (animal.group_id) {
+														setUnassignBlockedError(
+															"This animal is part of a group. Please manage assignments from the group detail page."
+														);
+														return;
+													}
+													setUnassignBlockedError(null);
+													setIsUnassignmentDialogOpen(true);
+												}}
+												className={`px-3 py-1.5 border border-gray-300 text-gray-700 rounded text-sm font-medium transition-colors ${
+													animal.group_id
+														? "opacity-50 cursor-not-allowed"
+														: "hover:bg-gray-50"
+												}`}
+											>
+												Unassign
+											</button>
+											{unassignBlockedError && (
+												<div className="p-3 bg-red-50 border border-red-200 rounded-md">
+													<p className="text-sm text-red-800">
+														{unassignBlockedError}
+													</p>
+												</div>
+											)}
+										</div>
 									</div>
 								)}
 
@@ -937,7 +960,7 @@ export default function AnimalDetail() {
 							/>
 						</div>
 
-						{/* Visibility on Fosters Needed page */}
+						{/* Visibility on Fosters Needed page (label: first word capital) */}
 						<FieldDisplay
 							label="Visibility on Fosters Needed page"
 							value={
@@ -1205,6 +1228,7 @@ export default function AnimalDetail() {
 					onClose={() => {
 						setIsUnassignmentDialogOpen(false);
 						setUnassignmentError(null);
+						setUnassignBlockedError(null);
 					}}
 					onConfirm={handleUnassign}
 					fosterName={fosterName}
