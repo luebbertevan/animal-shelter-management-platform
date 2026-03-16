@@ -129,6 +129,13 @@ export default function AnimalForm({
 				autoComplete="off"
 			/>
 
+			<Toggle
+				label="High Priority"
+				checked={formState.priority}
+				onChange={setPriority}
+				disabled={loading}
+			/>
+
 			<Select
 				label="Status"
 				value={formState.status}
@@ -136,13 +143,6 @@ export default function AnimalForm({
 				options={statusOptions}
 				required
 				error={errors.status}
-				disabled={loading}
-			/>
-
-			<Toggle
-				label="High Priority"
-				checked={formState.priority}
-				onChange={setPriority}
 				disabled={loading}
 			/>
 

@@ -31,7 +31,6 @@ import type {
 	LifeStage,
 	PhotoMetadata,
 	Animal,
-	FosterVisibility,
 } from "../../types";
 
 export default function EditAnimal() {
@@ -94,10 +93,19 @@ export default function EditAnimal() {
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-	// Group conflict modal state
+	// Group conflict modal state (visibility)
 	const [showGroupConflictModal, setShowGroupConflictModal] = useState(false);
-	const [originalFosterVisibility, setOriginalFosterVisibility] =
-		useState<FosterVisibility | null>(null);
+
+	// Group status modal (apply status to group or only this animal)
+	const [showGroupStatusModal, setShowGroupStatusModal] = useState(false);
+	// When true, show visibility modal after user chooses an option in status modal (both status and visibility changed)
+	const [pendingVisibilityModalAfterStatus, setPendingVisibilityModalAfterStatus] =
+		useState(false);
+	// Staged status choice: true = change all, false = only this animal, null = not from status flow (visibility-only)
+	// Form is not submitted until all modals are answered; cancel on visibility modal = no submit
+	const [stagedApplyStatusToAll, setStagedApplyStatusToAll] = useState<
+		boolean | null
+	>(null);
 
 	// Copy from Animal state
 	const [isAnimalSelectorOpen, setIsAnimalSelectorOpen] = useState(false);
@@ -249,8 +257,7 @@ export default function EditAnimal() {
 			return;
 		}
 
-		// Check if animal is in a group and if foster_visibility change would conflict
-		if (
+		const visibilityConflict =
 			animal.group_id &&
 			group &&
 			groupAnimals.length > 0 &&
@@ -258,21 +265,39 @@ export default function EditAnimal() {
 				animal,
 				formState.fosterVisibility,
 				groupAnimals
-			)
+			);
+		const statusChanged = formState.status !== animal.status;
+
+		// If animal is in a group and status changed, show status modal first (then visibility modal if both changed)
+		if (
+			animal.group_id &&
+			group &&
+			group.animal_ids &&
+			group.animal_ids.length > 0 &&
+			statusChanged
 		) {
-			// Store the original foster_visibility value before showing modal
-			setOriginalFosterVisibility(animal.foster_visibility);
-			// Show modal to ask user if they want to update all animals in group
+			setPendingVisibilityModalAfterStatus(!!visibilityConflict);
+			setShowGroupStatusModal(true);
+			return;
+		}
+
+		// If animal is in a group and visibility change would conflict (status unchanged), show visibility modal only
+		if (visibilityConflict) {
 			setShowGroupConflictModal(true);
 			return;
 		}
 
-		// No conflict, proceed with normal submit
-		await performSubmit(false);
+		// No group, proceed with normal submit
+		await performSubmit(false, false);
 	};
 
 	// Perform the actual submission
-	const performSubmit = async (updateAllInGroup: boolean) => {
+	// updateAllVisibility: when true, update all group animals' foster_visibility (visibility conflict flow)
+	// updateAllStatus: when true, update all group animals' status and foster_visibility (status-in-group flow)
+	const performSubmit = async (
+		updateAllVisibility: boolean,
+		updateAllStatus: boolean
+	) => {
 		if (!id || !animal) {
 			setSubmitError("Animal ID is required");
 			return;
@@ -338,8 +363,12 @@ export default function EditAnimal() {
 			// Add foster_visibility
 			animalData.foster_visibility = formState.fosterVisibility;
 
-			// If updating all animals in group, update them all
-			if (updateAllInGroup && animal.group_id && group?.animal_ids) {
+			// If updating all animals in group (visibility conflict), update their foster_visibility
+			if (
+				updateAllVisibility &&
+				animal.group_id &&
+				group?.animal_ids
+			) {
 				const { error: groupUpdateError } = await supabase
 					.from("animals")
 					.update({ foster_visibility: formState.fosterVisibility })
@@ -350,6 +379,34 @@ export default function EditAnimal() {
 					console.error(
 						"Error updating group animals' foster_visibility:",
 						groupUpdateError
+					);
+					setSubmitError(
+						"Failed to update all animals in group. Please try again."
+					);
+					setLoading(false);
+					return;
+				}
+			}
+
+			// If applying status to all animals in group, update their status and foster_visibility
+			if (
+				updateAllStatus &&
+				animal.group_id &&
+				group?.animal_ids
+			) {
+				const { error: groupStatusError } = await supabase
+					.from("animals")
+					.update({
+						status: formState.status,
+						foster_visibility: formState.fosterVisibility,
+					})
+					.in("id", group.animal_ids)
+					.eq("organization_id", profile.organization_id);
+
+				if (groupStatusError) {
+					console.error(
+						"Error updating group animals' status:",
+						groupStatusError
 					);
 					setSubmitError(
 						"Failed to update all animals in group. Please try again."
@@ -512,7 +569,7 @@ export default function EditAnimal() {
 				queryKey: ["animals", user.id, profile.organization_id, id],
 			});
 			// If we updated all animals in group, invalidate group queries too
-			if (updateAllInGroup && animal.group_id) {
+			if ((updateAllVisibility || updateAllStatus) && animal.group_id) {
 				queryClient.invalidateQueries({
 					queryKey: ["group", animal.group_id],
 				});
@@ -726,7 +783,7 @@ export default function EditAnimal() {
 						deleting={deleting}
 					/>
 
-					{/* Group Conflict Modal */}
+					{/* Group visibility conflict modal */}
 					{group && (
 						<ConfirmModal
 							isOpen={showGroupConflictModal}
@@ -762,21 +819,109 @@ export default function EditAnimal() {
 							cancelLabel="Cancel"
 							onConfirm={async () => {
 								setShowGroupConflictModal(false);
-								// Update all animals in group
-								await performSubmit(true);
+								// Apply visibility to all; if we came from status modal, use staged status choice for updateAllStatus
+								const updateAllStatus = stagedApplyStatusToAll ?? false;
+								setStagedApplyStatusToAll(null);
+								await performSubmit(true, updateAllStatus);
 							}}
 							onCancel={() => {
 								setShowGroupConflictModal(false);
-								// Revert foster_visibility to original value
-								if (originalFosterVisibility) {
-									setFosterVisibility(
-										originalFosterVisibility
-									);
-								}
-								setOriginalFosterVisibility(null);
+								setStagedApplyStatusToAll(null);
 							}}
 							variant="default"
+							buttonsLayout="column"
 						/>
+					)}
+
+					{/* Group status modal: apply status to all in group or only this animal */}
+					{group && showGroupStatusModal && (
+						<>
+							<div
+								className="fixed inset-0 z-40"
+								style={{
+									backgroundColor: "rgba(0, 0, 0, 0.65)",
+									backdropFilter: "blur(4px)",
+									WebkitBackdropFilter: "blur(4px)",
+								}}
+								onClick={() => setShowGroupStatusModal(false)}
+							/>
+							<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+								<div
+									className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+									onClick={(e) => e.stopPropagation()}
+								>
+									<h3 className="text-lg font-semibold text-gray-900 mb-4">
+										Change status
+									</h3>
+									<p className="text-gray-700 mb-2">
+										{animal.name || "This animal"} is in
+										group:{" "}
+										<strong>
+											{group.name || "Unnamed Group"}
+										</strong>
+									</p>
+									<p className="text-gray-700 mb-6">
+										Would you like to change all animals in
+										this group to{" "}
+										<strong>
+											{statusOptions.find(
+												(o) => o.value === formState.status
+											)?.label ?? formState.status}
+										</strong>
+										?
+									</p>
+									<div className="flex flex-col gap-3">
+										<Button
+											variant="outline"
+											onClick={() => {
+												setShowGroupStatusModal(false);
+												setPendingVisibilityModalAfterStatus(false);
+												setStagedApplyStatusToAll(null);
+											}}
+										>
+											Cancel
+										</Button>
+										<Button
+											variant="primary"
+											onClick={() => {
+												const showVisibilityAfter = pendingVisibilityModalAfterStatus;
+												setStagedApplyStatusToAll(false);
+												setShowGroupStatusModal(false);
+												setPendingVisibilityModalAfterStatus(false);
+												if (showVisibilityAfter) {
+													setShowGroupConflictModal(true);
+												}
+											}}
+										>
+											Only change{" "}
+											{animal.name || "this animal"} to{" "}
+											{statusOptions.find(
+												(o) => o.value === formState.status
+											)?.label ?? formState.status}
+										</Button>
+										<Button
+											variant="primary"
+											onClick={async () => {
+												const showVisibilityAfter = pendingVisibilityModalAfterStatus;
+												setStagedApplyStatusToAll(true);
+												setShowGroupStatusModal(false);
+												setPendingVisibilityModalAfterStatus(false);
+												if (showVisibilityAfter) {
+													setShowGroupConflictModal(true);
+												} else {
+													await performSubmit(false, true);
+												}
+											}}
+										>
+											Change all animals in this group to{" "}
+											{statusOptions.find(
+												(o) => o.value === formState.status
+											)?.label ?? formState.status}
+										</Button>
+									</div>
+								</div>
+							</div>
+						</>
 					)}
 				</div>
 			</div>

@@ -112,8 +112,8 @@ export default function AssignmentConfirmationDialog({
 
 	const handleConfirm = () => {
 		const finalMessage = message.trim() || defaultMessage;
-		const status = hideStatusVisibility ? defaultStatus : (isGroup ? newStatus : undefined);
-		const visibility = hideStatusVisibility ? defaultVisibility : (isGroup ? newVisibility : undefined);
+		const status = hideStatusVisibility ? defaultStatus : newStatus;
+		const visibility = hideStatusVisibility ? defaultVisibility : newVisibility;
 		onConfirm(finalMessage, includeTag, notifyFoster, status, visibility);
 	};
 
@@ -184,8 +184,8 @@ export default function AssignmentConfirmationDialog({
 							)}
 						</div>
 
-						{/* Set status and visibility (group assignment only; hidden when from group form) */}
-						{isGroup && !hideStatusVisibility && (
+						{/* Set status and visibility (hidden when from group form; defaults: In foster, Not visible) */}
+						{!hideStatusVisibility && (
 							<>
 								<Select
 									label="Set status"

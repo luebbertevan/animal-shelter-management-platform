@@ -352,7 +352,9 @@ export async function assignAnimalToFoster(
 	organizationId: string,
 	message?: string,
 	includeTag: boolean = true,
-	notifyFoster: boolean = true
+	notifyFoster: boolean = true,
+	newStatus: AnimalStatus = "in_foster",
+	newVisibility: FosterVisibility = "not_visible"
 ): Promise<void> {
 	// Check for group assignment conflict
 	const conflict = await checkGroupAssignmentConflict(
@@ -415,8 +417,8 @@ export async function assignAnimalToFoster(
 		.from("animals")
 		.update({
 			current_foster_id: fosterId,
-			status: "in_foster",
-			foster_visibility: "not_visible",
+			status: newStatus,
+			foster_visibility: newVisibility,
 		})
 		.eq("id", animalId)
 		.eq("organization_id", organizationId);
