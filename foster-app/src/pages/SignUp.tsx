@@ -100,6 +100,8 @@ export default function SignUp() {
 				<Input
 					label="Name"
 					type="text"
+					name="full_name"
+					autoComplete="name"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
 					required

@@ -397,8 +397,14 @@ export default function EditGroup() {
 			animals: AddChoiceAnimal[];
 		}[];
 	} | null>(null);
-	// When user picks "Unassign all animals" we open one dialog, then unassign each foster's animals
-	const [addChoicePendingUnassignAll, setAddChoicePendingUnassignAll] = useState<AddChoiceAnimal[] | null>(null);
+	// When user picks "Unassign all animals" we show one UnassignmentDialog per foster (same pattern as NewGroup / assign-to-foster flow).
+	const [addChoicePendingUnassignAll, setAddChoicePendingUnassignAll] = useState<{
+		unassignQueue: {
+			fosterId: string;
+			fosterName: string;
+			animals: AddChoiceAnimal[];
+		}[];
+	} | null>(null);
 
 	// Foster name for unassignment dialog when removing animals from group
 	const { data: fosterNameForRemoved } = useQuery<string | null, Error>({
@@ -657,10 +663,25 @@ export default function EditGroup() {
 		setAddChoiceModal(null);
 	};
 
-	// Add-choice: unassign all animals — open unassignment dialog; on confirm unassign per foster then performSubmit
+	// Add-choice: unassign all animals — build per-foster queue; show one UnassignmentDialog per foster (same as assign-to-foster flow).
 	const handleAddChoiceUnassignAll = () => {
 		if (!addChoiceModal) return;
-		setAddChoicePendingUnassignAll([...addChoiceModal.animals]);
+		const byFoster = new Map<string, { fosterName: string; animals: AddChoiceAnimal[] }>();
+		for (const a of addChoiceModal.animals) {
+			const existing = byFoster.get(a.fosterId);
+			if (existing) {
+				existing.animals.push(a);
+			} else {
+				byFoster.set(a.fosterId, { fosterName: a.fosterName, animals: [a] });
+			}
+		}
+		setAddChoicePendingUnassignAll({
+			unassignQueue: Array.from(byFoster.entries()).map(([fosterId, value]) => ({
+				fosterId,
+				fosterName: value.fosterName,
+				animals: value.animals,
+			})),
+		});
 		setAddChoiceModal(null);
 	};
 
@@ -742,7 +763,7 @@ export default function EditGroup() {
 		}
 	};
 
-	// Add-choice unassign-all confirm: unassign each foster's animals (one message per foster), then performSubmit
+	// Add-choice unassign-all confirm: unassign current foster's animals (one dialog per foster), then advance queue; when empty, performSubmit.
 	const handleAddChoiceUnassignAllConfirm = async (
 		newStatus: AnimalStatus,
 		newVisibility: FosterVisibility,
@@ -750,42 +771,48 @@ export default function EditGroup() {
 		includeTag: boolean,
 		notifyFoster: boolean
 	) => {
-		if (!id || !group || !addChoicePendingUnassignAll?.length) return;
+		if (
+			!id ||
+			!group ||
+			!addChoicePendingUnassignAll ||
+			addChoicePendingUnassignAll.unassignQueue.length === 0
+		)
+			return;
 		setUnassignmentErrorForRemoved(null);
 		try {
-			const byFoster = new Map<string, AddChoiceAnimal[]>();
-			for (const a of addChoicePendingUnassignAll) {
-				const list = byFoster.get(a.fosterId) ?? [];
-				list.push(a);
-				byFoster.set(a.fosterId, list);
-			}
-			for (const [fosterId, list] of byFoster) {
-				await unassignAnimalsWithOneMessage(
-					list.map((a) => a.id),
-					fosterId,
-					profile.organization_id,
-					newStatus,
-					newVisibility,
-					message,
-					includeTag,
-					notifyFoster
-				);
-			}
-			await performSubmit({});
-			for (const a of addChoicePendingUnassignAll) {
+			const current = addChoicePendingUnassignAll.unassignQueue[0];
+			await unassignAnimalsWithOneMessage(
+				current.animals.map((a) => a.id),
+				current.fosterId,
+				profile.organization_id,
+				newStatus,
+				newVisibility,
+				message,
+				includeTag,
+				notifyFoster
+			);
+			await queryClient.invalidateQueries({
+				queryKey: ["foster", current.fosterId],
+			});
+			const wasLastFoster =
+				addChoicePendingUnassignAll.unassignQueue.length === 1;
+			setAddChoicePendingUnassignAll((prev) => {
+				if (!prev) return null;
+				const remaining = prev.unassignQueue.slice(1);
+				if (remaining.length === 0) return null;
+				return { ...prev, unassignQueue: remaining };
+			});
+			if (wasLastFoster) {
+				await performSubmit({});
 				queryClient.invalidateQueries({
-					queryKey: ["foster", a.fosterId],
+					queryKey: ["groups", user.id, profile.organization_id, id],
 				});
+				queryClient.invalidateQueries({
+					queryKey: ["group-animals", user.id, profile.organization_id],
+				});
+				setSuccessMessage("Group updated and animals unassigned.");
+				setTimeout(() => navigate(`/groups/${id}`, { replace: true }), 1500);
 			}
-			queryClient.invalidateQueries({
-				queryKey: ["groups", user.id, profile.organization_id, id],
-			});
-			queryClient.invalidateQueries({
-				queryKey: ["group-animals", user.id, profile.organization_id],
-			});
-			setAddChoicePendingUnassignAll(null);
-			setSuccessMessage("Group updated and animals unassigned.");
-			setTimeout(() => navigate(`/groups/${id}`, { replace: true }), 1500);
 		} catch (err) {
 			setUnassignmentErrorForRemoved(
 				err instanceof Error
@@ -959,10 +986,16 @@ export default function EditGroup() {
 
 			// Auto-update default name if it matches the pattern "Group of X"
 			let groupName = formState.name.trim() || null;
-			const defaultNamePattern = /^Group of \d+$/;
-			if (groupName && defaultNamePattern.test(groupName)) {
-				// Update to reflect the new number of animals
-				groupName = `Group of ${newAnimalIds.length}`;
+			const defaultNamePattern = /^Group of (\d+)$/;
+			if (groupName) {
+				const match = groupName.match(defaultNamePattern);
+				if (match) {
+					const currentCount = Number.parseInt(match[1], 10);
+					const updatedCount = newAnimalIds.length;
+					if (!Number.isNaN(currentCount) && currentCount !== updatedCount) {
+						groupName = `Group of ${updatedCount}`;
+					}
+				}
 			}
 
 			// Prepare data for update
@@ -1549,17 +1582,27 @@ export default function EditGroup() {
 					/>
 				)}
 
-				{/* Add-choice: unassign-all dialog; visibility fixed to group form */}
-				{addChoicePendingUnassignAll && addChoicePendingUnassignAll.length > 0 && (
+				{/* Add-choice: unassign-all — one UnassignmentDialog per foster (same props/phrasing as assign-to-foster flow). */}
+				{addChoicePendingUnassignAll &&
+					addChoicePendingUnassignAll.unassignQueue.length > 0 && (
 					<UnassignmentDialog
 						isOpen={true}
 						onClose={() => setAddChoicePendingUnassignAll(null)}
 						onConfirm={handleAddChoiceUnassignAllConfirm}
-						fosterName="Current foster(s)"
-						animalOrGroupName="animals"
+						fosterName={
+							addChoicePendingUnassignAll.unassignQueue[0].fosterName
+						}
+						animalOrGroupName={
+							addChoicePendingUnassignAll.unassignQueue[0].animals.length === 1
+								? addChoicePendingUnassignAll.unassignQueue[0].animals[0]
+										.name || "Unnamed animal"
+								: `${addChoicePendingUnassignAll.unassignQueue[0].animals.length} animals`
+						}
 						isGroup={false}
-						animalCount={addChoicePendingUnassignAll.length}
-						animalNames={addChoicePendingUnassignAll.map(
+						animalCount={
+							addChoicePendingUnassignAll.unassignQueue[0].animals.length
+						}
+						animalNames={addChoicePendingUnassignAll.unassignQueue[0].animals.map(
 							(a) => a.name || "Unnamed animal"
 						)}
 						hideStatusVisibility={true}

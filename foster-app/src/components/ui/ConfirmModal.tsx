@@ -9,6 +9,8 @@ interface ConfirmModalProps {
 	onConfirm: () => void;
 	onCancel: () => void;
 	variant?: "danger" | "default";
+	/** When "column", buttons stack vertically (one per row) for easier reading of long labels. */
+	buttonsLayout?: "row" | "column";
 }
 
 /**
@@ -24,10 +26,15 @@ export default function ConfirmModal({
 	onConfirm,
 	onCancel,
 	variant = "default",
+	buttonsLayout = "row",
 }: ConfirmModalProps) {
 	if (!isOpen) return null;
 
 	const confirmButtonVariant = variant === "danger" ? "danger" : "primary";
+	const buttonsClass =
+		buttonsLayout === "column"
+			? "flex flex-col gap-3"
+			: "flex gap-3 justify-end";
 
 	return (
 		<>
@@ -54,7 +61,7 @@ export default function ConfirmModal({
 
 					<div className="text-gray-700 mb-6">{message}</div>
 
-					<div className="flex gap-3 justify-end">
+					<div className={buttonsClass}>
 						<Button variant="outline" onClick={onCancel}>
 							{cancelLabel}
 						</Button>

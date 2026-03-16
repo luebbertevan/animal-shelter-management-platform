@@ -370,15 +370,13 @@ export default function AnimalDetail() {
 		setAssignmentError(null);
 	};
 
-	// Handle assignment confirmation (status/visibility only used for group assignment in GroupDetail)
+	// Handle assignment confirmation (status/visibility from dialog; defaults: In foster, Not visible)
 	const handleAssignmentConfirm = async (
 		message: string,
 		includeTag: boolean,
 		notifyFoster: boolean,
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- optional args from AssignmentConfirmationDialog when isGroup; not used for single-animal assignment
-		_newStatus?: AnimalStatus,
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- optional args from AssignmentConfirmationDialog when isGroup; not used for single-animal assignment
-		_newVisibility?: FosterVisibility
+		newStatus?: AnimalStatus,
+		newVisibility?: FosterVisibility
 	) => {
 		if (!selectedFosterId || !id) {
 			return;
@@ -393,7 +391,9 @@ export default function AnimalDetail() {
 				profile.organization_id,
 				message,
 				includeTag,
-				notifyFoster
+				notifyFoster,
+				newStatus ?? "in_foster",
+				newVisibility ?? "not_visible"
 			);
 
 			// Invalidate queries to refresh data
