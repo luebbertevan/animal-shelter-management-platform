@@ -147,7 +147,7 @@ export default function AnimalForm({
 			/>
 
 			<Select
-				label="Visibility on Fosters Needed page"
+				label="Set visibility on Fosters Needed page"
 				value={formState.fosterVisibility}
 				onChange={(e) =>
 					setFosterVisibility(e.target.value as FosterVisibility)

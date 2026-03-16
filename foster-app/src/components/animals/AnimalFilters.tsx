@@ -203,7 +203,7 @@ export default function AnimalFilters({
 							)
 						}
 						options={fosterVisibilityOptions}
-						placeholder="All Visibility"
+						placeholder="All visibility"
 						compact={true}
 					/>
 					<SortFilter

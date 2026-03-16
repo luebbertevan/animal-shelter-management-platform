@@ -164,7 +164,7 @@ export function getGroupFormMessageState(
 
 /** Error message when submit is blocked due to visibility conflict; null if submit is allowed. */
 const VISIBILITY_CONFLICT_SUBMIT_MESSAGE =
-	"Animals in a group must have the same Visibility on Fosters Needed page";
+	"Animals in a group must have the same visibility on Fosters Needed page";
 
 /**
  * Returns the submit-blocking error message when visibility conflicts and user hasn't set "set all visibility".

@@ -110,7 +110,7 @@ export default function GroupFilters({
 							)
 						}
 						options={fosterVisibilityOptions}
-						placeholder="All Visibility"
+						placeholder="All visibility"
 						compact={true}
 					/>
 

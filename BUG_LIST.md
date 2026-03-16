@@ -44,6 +44,9 @@
 
 - We might want a request unassignment button for when a group is adopted for example and the coordinators have not unassigned the group yet.
 - We should check for phrasing, grammer and typos. ex. capitalization in Visability 
+- When an assigned animal is added to a group we don't have any handleing for it we should assign the group the that person. 
+- we probably want to give options to set status and visability on assinment dialog (and unassinment to) with the options set to the defualt
+- On group deletion the group list returns 406 console error becuase we try to fetch the deleted group.
 
 ---
 

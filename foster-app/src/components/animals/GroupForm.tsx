@@ -86,8 +86,10 @@ interface GroupFormProps {
 	onDeleteCancel?: () => void;
 	onDeleteConfirm?: () => void;
 	deleting?: boolean;
-	/** When true, show option to unassign all animals from current foster before delete */
+	/** When true, show option to unassign all animals from current foster before delete (only relevant if group has animals) */
 	groupHasFoster?: boolean;
+	/** When false (e.g. group has zero animals), unassign option is hidden and unassign flow is skipped */
+	groupHasAnimals?: boolean;
 	unassignBeforeDelete?: boolean;
 	onUnassignBeforeDeleteChange?: (value: boolean) => void;
 
@@ -156,6 +158,7 @@ export default function GroupForm({
 	onDeleteConfirm,
 	deleting = false,
 	groupHasFoster = false,
+	groupHasAnimals = true,
 	unassignBeforeDelete = false,
 	onUnassignBeforeDeleteChange,
 	// Search and filter props
@@ -423,7 +426,7 @@ export default function GroupForm({
 				</div>
 			)}
 
-			{/* Set all animals Visibility on Fosters Needed page dropdown */}
+			{/* Set all animals visibility on Fosters Needed page dropdown */}
 			{hasAnyAnimalsStaged && (
 				<div>
 					<div className="flex items-center gap-1.5 mb-1">
@@ -431,10 +434,10 @@ export default function GroupForm({
 							htmlFor="group-form-set-all-visibility"
 							className="text-sm font-medium text-gray-700"
 						>
-							Set all animals Visibility on Fosters Needed page
+							Set all animals visibility on Fosters Needed page
 						</label>
 						<InfoTooltip
-							content="Animals in a group must have the same Visibility on Fosters Needed page."
+							content="Animals in a group must have the same visibility on Fosters Needed page."
 							ariaLabel="Visibility info"
 						/>
 					</div>
@@ -474,7 +477,7 @@ export default function GroupForm({
 						<div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
 							<p className="text-sm text-red-700">
 								Animals in a group must have the same
-								Visibility on Fosters Needed page
+								visibility on Fosters Needed page
 							</p>
 						</div>
 					) : stagedFosterVisibilityForAll &&
@@ -650,7 +653,7 @@ export default function GroupForm({
 
 			{showVisibilityConflictError && (
 				<ErrorMessage>
-					Alert: Animals in a group must have the same Visibility on
+					Alert: Animals in a group must have the same visibility on
 					Fosters Needed page
 				</ErrorMessage>
 			)}
@@ -674,29 +677,20 @@ export default function GroupForm({
 			{showDeleteConfirm && (
 				<div className="bg-red-50 border border-red-200 rounded-md p-4">
 					<p className="text-sm text-red-800 mb-2">
-						Are you sure you want to delete this group? The animals
-						in this group will remain but will no longer be grouped
-						together.
+						Are you sure you want to delete this group?
+						{groupHasAnimals &&
+							" The animals in this group will remain but will no longer be grouped together."}
 					</p>
-					{groupHasFoster && (
-						<p className="text-sm text-red-800 mb-3">
-							If the group was assigned to a foster, those
-							animals will no longer be assigned to that foster.
-						</p>
-					)}
-					{groupHasFoster && onUnassignBeforeDeleteChange && (
-						<label className="flex items-center gap-2 mb-3 text-sm text-red-800 cursor-pointer">
-							<input
-								type="checkbox"
+					{groupHasFoster && groupHasAnimals && onUnassignBeforeDeleteChange && (
+						<div className="mb-3">
+							<Toggle
+								label="Unassign all animals from current foster"
 								checked={unassignBeforeDelete}
-								onChange={(e) =>
-									onUnassignBeforeDeleteChange(e.target.checked)
-								}
+								onChange={onUnassignBeforeDeleteChange}
 								disabled={deleting}
-								className="rounded border-red-300 text-red-600 focus:ring-red-500"
+								switchOnLeft
 							/>
-							Unassign all animals from current foster
-						</label>
+						</div>
 					)}
 					<div className="flex gap-2">
 						<Button
