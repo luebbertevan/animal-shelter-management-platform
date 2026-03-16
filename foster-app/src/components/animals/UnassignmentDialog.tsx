@@ -177,7 +177,7 @@ export default function UnassignmentDialog({
 									{isGroup
 										? "Group:"
 										: animalCount !== undefined && animalCount > 1
-										? `${animalCount} Animals:`
+										? `${animalCount} animals:`
 										: "Animal:"}
 								</span>
 								<span className="ml-2 font-medium text-gray-900">

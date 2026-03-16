@@ -12,7 +12,7 @@
 
 ## Improvements & polish
 
-- **Unassignment flow when groups change** – Clarify in UI that deleting a group leaves all its animals unassigned from the foster. When an animal is removed from an assigned group, add a modal offering to unassign from the current foster; reuse the existing assignment/unassignment flow (messages, tagging). On submit: remove animal from group and run unassignment logic. For group deletion, add a simple option in the confirm-delete modal: “Unassign all animals from current foster”; we can add the full unassignment flow there later if it becomes a pain point.
+- **Unassignment flow when groups change (completed)** – Clarify in UI that deleting a group leaves all its animals unassigned from the foster. When an animal is removed from an assigned group, add a modal offering to unassign from the current foster; reuse the existing assignment/unassignment flow (messages, tagging). On submit: remove animal from group and run unassignment logic. For group deletion, add a simple option in the confirm-delete modal: “Unassign all animals from current foster”; we can add the full unassignment flow there later if it becomes a pain point.
 - **Form formatting & layout** – Revise form layout for a cleaner, more aesthetic look: reduce excess space (e.g. high-priority toggle on create/edit group forms), optimize spacing for different screen sizes (mobile especially), improve how details are displayed, and condense fields/dropdowns to cut white space and avoid an awkward spaced-out layout. Consider reordering fields to improve layout and a more intuitive flow.
 - **Pasted image / showcase zoom** – Copy-pasted image from Excel (or similar) and the photo showcase zoomed view display incorrectly; fix image handling and showcase zoom UI.
 - **Responsive breakpoints** – Headers and chat list layout break on mid-sized screens; test and fix responsive crossover points.
@@ -26,8 +26,8 @@
 
 ## Features (new behavior or larger scope)
 
-- **Quick add animals to groups** – Quick-add flow for name, sex, life stage when adding animals to groups (aligns with bulk-add work).
-- **Delete all animals in group** – In the delete-group flow, add an option to delete all animals in the group (not only remove them from the group).
+- **Quick add animals to groups (completed)** – Quick-add flow for name, sex, life stage when adding animals to groups (aligns with bulk-add work).
+- **Delete all animals in group (delayed for user feedback)** – In the delete-group flow, add an option to delete all animals in the group (not only remove them from the group).
 - **Deceased / euthanized status** – Proper handling and display of deceased and euthanized in animal status (and any downstream logic).
 - **Sheets-style view** – Table/sheets-style view for coordinators to quickly scan animals and key info without opening each animal.
 - **Metrics** – Add or surface metrics (e.g. euthanized, deceased counts) where useful.
@@ -48,6 +48,7 @@
 - we probably want to give options to set status and visability on assinment dialog (and unassinment to) with the options set to the defualt
 - On group deletion the group list returns 406 console error becuase we try to fetch the deleted group. Same in other places like if an animal is unassigned from a foster and we go the that fosters page. I assume this is happening elsewhere. unassigning groups, deleting animals etc.
 - We might want a message all for mass alerts. ability to filter for certain things like all fosters currently fostering for example.
+- we need better offline handeling. it is impossible to tell when you are offline and changes are not being saved
 
 ---
 
