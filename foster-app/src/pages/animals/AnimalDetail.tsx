@@ -101,6 +101,9 @@ function getStatusBadgeColor(status: string): string {
 			return "bg-gray-100 text-gray-800";
 		case "transferring":
 			return "bg-purple-100 text-purple-800";
+		case "deceased":
+		case "euthanized":
+			return "bg-gray-200 text-gray-700";
 		default:
 			return "bg-gray-100 text-gray-800";
 	}

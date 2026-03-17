@@ -5,7 +5,9 @@ export type AnimalStatus =
 	| "adopted"
 	| "medical_hold"
 	| "in_shelter"
-	| "transferring"; // Not yet in shelter, being transferred
+	| "transferring" // Not yet in shelter, being transferred
+	| "deceased"
+	| "euthanized";
 
 // Combined sex and spay/neuter status type
 export type SexSpayNeuterStatus =

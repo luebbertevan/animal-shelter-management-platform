@@ -55,6 +55,9 @@ interface AnimalFormProps {
 	uploadingPhotos: boolean;
 	photoUploadError: string | null;
 
+	// When true, visibility dropdown is locked to Not Visible (e.g. when status is deceased/euthanized)
+	visibilityDropdownDisabled?: boolean;
+
 	// Form submission
 	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 	loading: boolean;
@@ -109,6 +112,7 @@ export default function AnimalForm({
 	submitError,
 	successMessage,
 	submitButtonText,
+	visibilityDropdownDisabled = false,
 	showDeleteButton = false,
 	deleteError,
 	showDeleteConfirm = false,
@@ -158,7 +162,7 @@ export default function AnimalForm({
 					{ value: "foster_pending", label: "Foster Pending" },
 					{ value: "not_visible", label: "Not Visible" },
 				]}
-				disabled={loading}
+				disabled={loading || visibilityDropdownDisabled}
 			/>
 
 			{/* Date of Birth and Age Estimate (next to each other) */}

@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { getErrorMessage } from "./errorUtils";
 import { transformTagsToLinks } from "./messageLinkUtils";
+import { isDeceasedOrEuthanized } from "./metadataUtils";
 import type { MessageTag, AnimalStatus, FosterVisibility } from "../types";
 import { TAG_TYPES } from "../types";
 
@@ -286,6 +287,33 @@ export async function assignGroupToFoster(
 
 	const fosterName = foster.full_name || foster.email || "Foster";
 
+	// Reject if any animal in the group is deceased or euthanized
+	if (group.animal_ids && group.animal_ids.length > 0) {
+		const { data: groupAnimals, error: groupAnimalsError } = await supabase
+			.from("animals")
+			.select("id, status")
+			.in("id", group.animal_ids)
+			.eq("organization_id", organizationId);
+
+		if (groupAnimalsError) {
+			throw new Error(
+				getErrorMessage(
+					groupAnimalsError,
+					"Failed to fetch group animals. Please try again."
+				)
+			);
+		}
+
+		const deceasedOrEuthanized = (groupAnimals || []).find((a) =>
+			isDeceasedOrEuthanized(a.status as AnimalStatus)
+		);
+		if (deceasedOrEuthanized) {
+			throw new Error(
+				"Cannot assign a group that contains an animal that is deceased or euthanized. Remove that animal from the group first."
+			);
+		}
+	}
+
 	// Update group: set current_foster_id, status, and foster_visibility
 	const { error: updateGroupError } = await supabase
 		.from("animal_groups")
@@ -369,10 +397,10 @@ export async function assignAnimalToFoster(
 		);
 	}
 
-	// Fetch animal to get name
+	// Fetch animal to get name and status
 	const { data: animal, error: animalError } = await supabase
 		.from("animals")
-		.select("id, name, group_id")
+		.select("id, name, group_id, status")
 		.eq("id", animalId)
 		.eq("organization_id", organizationId)
 		.single();
@@ -383,6 +411,12 @@ export async function assignAnimalToFoster(
 				animalError,
 				"Failed to fetch animal. Please try again."
 			)
+		);
+	}
+
+	if (isDeceasedOrEuthanized(animal.status as AnimalStatus)) {
+		throw new Error(
+			"Cannot assign an animal that is deceased or euthanized."
 		);
 	}
 

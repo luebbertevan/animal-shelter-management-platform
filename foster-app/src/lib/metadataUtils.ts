@@ -52,6 +52,13 @@ export function formatFosterVisibility(visibility: FosterVisibility): string {
 }
 
 /**
+ * Whether the animal status is deceased or euthanized (coordinator-only; fosters never see these).
+ */
+export function isDeceasedOrEuthanized(status: AnimalStatus): boolean {
+	return status === "deceased" || status === "euthanized";
+}
+
+/**
  * Get the default foster visibility value based on animal status
  * This implements the one-directional sync rule: status changes update visibility
  */
@@ -66,6 +73,8 @@ export function getFosterVisibilityFromStatus(
 			return "available_future";
 		case "in_foster":
 		case "adopted":
+		case "deceased":
+		case "euthanized":
 			return "not_visible";
 	}
 }

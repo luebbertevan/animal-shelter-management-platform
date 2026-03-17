@@ -19,7 +19,11 @@ import {
 	fetchAnimalsByIds,
 } from "../../lib/animalQueries";
 import { fetchGroupById } from "../../lib/groupQueries";
-import { formatFosterVisibility } from "../../lib/metadataUtils";
+import { fetchFosterById } from "../../lib/fosterQueries";
+import {
+	formatFosterVisibility,
+	isDeceasedOrEuthanized,
+} from "../../lib/metadataUtils";
 import { wouldFosterVisibilityChangeConflict } from "../../lib/groupUtils";
 import { calculateDOBFromAge } from "../../lib/ageUtils";
 import { uploadAnimalPhoto, deleteAnimalPhoto } from "../../lib/photoUtils";
@@ -111,6 +115,10 @@ export default function EditAnimal() {
 	const [isAnimalSelectorOpen, setIsAnimalSelectorOpen] = useState(false);
 	const [copiedFromAnimalName, setCopiedFromAnimalName] = useState<string | null>(null);
 
+	// Confirmation when saving as deceased/euthanized (removal from group and/or unassignment)
+	const [showDeceasedEuthanizedConfirm, setShowDeceasedEuthanizedConfirm] =
+		useState(false);
+
 	// Fetch breed suggestions (must be before early return)
 	const { data: breedSuggestions = [], isLoading: isLoadingBreeds } =
 		useQuery<string[]>({
@@ -147,6 +155,19 @@ export default function EditAnimal() {
 		enabled: !!animal?.group_id && isCoordinator,
 	});
 
+	// Fetch current foster name for deceased/euthanized confirmation dialog
+	const { data: currentFoster } = useQuery({
+		queryKey: ["foster", animal?.current_foster_id],
+		queryFn: async () => {
+			if (!animal?.current_foster_id) return null;
+			return fetchFosterById(
+				animal.current_foster_id,
+				profile.organization_id
+			);
+		},
+		enabled: !!animal?.current_foster_id && isCoordinator,
+	});
+
 	// Fetch all animals in the group to check for conflicts
 	const { data: groupAnimals = [] } = useQuery<Animal[], Error>({
 		queryKey: [
@@ -176,12 +197,15 @@ export default function EditAnimal() {
 		return null;
 	}
 
+	// Edit Animal is the only place where deceased/euthanized can be selected
 	const statusOptions: { value: AnimalStatus; label: string }[] = [
 		{ value: "in_foster", label: "In Foster" },
 		{ value: "adopted", label: "Adopted" },
 		{ value: "medical_hold", label: "Medical Hold" },
 		{ value: "in_shelter", label: "In Shelter" },
 		{ value: "transferring", label: "Transferring" },
+		{ value: "deceased", label: "Deceased" },
+		{ value: "euthanized", label: "Euthanized" },
 	];
 
 	const sexSpayNeuterOptions: {
@@ -267,6 +291,18 @@ export default function EditAnimal() {
 				groupAnimals
 			);
 		const statusChanged = formState.status !== animal.status;
+		const newStatusIsDeceasedOrEuthanized =
+			isDeceasedOrEuthanized(formState.status);
+
+		// When marking deceased/euthanized: only show confirmation if animal is in a group or assigned (removal/unassignment will occur)
+		if (newStatusIsDeceasedOrEuthanized) {
+			if (animal.group_id || animal.current_foster_id) {
+				setShowDeceasedEuthanizedConfirm(true);
+				return;
+			}
+			await performSubmit(false, false);
+			return;
+		}
 
 		// If animal is in a group and status changed, show status modal first (then visibility modal if both changed)
 		if (
@@ -308,11 +344,22 @@ export default function EditAnimal() {
 		try {
 			checkOfflineAndThrow();
 
+			// When saving as deceased/euthanized, unassign and remove from group
+			const savingAsDeceasedOrEuthanized =
+				isDeceasedOrEuthanized(formState.status);
+			const previousGroupId = animal.group_id ?? null;
+
 			// Prepare data for update
 			const animalData: Record<string, unknown> = {
 				name: formState.name.trim() || null,
 				status: formState.status,
 			};
+
+			if (savingAsDeceasedOrEuthanized) {
+				animalData.current_foster_id = null;
+				animalData.group_id = null;
+				animalData.foster_visibility = "not_visible";
+			}
 
 			// Add optional fields
 			if (formState.sexSpayNeuterStatus) {
@@ -360,8 +407,10 @@ export default function EditAnimal() {
 			}
 
 			animalData.priority = formState.priority;
-			// Add foster_visibility
-			animalData.foster_visibility = formState.fosterVisibility;
+			// Add foster_visibility (unless already set for deceased/euthanized)
+			if (!savingAsDeceasedOrEuthanized) {
+				animalData.foster_visibility = formState.fosterVisibility;
+			}
 
 			// If updating all animals in group (visibility conflict), update their foster_visibility
 			if (
@@ -467,6 +516,30 @@ export default function EditAnimal() {
 				return;
 			}
 
+			// When saved as deceased/euthanized, remove animal from group's animal_ids
+			if (savingAsDeceasedOrEuthanized && previousGroupId && group?.animal_ids) {
+				const updatedAnimalIds = group.animal_ids.filter(
+					(animalId: string) => animalId !== id
+				);
+				const { error: groupUpdateError } = await supabase
+					.from("animal_groups")
+					.update({ animal_ids: updatedAnimalIds })
+					.eq("id", previousGroupId)
+					.eq("organization_id", profile.organization_id);
+
+				if (groupUpdateError) {
+					console.error(
+						"Error removing animal from group:",
+						groupUpdateError
+					);
+					setSubmitError(
+						"Animal updated, but failed to remove from group. Please edit the group to remove this animal."
+					);
+					setLoading(false);
+					return;
+				}
+			}
+
 			// Handle photo updates (additions and deletions)
 			const existingPhotos = animal.photos || [];
 			const remainingPhotos = existingPhotos.filter(
@@ -568,10 +641,16 @@ export default function EditAnimal() {
 			queryClient.invalidateQueries({
 				queryKey: ["animals", user.id, profile.organization_id, id],
 			});
-			// If we updated all animals in group, invalidate group queries too
-			if ((updateAllVisibility || updateAllStatus) && animal.group_id) {
+			// If we updated all animals in group or removed this animal from a group, invalidate group queries
+			const groupIdToInvalidate =
+				(updateAllVisibility || updateAllStatus) && animal.group_id
+					? animal.group_id
+					: savingAsDeceasedOrEuthanized && previousGroupId
+						? previousGroupId
+						: null;
+			if (groupIdToInvalidate) {
 				queryClient.invalidateQueries({
-					queryKey: ["group", animal.group_id],
+					queryKey: ["group", groupIdToInvalidate],
 				});
 				queryClient.invalidateQueries({
 					queryKey: [
@@ -771,6 +850,9 @@ export default function EditAnimal() {
 						submitError={submitError}
 						successMessage={successMessage}
 						submitButtonText="Update Animal"
+						visibilityDropdownDisabled={isDeceasedOrEuthanized(
+							formState.status
+						)}
 						showDeleteButton={true}
 						deleteError={deleteError}
 						showDeleteConfirm={showDeleteConfirm}
@@ -781,6 +863,46 @@ export default function EditAnimal() {
 						}}
 						onDeleteConfirm={handleDelete}
 						deleting={deleting}
+					/>
+
+					{/* Deceased/euthanized confirmation: removal from group and/or unassignment */}
+					<ConfirmModal
+						isOpen={showDeceasedEuthanizedConfirm}
+						title={
+							formState.status === "deceased"
+								? "Confirm Deceased status change"
+								: "Confirm Euthanized status change"
+						}
+						message={
+							<div className="space-y-2">
+								{animal?.group_id && group && (
+									<p>
+										<strong>{animal?.name || "This animal"}</strong> will be
+										removed from{" "}
+										<strong>{group.name || "Unnamed Group"}</strong>
+									</p>
+								)}
+								{animal?.current_foster_id && currentFoster && (
+									<p>
+										<strong>{animal?.name || "This animal"}</strong> will be
+										unassigned from{" "}
+										<strong>
+											{currentFoster.full_name ||
+												currentFoster.email ||
+												"the current foster"}
+										</strong>
+									</p>
+								)}
+							</div>
+						}
+						confirmLabel="Confirm"
+						cancelLabel="Cancel"
+						onConfirm={async () => {
+							setShowDeceasedEuthanizedConfirm(false);
+							await performSubmit(false, false);
+						}}
+						onCancel={() => setShowDeceasedEuthanizedConfirm(false)}
+						variant="default"
 					/>
 
 					{/* Group visibility conflict modal */}
