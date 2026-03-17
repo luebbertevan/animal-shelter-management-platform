@@ -98,6 +98,8 @@ interface GroupFormProps {
 	onAnimalSearch?: (term: string) => void;
 	animalFilters?: AnimalFiltersType;
 	onAnimalFiltersChange?: (filters: AnimalFiltersType) => void;
+	/** Statuses to exclude from the animal filter dropdown (e.g. deceased/euthanized when selecting animals for a group) */
+	excludeStatusesFromAnimalFilter?: AnimalStatus[];
 
 	// Pagination for animal selection (optional)
 	animalCurrentPage?: number;
@@ -165,7 +167,8 @@ export default function GroupForm({
 	animalSearchTerm,
 	onAnimalSearch,
 	animalFilters,
-	onAnimalFiltersChange,
+		onAnimalFiltersChange,
+		excludeStatusesFromAnimalFilter,
 	// Pagination props
 	animalCurrentPage,
 	animalTotalPages,
@@ -524,6 +527,7 @@ export default function GroupForm({
 									<AnimalFilters
 										filters={animalFilters}
 										onFiltersChange={onAnimalFiltersChange}
+										excludeStatuses={excludeStatusesFromAnimalFilter}
 									/>
 								)}
 						</div>

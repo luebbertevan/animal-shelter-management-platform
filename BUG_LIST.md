@@ -48,6 +48,8 @@
 - On group deletion the group list returns 406 console error becuase we try to fetch the deleted group. Same in other places like if an animal is unassigned from a foster and we go the that fosters page. I assume this is happening elsewhere. unassigning groups, deleting animals etc.
 - We might want a message all for mass alerts. ability to filter for certain things like all fosters currently fostering for example.
 - we need better offline handeling. it is impossible to tell when you are offline and changes are not being saved
+- we might want to change the ordering of the status as they appear in the dropdown by a more intuitive ordering, most to leaset used for example
+- deceased and euthanized animal do not follow the unassingment flow if they when their status changes (fine for now but might add later for consistancy)
 
 ---
 

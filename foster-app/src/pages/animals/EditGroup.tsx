@@ -30,6 +30,7 @@ import {
 	getGroupFormMessageState,
 	getVisibilityConflictSubmitError,
 } from "../../lib/groupUtils";
+import { isDeceasedOrEuthanized } from "../../lib/metadataUtils";
 import {
 	bulkCreateAnimals,
 	getBulkCreateGroupDefaults,
@@ -160,17 +161,21 @@ export default function EditGroup() {
 				}
 			}
 
-			// Map animals with their group names
-			return animalsData.map((animal) => {
-				if (animal.group_id) {
-					const groupName = groupsMap.get(animal.group_id);
-					return {
-						...animal,
-						group_name: groupName,
-					};
-				}
-				return animal;
-			});
+			// Map animals with their group names, and exclude deceased/euthanized (they cannot be added to groups)
+			return animalsData
+				.filter(
+					(animal) => !isDeceasedOrEuthanized(animal.status as AnimalStatus)
+				)
+				.map((animal) => {
+					if (animal.group_id) {
+						const groupName = groupsMap.get(animal.group_id);
+						return {
+							...animal,
+							group_name: groupName,
+						};
+					}
+					return animal;
+				});
 		},
 		enabled: !!group && isCoordinator,
 	});
@@ -1437,6 +1442,7 @@ export default function EditGroup() {
 						onAnimalSearch={handleAnimalSearch}
 						animalFilters={animalFilters}
 						onAnimalFiltersChange={handleAnimalFiltersChange}
+						excludeStatusesFromAnimalFilter={["deceased", "euthanized"]}
 						// Pagination props
 						animalCurrentPage={animalPage}
 						animalTotalPages={totalAnimalPages}

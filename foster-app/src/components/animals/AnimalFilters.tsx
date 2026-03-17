@@ -25,15 +25,19 @@ export interface AnimalFilters extends Record<string, unknown> {
 interface AnimalFiltersProps {
 	filters: AnimalFilters;
 	onFiltersChange: (filters: AnimalFilters) => void;
+	/** When set, these statuses are excluded from the status filter dropdown (e.g. for group animal selection) */
+	excludeStatuses?: AnimalStatus[];
 }
 
-// Status options
+// Status options (includes deceased/euthanized for coordinator filtering on Animals List)
 const statusOptions: { value: AnimalStatus; label: string }[] = [
 	{ value: "in_foster", label: "In Foster" },
 	{ value: "adopted", label: "Adopted" },
 	{ value: "medical_hold", label: "Medical Hold" },
 	{ value: "in_shelter", label: "In Shelter" },
 	{ value: "transferring", label: "Transferring" },
+	{ value: "deceased", label: "Deceased" },
+	{ value: "euthanized", label: "Euthanized" },
 ];
 
 // Sex/Spay Neuter options
@@ -86,7 +90,13 @@ function clearFilters(): AnimalFilters {
 export default function AnimalFilters({
 	filters,
 	onFiltersChange,
+	excludeStatuses,
 }: AnimalFiltersProps) {
+	const statusOptionsFiltered =
+		excludeStatuses && excludeStatuses.length > 0
+			? statusOptions.filter((opt) => !excludeStatuses.includes(opt.value))
+			: statusOptions;
+
 	const activeFilterCount = countActiveFilters(filters);
 	const hasActiveFilters = activeFilterCount > 0;
 
@@ -190,7 +200,7 @@ export default function AnimalFilters({
 						onChange={(value) =>
 							handleFilterChange("status", value as AnimalStatus)
 						}
-						options={statusOptions}
+						options={statusOptionsFiltered}
 						placeholder="All Statuses"
 						compact={true}
 					/>
