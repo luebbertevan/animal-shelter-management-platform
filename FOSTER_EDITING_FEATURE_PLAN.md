@@ -58,7 +58,6 @@ The photo fullscreen viewer is the **lightbox** (`PhotoLightbox` in the codebase
 When a coordinator views a photo in the lightbox, show an overlay/caption with:
 - Who uploaded the photo (name when possible; otherwise fallback to identifier)
 - When it was uploaded (formatted `uploaded_at`)
-- The uploader’s role (foster vs coordinator) so coordinators can distinguish “foster-uploaded current images” from older images
 
 Non-coordinator users do not need this metadata in the lightbox (unless later desired).
 
