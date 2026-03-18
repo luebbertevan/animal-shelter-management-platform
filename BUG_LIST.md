@@ -50,6 +50,9 @@
 - we need better offline handeling. it is impossible to tell when you are offline and changes are not being saved
 - we might want to change the ordering of the status as they appear in the dropdown by a more intuitive ordering, most to leaset used for example
 - deceased and euthanized animal do not follow the unassingment flow if they when their status changes (fine for now but might add later for consistancy)
+- might be nice to have a way to favorite a photo so that one is shown on cards (helps if they want the most recent photo of the cat and not an old photo)
+- We should consider someone might want to use the photos on the app for something and need to download them (for adding to the adoption website for example) how might they do that?
+- On the animals details page the "This animal is currently assigned to you." looks kinda weird
 
 ---
 
