@@ -1,0 +1,3 @@
+{
+    "git-worktree-manager.postCreateCmd": "cd foster-app && bun install"
+}
