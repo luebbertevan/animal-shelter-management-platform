@@ -10,6 +10,7 @@ import { PAGE_SIZES } from "../../lib/paginationConfig";
 import AnimalFilters, { type AnimalFilters as AnimalFiltersType } from "./AnimalFilters";
 import AnimalCard from "./AnimalCard";
 import type { Animal } from "../../types";
+import { animalStatusLabel } from "../../lib/animalStatusOptions";
 
 interface AnimalSelectorProps {
 	isOpen: boolean;
@@ -197,15 +198,8 @@ export default function AnimalSelector({
 		}
 
 		if (filters.status) {
-			const statusLabels: Record<string, string> = {
-				in_foster: "In Foster",
-				adopted: "Adopted",
-				medical_hold: "Medical Hold",
-				in_shelter: "In Shelter",
-				transferring: "Transferring",
-			};
 			chips.push({
-				label: `Status: ${statusLabels[filters.status] || filters.status}`,
+				label: `Status: ${animalStatusLabel(filters.status)}`,
 				onRemove: () =>
 					handleFiltersChange({
 						...filters,

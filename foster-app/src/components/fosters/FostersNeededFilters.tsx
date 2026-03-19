@@ -13,6 +13,7 @@ import {
 	ToggleFilter,
 } from "../shared/Filters";
 import Button from "../ui/Button";
+import { animalStatusDropdownOptionsStandard } from "../../lib/animalStatusOptions";
 
 export interface FostersNeededFilters extends Record<string, unknown> {
 	priority?: boolean;
@@ -51,14 +52,8 @@ const availabilityOptions: { value: FosterVisibility; label: string }[] = [
 	{ value: "foster_pending", label: "Foster Pending" },
 ];
 
-// Status options (for coordinators only)
-const statusOptions: { value: AnimalStatus; label: string }[] = [
-	{ value: "in_foster", label: "In Foster" },
-	{ value: "adopted", label: "Adopted" },
-	{ value: "medical_hold", label: "Medical Hold" },
-	{ value: "in_shelter", label: "In Shelter" },
-	{ value: "transferring", label: "Transferring" },
-];
+// Status options (for coordinators only; order from animalStatusOptions)
+const statusOptions = animalStatusDropdownOptionsStandard();
 
 // Type options removed - now using toggles instead
 

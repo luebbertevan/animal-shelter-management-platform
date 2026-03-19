@@ -20,6 +20,7 @@ import {
 	countActiveFilters,
 } from "../../lib/filterUtils";
 import { supabase } from "../../lib/supabase";
+import { animalStatusLabel } from "../../lib/animalStatusOptions";
 
 export default function AnimalsList() {
 	const { user, profile } = useProtectedAuth();
@@ -224,17 +225,8 @@ export default function AnimalsList() {
 		}
 
 		if (filters.status) {
-			const statusLabels: Record<string, string> = {
-				in_foster: "In Foster",
-				adopted: "Adopted",
-				medical_hold: "Medical Hold",
-				in_shelter: "In Shelter",
-				transferring: "Transferring",
-			};
 			chips.push({
-				label: `Status: ${
-					statusLabels[filters.status] || filters.status
-				}`,
+				label: `Status: ${animalStatusLabel(filters.status)}`,
 				onRemove: createRemoveHandler("status", undefined),
 			});
 		}

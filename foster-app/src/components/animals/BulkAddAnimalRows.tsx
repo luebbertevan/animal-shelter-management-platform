@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import type { BulkAddAnimalRow } from "../../hooks/useBulkAddRows";
 import type { AnimalStatus } from "../../types";
+import { animalStatusDropdownOptionsStandard } from "../../lib/animalStatusOptions";
 import { getFosterVisibilityFromStatus } from "../../lib/metadataUtils";
 import { XMarkIcon, PlusIcon, MinusIcon } from "@heroicons/react/24/outline";
 
@@ -19,13 +20,7 @@ const LIFE_STAGE_OPTIONS = [
 	{ value: "senior", label: "Senior" },
 ];
 
-const STATUS_OPTIONS = [
-	{ value: "in_shelter", label: "In Shelter" },
-	{ value: "in_foster", label: "In Foster" },
-	{ value: "adopted", label: "Adopted" },
-	{ value: "medical_hold", label: "Medical Hold" },
-	{ value: "transferring", label: "Transferring" },
-];
+const STATUS_OPTIONS = animalStatusDropdownOptionsStandard();
 
 const VISIBILITY_OPTIONS = [
 	{ value: "available_now", label: "Available Now" },
