@@ -54,6 +54,7 @@
 - We should consider someone might want to use the photos on the app for something and need to download them (for adding to the adoption website for example) how might they do that?
 - On the animals details page the "This animal is currently assigned to you." looks kinda weird
 
+- We should put badges like in foster to the right of the animal name instead of underneath it
 ---
 
 ## MVP next features

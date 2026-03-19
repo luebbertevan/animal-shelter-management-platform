@@ -19,6 +19,7 @@ import { fetchGroupsByFosterId } from "../../lib/groupQueries";
 import { fetchMyPendingRequests } from "../../lib/fosterRequestQueries";
 import type { FosterRequest, AnimalGroup as AnimalGroupType } from "../../types";
 import { isOffline, getErrorMessage } from "../../lib/errorUtils";
+import { DETAIL_HEADER_BOTTOM } from "../../constants/detailPageLayout";
 
 async function fetchFosterConversation(userId: string, organizationId: string) {
 	const { data, error } = await supabase
@@ -432,8 +433,8 @@ export default function FosterDetail() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-					<div className="mb-6">
-						<div className="flex items-center gap-3 mb-2">
+					<div className={DETAIL_HEADER_BOTTOM}>
+						<div className="flex flex-wrap items-center gap-3 mb-2">
 							<h1 className="text-2xl font-bold text-gray-900">
 								{foster.full_name?.trim() ||
 									foster.email ||

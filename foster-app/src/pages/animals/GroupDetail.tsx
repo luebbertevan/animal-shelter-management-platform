@@ -32,6 +32,7 @@ import {
 import RequestApprovalDialog from "../../components/fosters/RequestApprovalDialog";
 import RequestDenialDialog from "../../components/fosters/RequestDenialDialog";
 import { isOffline } from "../../lib/errorUtils";
+import { DETAIL_HEADER_BOTTOM } from "../../constants/detailPageLayout";
 import {
 	formatDateForDisplay,
 	hasMeaningfulUpdate,
@@ -576,9 +577,12 @@ export default function GroupDetail() {
 					<PhotoLightbox
 						key={`${lightboxIndex}-${lightboxOpen}`}
 						photos={photoUrls}
+						photoMetadata={[]}
 						initialIndex={lightboxIndex}
 						isOpen={lightboxOpen}
 						onClose={() => setLightboxOpen(false)}
+						showUploaderMetadata={isCoordinator}
+						organizationId={profile.organization_id}
 					/>
 				)}
 			</div>
@@ -589,7 +593,7 @@ export default function GroupDetail() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-sm p-6">
-					<div className="mb-6">
+					<div className={DETAIL_HEADER_BOTTOM}>
 						<div className="flex items-center justify-between mb-2">
 							<h1 className="text-2xl font-bold text-gray-900">
 								{group.name?.trim() || "Unnamed Group"}
@@ -603,8 +607,7 @@ export default function GroupDetail() {
 								</Link>
 							)}
 						</div>
-						{/* Badges under name */}
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-2">
 							{/* Priority Badge */}
 							{group.priority && (
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
@@ -945,9 +948,12 @@ export default function GroupDetail() {
 				<PhotoLightbox
 					key={`${lightboxIndex}-${lightboxOpen}`}
 					photos={photoUrls}
+					photoMetadata={group?.group_photos ?? []}
 					initialIndex={lightboxIndex}
 					isOpen={lightboxOpen}
 					onClose={() => setLightboxOpen(false)}
+					showUploaderMetadata={isCoordinator}
+					organizationId={profile.organization_id}
 				/>
 			)}
 

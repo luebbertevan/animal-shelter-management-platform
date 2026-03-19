@@ -23,8 +23,21 @@ interface PhotoUploadProps {
 	onPhotosChange: (photos: File[]) => void;
 	existingPhotos?: PhotoMetadata[];
 	onRemovePhoto?: (photoUrl: string) => void;
+	/**
+	 * When provided, controls whether the remove (×) affordance is shown
+	 * for each existing photo. If a photo can't be removed, we can
+	 * optionally show a subtle view-only hover label.
+	 */
+	canRemoveExistingPhoto?: (photo: PhotoMetadata) => boolean;
+	/** Hover label for non-removable existing photos (foster UX). */
+	viewOnlyHoverLabel?: string;
 	disabled?: boolean;
 	error?: string | null;
+	/**
+	 * External signal to reset internal selection (new photo files only).
+	 * Useful for modal editors after a successful save.
+	 */
+	resetSignal?: number;
 }
 
 /**
@@ -35,8 +48,11 @@ export default function PhotoUpload({
 	onPhotosChange,
 	existingPhotos = [],
 	onRemovePhoto,
+	canRemoveExistingPhoto,
+	viewOnlyHoverLabel = "View-only",
 	disabled = false,
 	error: externalError,
+	resetSignal,
 }: PhotoUploadProps) {
 	const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
 	const [error, setError] = useState<string | null>(null);
@@ -260,6 +276,26 @@ export default function PhotoUpload({
 		}
 	};
 
+	// Reset internal selection (new photos only)
+	useEffect(() => {
+		if (resetSignal === undefined) return;
+
+		void (async () => {
+			// Ensure state updates happen after an async boundary
+			// to satisfy `react-hooks/set-state-in-effect`.
+			await Promise.resolve();
+
+			// Revoke any object URLs from current selection
+			selectedPhotosRef.current.forEach((photo) => {
+				URL.revokeObjectURL(photo.preview);
+			});
+
+			selectedPhotosRef.current = [];
+			setSelectedPhotos([]);
+			setError(null);
+		})();
+	}, [resetSignal]);
+
 	// Notify parent when selectedPhotos changes (but not during render)
 	useEffect(() => {
 		onPhotosChange(selectedPhotos.map((p) => p.file));
@@ -304,32 +340,51 @@ export default function PhotoUpload({
 			{(selectedPhotos.length > 0 || existingPhotos.length > 0) && (
 				<div className="flex flex-wrap gap-2">
 					{/* Existing photos (from database) */}
-					{existingPhotos.map((photo, index) => (
-						<div
-							key={`existing-${index}`}
-							className="relative group"
-						>
-							<img
-								src={getThumbnailUrl(photo.url)}
-								alt={`Photo ${index + 1}`}
-								loading="lazy"
-								className="w-20 h-20 object-cover rounded border border-gray-300"
-							/>
-							{onRemovePhoto && (
-								<button
-									type="button"
-									onClick={() =>
-										handleRemoveExistingPhoto(photo.url)
-									}
-									disabled={disabled}
-									className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-									aria-label="Remove photo"
-								>
-									×
-								</button>
-							)}
-						</div>
-					))}
+					{existingPhotos.map((photo, index) => {
+						const canRemove =
+							onRemovePhoto &&
+							(canRemoveExistingPhoto
+								? canRemoveExistingPhoto(photo)
+								: true);
+
+						return (
+							<div
+								key={`existing-${index}`}
+								className="relative group"
+							>
+								<img
+									src={getThumbnailUrl(photo.url)}
+									alt={`Photo ${index + 1}`}
+									loading="lazy"
+									className="w-20 h-20 object-cover rounded border border-gray-300"
+								/>
+								{canRemove && (
+									<button
+										type="button"
+										onClick={() =>
+											handleRemoveExistingPhoto(photo.url)
+										}
+										disabled={disabled}
+										className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+										aria-label="Remove photo"
+									>
+										×
+									</button>
+								)}
+
+								{/* Foster view-only UX: show a subtle hover label when x is hidden */}
+								{onRemovePhoto &&
+									!canRemove &&
+									viewOnlyHoverLabel && (
+										<div className="absolute inset-x-0 bottom-1 px-1 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+											<span className="block w-full truncate text-[10px] sm:text-xs bg-black/70 text-white px-1.5 py-0.5 rounded">
+												{viewOnlyHoverLabel}
+											</span>
+										</div>
+									)}
+							</div>
+						);
+					})}
 
 					{/* New photos (selected but not yet uploaded) */}
 					{selectedPhotos.map((photo) => (
