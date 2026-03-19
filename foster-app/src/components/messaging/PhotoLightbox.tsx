@@ -1,11 +1,18 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getFullImageUrl } from "../../lib/photoUtils";
+import type { PhotoMetadata } from "../../types";
+import { formatDateForDisplay } from "../../lib/metadataUtils";
+import { fetchFosterById } from "../../lib/fosterQueries";
 
 interface PhotoLightboxProps {
 	photos: string[];
 	initialIndex: number;
 	isOpen: boolean;
 	onClose: () => void;
+	photoMetadata?: PhotoMetadata[];
+	/** When true, show uploader/date overlay for coordinator UX. */
+	showUploaderMetadata?: boolean;
+	organizationId?: string;
 }
 
 export default function PhotoLightbox({
@@ -13,10 +20,26 @@ export default function PhotoLightbox({
 	initialIndex,
 	isOpen,
 	onClose,
+	photoMetadata,
+	showUploaderMetadata = false,
+	organizationId,
 }: PhotoLightboxProps) {
 	// Initialize state from props. When key prop changes in parent, component remounts with new initialIndex
 	const [currentIndex, setCurrentIndex] = useState(initialIndex);
 	const [imageLoading, setImageLoading] = useState(true);
+
+	const [uploaderLabel, setUploaderLabel] = useState<string>("Unknown");
+	const uploaderLabelCacheRef = useRef<Map<string, string>>(new Map());
+	const [uploaderLoading, setUploaderLoading] = useState(false);
+
+	const currentPhotoMetadata = photoMetadata?.[currentIndex];
+	const currentUploadedAt = currentPhotoMetadata?.uploaded_at;
+	const currentUploadedBy = currentPhotoMetadata?.uploaded_by;
+	const overlayUploaderLabel = currentUploadedBy
+		? uploaderLoading
+			? "Loading..."
+			: uploaderLabel
+		: "Unknown";
 
 	// Prevent body scroll when lightbox is open
 	useEffect(() => {
@@ -42,6 +65,62 @@ export default function PhotoLightbox({
 		setCurrentIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
 		setImageLoading(true);
 	}, [photos.length]);
+
+	// Resolve uploader metadata only when needed (coordinator overlay)
+	useEffect(() => {
+		if (!isOpen || !showUploaderMetadata) return;
+
+		let isCancelled = false;
+
+		void (async () => {
+			// Ensure state updates happen after an async boundary
+			// to satisfy `react-hooks/set-state-in-effect`.
+			await Promise.resolve();
+			if (isCancelled) return;
+
+			// For legacy/missing metadata, show "Unknown"
+			if (!currentUploadedBy || !organizationId) {
+				setUploaderLabel("Unknown");
+				setUploaderLoading(false);
+				return;
+			}
+
+			const cached =
+				uploaderLabelCacheRef.current.get(currentUploadedBy);
+			if (cached) {
+				setUploaderLabel(cached);
+				setUploaderLoading(false);
+				return;
+			}
+
+			setUploaderLoading(true);
+			setUploaderLabel("Unknown");
+
+			try {
+				const foster = await fetchFosterById(
+					currentUploadedBy,
+					organizationId
+				);
+				const label = foster.full_name || foster.email || "Unknown";
+				uploaderLabelCacheRef.current.set(currentUploadedBy, label);
+				if (!isCancelled) setUploaderLabel(label);
+			} catch {
+				if (!isCancelled) setUploaderLabel("Unknown");
+			} finally {
+				if (!isCancelled) setUploaderLoading(false);
+			}
+		})();
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [
+		isOpen,
+		showUploaderMetadata,
+		currentUploadedBy,
+		organizationId,
+		currentIndex,
+	]);
 
 	// Handle keyboard navigation
 	useEffect(() => {
@@ -99,6 +178,26 @@ export default function PhotoLightbox({
 
 			{/* Photo container - full screen on mobile, centered with margins on desktop */}
 			<div className="relative w-full h-full flex items-center justify-center">
+				{/* Coordinator uploader metadata overlay */}
+				{showUploaderMetadata &&
+					currentPhotoMetadata &&
+					(currentUploadedAt || currentUploadedBy) && (
+						<div className="absolute top-4 left-4 z-10 pointer-events-none">
+							<div className="bg-black/60 text-white rounded-md px-3 py-2 max-w-[90vw]">
+								<div className="text-xs sm:text-sm font-medium">
+									Uploaded by:{" "}
+									{overlayUploaderLabel}
+								</div>
+								<div className="text-xs sm:text-sm opacity-90">
+									Uploaded at:{" "}
+									{currentUploadedAt
+										? formatDateForDisplay(currentUploadedAt)
+										: "Unknown"}
+								</div>
+							</div>
+						</div>
+					)}
+
 				{imageLoading && (
 					<div className="absolute inset-0 flex items-center justify-center z-10 bg-transparent">
 						<div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>

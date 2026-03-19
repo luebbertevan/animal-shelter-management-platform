@@ -1,8 +1,9 @@
 import { supabase } from "./supabase";
 import { getErrorMessage } from "./errorUtils";
 
-// Maximum file size: 10MB (10 * 1024 * 1024 bytes) — applied to compressed file
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Maximum file size: 8MB (8 * 1024 * 1024 bytes) — must match the Supabase `photos` bucket
+// file_size_limit. If we allow larger files client-side, uploads can fail server-side.
+const MAX_FILE_SIZE = 8 * 1024 * 1024;
 
 // Cache control: 1 year (immutable content-addressed files)
 const CACHE_CONTROL_MAX_AGE = "31536000";
@@ -30,7 +31,7 @@ export const ALLOWED_PHOTO_MIME_TYPES: readonly string[] = ALLOWED_MIME_TYPES;
 export function validatePhotoFile(file: File): string | null {
 	if (file.size > MAX_FILE_SIZE) {
 		const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-		return `File "${file.name}" is too large (${sizeMB}MB). Maximum size is 10MB.`;
+		return `File "${file.name}" is too large (${sizeMB}MB). Maximum size is 8MB.`;
 	}
 	if (!ALLOWED_MIME_TYPES.includes(file.type)) {
 		return `File "${file.name}" is not a supported image type. Allowed types: jpeg, jpg, png, webp.`;
@@ -161,12 +162,19 @@ export async function compressImage(
 				ctx.imageSmoothingQuality = "high";
 				ctx.drawImage(img, 0, 0, width, height);
 
-				// Convert to blob
-				canvas.toBlob(
-					(blob) => {
-						if (blob && blob.size < file.size) {
-							// Only use compressed version if smaller
-							const compressedFile = new File(
+				// Convert to blob.
+				// We may attempt multiple quality levels to get under the Supabase bucket size limit.
+				let bestCandidate: File | null = null;
+				const minQuality = 0.55;
+				const tryQuality = (q: number) => {
+					canvas.toBlob(
+						(blob) => {
+							if (!blob) {
+								resolve(bestCandidate ?? file);
+								return;
+							}
+
+							const candidate = new File(
 								[blob],
 								file.name.replace(/\.[^/.]+$/, ".jpg"),
 								{
@@ -174,14 +182,40 @@ export async function compressImage(
 									lastModified: Date.now(),
 								}
 							);
-							resolve(compressedFile);
-						} else {
-							resolve(file); // Keep original if compression didn't help
-						}
-					},
-					"image/jpeg",
-					quality
-				);
+
+							// Track smallest candidate so far.
+							if (
+								!bestCandidate ||
+								candidate.size < bestCandidate.size
+							) {
+								bestCandidate = candidate;
+							}
+
+							// Stop if under the bucket limit.
+							if (candidate.size <= MAX_FILE_SIZE) {
+								resolve(candidate);
+								return;
+							}
+
+							// If we improved size and can still try lower quality, continue.
+							if (
+								candidate.size < file.size &&
+								q > minQuality
+							) {
+								tryQuality(Math.max(minQuality, q - 0.1));
+								return;
+							}
+
+							// Otherwise, keep the best we have (may still be too large;
+							// validatePhotoFile will then block upload server-side).
+							resolve(bestCandidate ?? file);
+						},
+						"image/jpeg",
+						q
+					);
+				};
+
+				tryQuality(quality);
 			};
 
 			img.onerror = () => {
@@ -265,7 +299,7 @@ export async function uploadPhoto(
 			// Handle specific error types
 			if (error.message.includes("File size exceeds")) {
 				throw new Error(
-					"File size exceeds the maximum allowed size of 10MB"
+					"File size exceeds the maximum allowed size of 8MB"
 				);
 			}
 			if (
@@ -368,7 +402,7 @@ export async function uploadAnimalPhoto(
 			// Handle specific error types
 			if (error.message.includes("File size exceeds")) {
 				throw new Error(
-					"File size exceeds the maximum allowed size of 10MB"
+					"File size exceeds the maximum allowed size of 8MB"
 				);
 			}
 			if (
@@ -666,7 +700,7 @@ export async function uploadGroupPhoto(
 			// Handle specific error types
 			if (error.message.includes("File size exceeds")) {
 				throw new Error(
-					"File size exceeds the maximum allowed size of 10MB"
+					"File size exceeds the maximum allowed size of 8MB"
 				);
 			}
 			if (

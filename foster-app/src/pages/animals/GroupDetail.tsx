@@ -32,6 +32,7 @@ import {
 import RequestApprovalDialog from "../../components/fosters/RequestApprovalDialog";
 import RequestDenialDialog from "../../components/fosters/RequestDenialDialog";
 import { isOffline } from "../../lib/errorUtils";
+import { DETAIL_HEADER_BOTTOM } from "../../constants/detailPageLayout";
 import {
 	formatDateForDisplay,
 	hasMeaningfulUpdate,
@@ -40,6 +41,23 @@ import {
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import { fetchFosterById } from "../../lib/fosterQueries";
 import { getThumbnailUrl } from "../../lib/photoUtils";
+
+// Defensive label helper: sometimes cached data can be unexpectedly a profile object
+// rather than a string. Rendering that object directly inside a <Link> crashes React.
+function safeFosterLabel(value: unknown): string {
+	if (typeof value === "string") return value || "Unknown";
+	if (value && typeof value === "object") {
+		const v = value as { full_name?: unknown; email?: unknown };
+		if (typeof v.full_name === "string" && v.full_name.trim()) {
+			return v.full_name;
+		}
+		if (typeof v.email === "string" && v.email.trim()) {
+			return v.email;
+		}
+		return "Unknown";
+	}
+	return "Unknown";
+}
 
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
@@ -576,9 +594,12 @@ export default function GroupDetail() {
 					<PhotoLightbox
 						key={`${lightboxIndex}-${lightboxOpen}`}
 						photos={photoUrls}
+						photoMetadata={[]}
 						initialIndex={lightboxIndex}
 						isOpen={lightboxOpen}
 						onClose={() => setLightboxOpen(false)}
+						showUploaderMetadata={isCoordinator}
+						organizationId={profile.organization_id}
 					/>
 				)}
 			</div>
@@ -589,7 +610,7 @@ export default function GroupDetail() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-sm p-6">
-					<div className="mb-6">
+					<div className={DETAIL_HEADER_BOTTOM}>
 						<div className="flex items-center justify-between mb-2">
 							<h1 className="text-2xl font-bold text-gray-900">
 								{group.name?.trim() || "Unnamed Group"}
@@ -603,8 +624,7 @@ export default function GroupDetail() {
 								</Link>
 							)}
 						</div>
-						{/* Badges under name */}
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-2">
 							{/* Priority Badge */}
 							{group.priority && (
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
@@ -643,7 +663,7 @@ export default function GroupDetail() {
 													to={`/fosters/${group.current_foster_id}`}
 													className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
 												>
-													{fosterName}
+													{safeFosterLabel(fosterName)}
 												</Link>
 											) : (
 												<span className="text-gray-400">
@@ -717,7 +737,9 @@ export default function GroupDetail() {
 																to={`/fosters/${request.foster_profile_id}`}
 																className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
 															>
-																{request.foster_name}
+																{safeFosterLabel(
+																	request.foster_name
+																)}
 															</Link>
 															<p className="text-xs text-gray-500 mt-0.5">
 																Requested{" "}
@@ -945,9 +967,12 @@ export default function GroupDetail() {
 				<PhotoLightbox
 					key={`${lightboxIndex}-${lightboxOpen}`}
 					photos={photoUrls}
+					photoMetadata={group?.group_photos ?? []}
 					initialIndex={lightboxIndex}
 					isOpen={lightboxOpen}
 					onClose={() => setLightboxOpen(false)}
+					showUploaderMetadata={isCoordinator}
+					organizationId={profile.organization_id}
 				/>
 			)}
 

@@ -38,6 +38,7 @@ import {
 import RequestApprovalDialog from "../../components/fosters/RequestApprovalDialog";
 import RequestDenialDialog from "../../components/fosters/RequestDenialDialog";
 import { isOffline } from "../../lib/errorUtils";
+import { DETAIL_HEADER_BOTTOM } from "../../constants/detailPageLayout";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 import { supabase } from "../../lib/supabase";
 import { getThumbnailUrl } from "../../lib/photoUtils";
@@ -46,6 +47,7 @@ import {
 	formatFosterVisibility,
 	hasMeaningfulUpdate,
 } from "../../lib/metadataUtils";
+import FosterAdoptionEditorModal from "../../components/animals/FosterAdoptionEditorModal";
 import { animalStatusLabel } from "../../lib/animalStatusOptions";
 
 // Helper function to format sex/spay-neuter status for display
@@ -101,6 +103,24 @@ function getStatusBadgeColor(status: string): string {
 	}
 }
 
+// React renders a React element's children as-is; if we ever get a foster/profile
+// object in a place where a string label is expected, this prevents a
+// "Objects are not valid as a React child" crash.
+function safeFosterLabel(value: unknown): string {
+	if (typeof value === "string") return value || "Unknown";
+	if (value && typeof value === "object") {
+		const v = value as { full_name?: unknown; email?: unknown };
+		if (typeof v.full_name === "string" && v.full_name.trim()) {
+			return v.full_name;
+		}
+		if (typeof v.email === "string" && v.email.trim()) {
+			return v.email;
+		}
+		return "Unknown";
+	}
+	return "Unknown";
+}
+
 // Helper function to format age for display
 function formatAgeForDisplay(
 	dateOfBirth: string | undefined | null
@@ -135,6 +155,7 @@ export default function AnimalDetail() {
 	const { id } = useParams<{ id: string }>();
 	const { user, profile, isCoordinator } = useProtectedAuth();
 	const queryClient = useQueryClient();
+	const [isFosterAdoptionEditorOpen, setIsFosterAdoptionEditorOpen] = useState(false);
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState(0);
 	const [isFosterSelectorOpen, setIsFosterSelectorOpen] = useState(false);
@@ -631,8 +652,7 @@ export default function AnimalDetail() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-sm p-6">
-					{/* Header Section */}
-					<div className="mb-6">
+					<div className={DETAIL_HEADER_BOTTOM}>
 						<div className="flex items-center justify-between mb-2">
 							<h1 className="text-2xl font-bold text-gray-900">
 								{animal.name?.trim() || "Unnamed Animal"}
@@ -646,8 +666,7 @@ export default function AnimalDetail() {
 								</Link>
 							)}
 						</div>
-						{/* Badges under name */}
-						<div className="flex items-center gap-2 mb-2">
+						<div className="flex flex-wrap items-center gap-2">
 							{/* Status Badge */}
 							{animal.status && (
 								<span
@@ -714,7 +733,7 @@ export default function AnimalDetail() {
 													to={`/fosters/${animal.current_foster_id}`}
 													className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
 												>
-													{fosterName}
+													{safeFosterLabel(fosterName)}
 												</Link>
 											) : (
 												<span className="text-gray-400">
@@ -820,7 +839,7 @@ export default function AnimalDetail() {
 																to={`/fosters/${request.foster_profile_id}`}
 																className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
 															>
-																{request.foster_name}
+																{safeFosterLabel(request.foster_name)}
 															</Link>
 															<p className="text-xs text-gray-500 mt-0.5">
 																Requested{" "}
@@ -870,7 +889,7 @@ export default function AnimalDetail() {
 
 					{/* Foster Request Actions (foster only - moved to top) */}
 					{!isCoordinator && (
-						<div className="mb-6">
+						<div className="mb-6 space-y-3">
 							{canRequest && (
 								<button
 									type="button"
@@ -878,6 +897,15 @@ export default function AnimalDetail() {
 									className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
 								>
 									Request to Foster
+								</button>
+							)}
+							{animal.current_foster_id === user.id && (
+								<button
+									type="button"
+									onClick={() => setIsFosterAdoptionEditorOpen(true)}
+									className="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 text-sm font-medium transition-colors"
+								>
+									Update Adoption Photos & Bio
 								</button>
 							)}
 							{pendingRequest && (
@@ -1067,9 +1095,41 @@ export default function AnimalDetail() {
 				<PhotoLightbox
 					key={`${lightboxIndex}-${lightboxOpen}`}
 					photos={photoUrls}
+					photoMetadata={animal.photos ?? []}
 					initialIndex={lightboxIndex}
 					isOpen={lightboxOpen}
 					onClose={() => setLightboxOpen(false)}
+					showUploaderMetadata={isCoordinator}
+					organizationId={profile.organization_id}
+				/>
+			)}
+
+			{/* Foster Adoption Editor Modal */}
+			{!isCoordinator && animal.current_foster_id === user.id && (
+				<FosterAdoptionEditorModal
+					isOpen={isFosterAdoptionEditorOpen}
+					onClose={() => setIsFosterAdoptionEditorOpen(false)}
+					animalId={id || ""}
+					organizationId={profile.organization_id}
+					fosterProfileId={user.id}
+					initialBio={animal.bio}
+					initialPhotos={animal.photos ?? []}
+					onSaved={() => {
+						queryClient.invalidateQueries({
+							queryKey: [
+								"animals",
+								user.id,
+								profile.organization_id,
+								id,
+							],
+						});
+						queryClient.invalidateQueries({
+							queryKey: ["fosters-needed-all-animals"],
+						});
+						queryClient.invalidateQueries({
+							queryKey: ["fosters-needed-groups"],
+						});
+					}}
 				/>
 			)}
 

@@ -58,6 +58,7 @@
 - on small screens some modal are not scrollable so if there is content that does not fit on the screen They cannot scroll to it, and sometimes the scroll is set to the page behind it and not to the model. Confirm assignment and confirm unassignment modals are an example.
 - We have no working filter for status for groups, which might be relevant on the fosters needed page and we might wanna put it on the groups page. We would have to choose whether we want to match status if all members of group match that status or if one member of the group match that status
 
+- We should put badges like in foster to the right of the animal name instead of underneath it
 ---
 
 ## MVP next features
