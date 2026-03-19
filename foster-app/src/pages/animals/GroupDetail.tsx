@@ -42,6 +42,23 @@ import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import { fetchFosterById } from "../../lib/fosterQueries";
 import { getThumbnailUrl } from "../../lib/photoUtils";
 
+// Defensive label helper: sometimes cached data can be unexpectedly a profile object
+// rather than a string. Rendering that object directly inside a <Link> crashes React.
+function safeFosterLabel(value: unknown): string {
+	if (typeof value === "string") return value || "Unknown";
+	if (value && typeof value === "object") {
+		const v = value as { full_name?: unknown; email?: unknown };
+		if (typeof v.full_name === "string" && v.full_name.trim()) {
+			return v.full_name;
+		}
+		if (typeof v.email === "string" && v.email.trim()) {
+			return v.email;
+		}
+		return "Unknown";
+	}
+	return "Unknown";
+}
+
 export default function GroupDetail() {
 	const { id } = useParams<{ id: string }>();
 	const { user, profile, isCoordinator } = useProtectedAuth();
@@ -646,7 +663,7 @@ export default function GroupDetail() {
 													to={`/fosters/${group.current_foster_id}`}
 													className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
 												>
-													{fosterName}
+													{safeFosterLabel(fosterName)}
 												</Link>
 											) : (
 												<span className="text-gray-400">
@@ -720,7 +737,9 @@ export default function GroupDetail() {
 																to={`/fosters/${request.foster_profile_id}`}
 																className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
 															>
-																{request.foster_name}
+																{safeFosterLabel(
+																	request.foster_name
+																)}
 															</Link>
 															<p className="text-xs text-gray-500 mt-0.5">
 																Requested{" "}

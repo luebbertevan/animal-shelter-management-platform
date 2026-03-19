@@ -111,6 +111,24 @@ function getStatusBadgeColor(status: string): string {
 	}
 }
 
+// React renders a React element's children as-is; if we ever get a foster/profile
+// object in a place where a string label is expected, this prevents a
+// "Objects are not valid as a React child" crash.
+function safeFosterLabel(value: unknown): string {
+	if (typeof value === "string") return value || "Unknown";
+	if (value && typeof value === "object") {
+		const v = value as { full_name?: unknown; email?: unknown };
+		if (typeof v.full_name === "string" && v.full_name.trim()) {
+			return v.full_name;
+		}
+		if (typeof v.email === "string" && v.email.trim()) {
+			return v.email;
+		}
+		return "Unknown";
+	}
+	return "Unknown";
+}
+
 // Helper function to format age for display
 function formatAgeForDisplay(
 	dateOfBirth: string | undefined | null
@@ -723,7 +741,7 @@ export default function AnimalDetail() {
 													to={`/fosters/${animal.current_foster_id}`}
 													className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
 												>
-													{fosterName}
+													{safeFosterLabel(fosterName)}
 												</Link>
 											) : (
 												<span className="text-gray-400">
@@ -829,7 +847,7 @@ export default function AnimalDetail() {
 																to={`/fosters/${request.foster_profile_id}`}
 																className="text-pink-600 hover:text-pink-700 hover:underline font-medium"
 															>
-																{request.foster_name}
+																{safeFosterLabel(request.foster_name)}
 															</Link>
 															<p className="text-xs text-gray-500 mt-0.5">
 																Requested{" "}
