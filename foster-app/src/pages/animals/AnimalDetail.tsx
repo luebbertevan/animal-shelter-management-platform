@@ -376,6 +376,10 @@ export default function AnimalDetail() {
 	// Calculate age for display
 	// Note: age is calculated from DOB only (age_value and age_unit are not stored in Animal type)
 	const ageDisplay = formatAgeForDisplay(animal.date_of_birth);
+	const isAssignedToCurrentUser = animal.current_foster_id === user.id;
+	const showAssignedTag = isAssignedToCurrentUser;
+	const shouldReplaceInFosterStatusWithAssignedTag =
+		!isCoordinator && isAssignedToCurrentUser && animal.status === "in_foster";
 
 	// Handle foster selection
 	const handleFosterSelect = (fosterId: string, fosterName: string) => {
@@ -668,13 +672,20 @@ export default function AnimalDetail() {
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
 							{/* Status Badge */}
-							{animal.status && (
+							{animal.status &&
+								!shouldReplaceInFosterStatusWithAssignedTag && (
 								<span
 									className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${getStatusBadgeColor(
 										animal.status
 									)}`}
 								>
 									{animalStatusLabel(animal.status)}
+								</span>
+								)}
+							{/* Assigned to You Badge */}
+							{showAssignedTag && (
+								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
+									Assigned to you
 								</span>
 							)}
 							{/* Priority Badge */}
@@ -690,7 +701,13 @@ export default function AnimalDetail() {
 									onClick={() => setIsCancelDialogOpen(true)}
 									className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors cursor-pointer"
 								>
-									Requested
+									<span>Requested</span>
+									<span
+										aria-hidden="true"
+										className="ml-1.5 text-xs leading-none"
+									>
+										×
+									</span>
 								</button>
 							)}
 						</div>
@@ -907,27 +924,6 @@ export default function AnimalDetail() {
 								>
 									Update Adoption Photos & Bio
 								</button>
-							)}
-							{pendingRequest && (
-								<div className="p-3 bg-purple-50 border border-purple-200 rounded-md">
-									<p className="text-sm text-purple-800">
-										You have a pending request for this animal.{" "}
-										<button
-											type="button"
-											onClick={() => setIsCancelDialogOpen(true)}
-											className="font-medium underline hover:text-purple-900"
-										>
-											Cancel request
-										</button>
-									</p>
-								</div>
-							)}
-							{animal.current_foster_id === user.id && (
-								<div className="p-3 bg-green-50 border border-green-200 rounded-md">
-									<p className="text-sm text-green-800">
-										This animal is currently assigned to you.
-									</p>
-								</div>
 							)}
 						</div>
 					)}
