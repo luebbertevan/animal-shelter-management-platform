@@ -53,6 +53,10 @@
 - might be nice to have a way to favorite a photo so that one is shown on cards (helps if they want the most recent photo of the cat and not an old photo)
 - We should consider someone might want to use the photos on the app for something and need to download them (for adding to the adoption website for example) how might they do that?
 - On the animals details page the "This animal is currently assigned to you." looks kinda weird
+- Fosters can so the visability on the fosters needed page on the animals details page and we should hide that field from them.
+- If an animal is foster pending on the visability, the tag on the animal details page should be foster pending and not ex. in shelter
+- on small screens some modal are not scrollable so if there is content that does not fit on the screen They cannot scroll to it, and sometimes the scroll is set to the page behind it and not to the model. Confirm assignment and confirm unassignment modals are an example.
+- We have no working filter for status for groups, which might be relevant on the fosters needed page and we might wanna put it on the groups page. We would have to choose whether we want to match status if all members of group match that status or if one member of the group match that status
 
 - We should put badges like in foster to the right of the animal name instead of underneath it
 ---

@@ -44,9 +44,11 @@ import { supabase } from "../../lib/supabase";
 import { getThumbnailUrl } from "../../lib/photoUtils";
 import {
 	formatDateForDisplay,
+	formatFosterVisibility,
 	hasMeaningfulUpdate,
 } from "../../lib/metadataUtils";
 import FosterAdoptionEditorModal from "../../components/animals/FosterAdoptionEditorModal";
+import { animalStatusLabel } from "../../lib/animalStatusOptions";
 
 // Helper function to format sex/spay-neuter status for display
 function formatSexSpayNeuterStatus(status: SexSpayNeuterStatus): string {
@@ -78,16 +80,6 @@ function formatLifeStage(lifeStage: LifeStage): string {
 		default:
 			return lifeStage;
 	}
-}
-
-import { formatFosterVisibility } from "../../lib/metadataUtils";
-
-// Helper function to format status for display
-function formatStatus(status: string): string {
-	return status
-		.split("_")
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(" ");
 }
 
 // Helper function to get status badge color
@@ -682,7 +674,7 @@ export default function AnimalDetail() {
 										animal.status
 									)}`}
 								>
-									{formatStatus(animal.status)}
+									{animalStatusLabel(animal.status)}
 								</span>
 							)}
 							{/* Priority Badge */}

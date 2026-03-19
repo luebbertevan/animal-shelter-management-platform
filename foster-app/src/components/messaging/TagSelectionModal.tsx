@@ -17,6 +17,7 @@ import LoadingSpinner from "../ui/LoadingSpinner";
 import { FilterChip } from "../shared/Filters";
 import { TAG_TYPES } from "../../types";
 import { PAGE_SIZES } from "../../lib/paginationConfig";
+import { animalStatusLabel } from "../../lib/animalStatusOptions";
 
 interface TagSelectionModalProps {
 	isOpen: boolean;
@@ -273,17 +274,8 @@ export default function TagSelectionModal({
 		}
 
 		if (animalFilters.status) {
-			const statusLabels: Record<string, string> = {
-				in_foster: "In Foster",
-				adopted: "Adopted",
-				medical_hold: "Medical Hold",
-				in_shelter: "In Shelter",
-				transferring: "Transferring",
-			};
 			chips.push({
-				label: `Status: ${
-					statusLabels[animalFilters.status] || animalFilters.status
-				}`,
+				label: `Status: ${animalStatusLabel(animalFilters.status)}`,
 				onRemove: createRemoveHandler("status", undefined),
 			});
 		}

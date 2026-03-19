@@ -1,0 +1,323 @@
+#!/bin/bash
+
+# cleanup_worktrees
+# Automatically removes specific git worktrees and their associated branches.
+#
+# Why this version is safer:
+# - It only touches the worktrees/branches you explicitly provide as arguments.
+# - It does NOT use `git worktree remove --force` by default (so uncommitted changes
+#   should not get wiped).
+# - Remote branch deletion is OFF unless you pass `--delete-remote`.
+#
+# Usage:
+#   cleanup_worktrees [--dry-run] [--repo /path/repo] <branch> [<branch> ...]
+#   cleanup_worktrees [--dry-run] [--repo /path/repo] <worktree-path> [<worktree-path> ...]
+#   cleanup_worktrees [--dry-run] [--repo /path/repo] --all-merged
+#
+# Optional safety overrides:
+#   --allow-dirty-worktrees   Allow removing worktrees even if they have local changes.
+#   --force-worktree-remove   Alias for --allow-dirty-worktrees (kept for clarity).
+#   --delete-remote          Also delete matching branches on `origin` (default: off).
+
+usage() {
+  cat <<'EOF'
+cleanup_worktrees: remove specific worktrees/branches.
+
+Usage:
+  cleanup_worktrees [--dry-run] [--repo /path/repo] <branch> [<branch> ...]
+  cleanup_worktrees [--dry-run] [--repo /path/repo] <worktree-path> [<worktree-path> ...]
+  cleanup_worktrees [--dry-run] [--repo /path/repo] --all-merged
+
+Options:
+  --dry-run                 Preview only (default: make changes)
+  --repo /path/repo        Explicit repo path
+  --all-merged             (legacy) clean local branches considered merged into main
+  --allow-dirty-worktrees  Allow removing worktrees with uncommitted changes
+  --force-worktree-remove  Alias for --allow-dirty-worktrees
+  --delete-remote          Delete branches on origin (default: off)
+
+Notes:
+  - When specific branches/worktrees are provided, the script only deletes those.
+  - When specific targets are provided, remote deletion is OFF unless --delete-remote is set.
+EOF
+}
+
+DRY_RUN=false
+REPO_PATH=""
+ALL_MERGED=false
+ALLOW_DIRTY_WORKTREES=false
+DELETE_REMOTE=false
+
+TARGET_INPUTS=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    --repo)
+      REPO_PATH="$2"
+      shift 2
+      ;;
+    --all-merged)
+      ALL_MERGED=true
+      shift
+      ;;
+    --allow-dirty-worktrees|--force-worktree-remove)
+      ALLOW_DIRTY_WORKTREES=true
+      shift
+      ;;
+    --delete-remote)
+      DELETE_REMOTE=true
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      TARGET_INPUTS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [ -n "$REPO_PATH" ]; then
+  cd "$REPO_PATH" || { echo "Error: invalid repo path: $REPO_PATH"; exit 1; }
+fi
+
+REPO_DIR=$(git rev-parse --show-toplevel 2>/dev/null) \
+  || { echo "Error: not inside a git repo. Run this from within a repo or pass --repo /path/repo."; exit 1; }
+
+cd "$REPO_DIR" || exit 1
+
+echo "Repo: $REPO_DIR"
+$DRY_RUN && echo "*** DRY RUN — no changes will be made ***"
+echo "-------------------------------------"
+
+have_origin=false
+if git remote get-url origin >/dev/null 2>&1; then
+  have_origin=true
+fi
+
+echo "Fetching and pruning remote tracking references..."
+if $have_origin; then
+  # Fetch main if it exists; fall back to a generic prune fetch.
+  git fetch --prune origin main >/dev/null 2>&1 || git fetch --prune origin >/dev/null 2>&1
+else
+  echo "Warning: no 'origin' remote found. Remote branch deletion and origin-based merge checks are disabled."
+  git fetch --prune >/dev/null 2>&1 || true
+fi
+
+MERGE_BASE_REF="main"
+if $have_origin && git show-ref --verify --quiet "refs/remotes/origin/main"; then
+  MERGE_BASE_REF="origin/main"
+fi
+
+if ! git show-ref --verify --quiet "refs/heads/main" && ! git show-ref --verify --quiet "refs/remotes/origin/main"; then
+  echo "Error: could not find a 'main' branch (local or origin/main)."
+  exit 1
+fi
+
+get_worktree_folders_for_branch() {
+  # Prints 0..N worktree paths associated with a given local branch name.
+  local br="$1"
+  git worktree list --porcelain 2>/dev/null | awk -v br="refs/heads/$br" '
+    $1=="worktree"{path=$2}
+    $1=="branch" && $2==br { if (path!="") print path }
+  '
+}
+
+get_branch_names_for_worktree_path() {
+  # Given a worktree path, prints associated local branch names (if any).
+  local path="$1"
+  git worktree list --porcelain 2>/dev/null | awk -v path="$path" '
+    $1=="worktree"{p=$2}
+    $1=="branch" && p==path && $2 ~ /^refs\/heads\// {
+      b=$2
+      sub(/^refs\/heads\//, "", b)
+      print b
+    }
+  '
+}
+
+is_worktree_dirty() {
+  # Prints status lines (non-empty means dirty).
+  local folder="$1"
+  git -C "$folder" status --porcelain --untracked-files=normal 2>/dev/null
+}
+
+branch_exists_locally() {
+  local br="$1"
+  git show-ref --verify --quiet "refs/heads/$br"
+}
+
+remote_branch_exists() {
+  local br="$1"
+  $have_origin || return 1
+  git ls-remote --exit-code --heads origin "$br" >/dev/null 2>&1
+}
+
+is_merged_into_ref() {
+  # Returns success if rev is an ancestor of base.
+  local rev="$1"
+  local base="$2"
+  git merge-base --is-ancestor "$rev" "$base" >/dev/null 2>&1
+}
+
+add_unique_target_branch() {
+  local br="$1"
+  local item
+  for item in "${TARGET_BRANCHES[@]}"; do
+    [ "$item" = "$br" ] && return 0
+  done
+  TARGET_BRANCHES+=("$br")
+}
+
+TARGET_BRANCHES=()
+
+if $ALL_MERGED; then
+  echo "Mode: cleaning branches merged into $MERGE_BASE_REF"
+  merged_branches=$(git for-each-ref --merged="$MERGE_BASE_REF" --format='%(refname:short)' refs/heads/ | awk '$0!="main"{print}')
+  if [ -z "$merged_branches" ]; then
+    echo "No merged branches to clean."
+    exit 0
+  fi
+  echo "Branches to clean:"
+  printf '%s\n' "$merged_branches"
+  echo "-----------------------------------------"
+  while IFS= read -r b; do
+    [ -n "$b" ] && add_unique_target_branch "$b"
+  done <<EOF
+$merged_branches
+EOF
+else
+  if [ "${#TARGET_INPUTS[@]}" -eq 0 ]; then
+    echo "Error: no targets provided."
+    echo "Provide branch names or worktree paths, or use --all-merged."
+    usage
+    exit 2
+  fi
+
+  for input in "${TARGET_INPUTS[@]}"; do
+    if [ -d "$input" ]; then
+      abs_path="$input"
+      if [[ "$abs_path" != /* ]]; then abs_path="$PWD/$abs_path"; fi
+      branches=$(get_branch_names_for_worktree_path "$abs_path")
+      if [ -n "$branches" ]; then
+        while IFS= read -r b; do
+          [ -n "$b" ] && add_unique_target_branch "$b"
+        done <<EOF
+$branches
+EOF
+      else
+        echo "Warning: no branch found for worktree path: $abs_path (skipping)"
+      fi
+      continue
+    fi
+
+    if [ -d "$REPO_DIR/$input" ]; then
+      abs_path="$REPO_DIR/$input"
+      branches=$(get_branch_names_for_worktree_path "$abs_path")
+      if [ -n "$branches" ]; then
+        while IFS= read -r b; do
+          [ -n "$b" ] && add_unique_target_branch "$b"
+        done <<EOF
+$branches
+EOF
+      else
+        echo "Warning: no branch found for worktree path: $abs_path (skipping)"
+      fi
+      continue
+    fi
+
+    add_unique_target_branch "$input"
+  done
+
+  if [ "${#TARGET_BRANCHES[@]}" -eq 0 ]; then
+    echo "No valid branches/worktrees resolved from your inputs."
+    exit 0
+  fi
+
+  echo "Targets (branches resolved):"
+  printf '%s\n' "${TARGET_BRANCHES[@]}"
+  echo "-----------------------------------------"
+fi
+
+for branch in "${TARGET_BRANCHES[@]}"; do
+  echo "Processing branch: $branch"
+
+  folders=$(get_worktree_folders_for_branch "$branch")
+  if [ -z "$folders" ]; then
+    echo "  No worktree found for branch: $branch (skipping deletions for this branch)"
+    continue
+  fi
+
+  # Remove each associated worktree (if not dirty, unless overridden).
+  while IFS= read -r folder; do
+    [ -z "$folder" ] && continue
+    echo "  Removing worktree: $folder"
+
+    if $DRY_RUN; then
+      echo "  (dry-run) Would remove worktree: $folder"
+      continue
+    fi
+
+    if ! $ALLOW_DIRTY_WORKTREES; then
+      if [ -n "$(is_worktree_dirty "$folder" )" ]; then
+        echo "  Warning: worktree has uncommitted changes; skipping: $folder"
+        echo "  (Pass --allow-dirty-worktrees to override.)"
+        continue
+      fi
+    fi
+
+    if ! git worktree remove "$folder"; then
+      echo "  Warning: could not remove worktree $folder — leaving branch refs untouched"
+      # Keep going with other worktrees, but branch deletions will be skipped below
+      # if any worktree remains.
+    fi
+  done <<EOF
+$folders
+EOF
+
+  # Only delete branch refs when there are no worktrees left for this branch.
+  remaining_worktrees=$(get_worktree_folders_for_branch "$branch")
+  if [ -n "$remaining_worktrees" ]; then
+    echo "  Worktree still exists for branch: $branch"
+    echo "  Skipping branch deletions for this branch."
+    continue
+  fi
+
+  if branch_exists_locally "$branch"; then
+    if is_merged_into_ref "$branch" "$MERGE_BASE_REF"; then
+      echo "  Deleting local branch: $branch"
+      $DRY_RUN || git branch -d "$branch"
+    else
+      echo "  Skip local branch deletion: $branch not merged into $MERGE_BASE_REF"
+    fi
+  else
+    echo "  Local branch not found: $branch"
+  fi
+
+  if $DELETE_REMOTE; then
+    if remote_branch_exists "$branch"; then
+      if $have_origin && is_merged_into_ref "refs/remotes/origin/$branch" "$MERGE_BASE_REF"; then
+        echo "  Deleting remote branch: $branch"
+        $DRY_RUN || git push origin --delete "$branch"
+      else
+        echo "  Skip remote branch deletion: $branch not merged into $MERGE_BASE_REF"
+      fi
+    else
+      echo "  Remote branch not found: $branch"
+    fi
+  fi
+
+  echo "-----------------------------------------"
+done
+
+echo "Pruning stale worktree references..."
+$DRY_RUN || git worktree prune
+
+echo "Cleanup complete."
+
