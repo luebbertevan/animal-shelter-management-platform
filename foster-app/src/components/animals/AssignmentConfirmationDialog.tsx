@@ -5,6 +5,7 @@ import Toggle from "../ui/Toggle";
 import Select from "../ui/Select";
 import type { AnimalStatus, FosterVisibility } from "../../types";
 import { getFosterVisibilityFromStatus } from "../../lib/metadataUtils";
+import { animalStatusDropdownOptionsStandard } from "../../lib/animalStatusOptions";
 
 interface AssignmentConfirmationDialogProps {
 	isOpen: boolean;
@@ -30,13 +31,7 @@ interface AssignmentConfirmationDialogProps {
 	defaultVisibility?: FosterVisibility;
 }
 
-const STATUS_OPTIONS: { value: AnimalStatus; label: string }[] = [
-	{ value: "in_shelter", label: "In Shelter" },
-	{ value: "in_foster", label: "In Foster" },
-	{ value: "adopted", label: "Adopted" },
-	{ value: "medical_hold", label: "Medical Hold" },
-	{ value: "transferring", label: "Transferring" },
-];
+const STATUS_OPTIONS = animalStatusDropdownOptionsStandard();
 
 const VISIBILITY_OPTIONS: { value: FosterVisibility; label: string }[] = [
 	{ value: "available_now", label: "Available Now" },

@@ -24,6 +24,10 @@ import AnimalFilters, {
 	type AnimalFilters as AnimalFiltersType,
 } from "./AnimalFilters";
 import { FilterChip } from "../shared/Filters";
+import {
+	animalStatusDropdownOptionsStandard,
+	animalStatusLabel,
+} from "../../lib/animalStatusOptions";
 
 interface GroupFormProps {
 	// Form state and handlers from useGroupForm
@@ -248,17 +252,8 @@ export default function GroupForm({
 		}
 
 		if (animalFilters.status) {
-			const statusLabels: Record<string, string> = {
-				in_foster: "In Foster",
-				adopted: "Adopted",
-				medical_hold: "Medical Hold",
-				in_shelter: "In Shelter",
-				transferring: "Transferring",
-			};
 			chips.push({
-				label: `Status: ${
-					statusLabels[animalFilters.status] || animalFilters.status
-				}`,
+				label: `Status: ${animalStatusLabel(animalFilters.status)}`,
 				onRemove: createRemoveHandler("status", undefined),
 			});
 		}
@@ -411,11 +406,7 @@ export default function GroupForm({
 						}
 						options={[
 							{ value: "", label: "Select..." },
-							{ value: "in_shelter", label: "In Shelter" },
-							{ value: "in_foster", label: "In Foster" },
-							{ value: "adopted", label: "Adopted" },
-							{ value: "medical_hold", label: "Medical Hold" },
-							{ value: "transferring", label: "Transferring" },
+							...animalStatusDropdownOptionsStandard(),
 						]}
 						disabled={loading}
 					/>

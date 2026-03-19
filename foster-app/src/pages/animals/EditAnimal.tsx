@@ -29,8 +29,8 @@ import { calculateDOBFromAge } from "../../lib/ageUtils";
 import { uploadAnimalPhoto, deleteAnimalPhoto } from "../../lib/photoUtils";
 import { deleteAnimal } from "../../lib/animalUtils";
 import { animalToFormState } from "../../lib/animalFormUtils";
+import { animalStatusDropdownOptionsWithTerminal } from "../../lib/animalStatusOptions";
 import type {
-	AnimalStatus,
 	SexSpayNeuterStatus,
 	LifeStage,
 	PhotoMetadata,
@@ -198,15 +198,7 @@ export default function EditAnimal() {
 	}
 
 	// Edit Animal is the only place where deceased/euthanized can be selected
-	const statusOptions: { value: AnimalStatus; label: string }[] = [
-		{ value: "in_foster", label: "In Foster" },
-		{ value: "adopted", label: "Adopted" },
-		{ value: "medical_hold", label: "Medical Hold" },
-		{ value: "in_shelter", label: "In Shelter" },
-		{ value: "transferring", label: "Transferring" },
-		{ value: "deceased", label: "Deceased" },
-		{ value: "euthanized", label: "Euthanized" },
-	];
+	const statusOptions = animalStatusDropdownOptionsWithTerminal();
 
 	const sexSpayNeuterOptions: {
 		value: SexSpayNeuterStatus | "";

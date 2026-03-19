@@ -11,6 +11,7 @@ import {
 	FilterButton,
 } from "../shared/Filters";
 import Button from "../ui/Button";
+import { animalStatusFilterOptions } from "../../lib/animalStatusOptions";
 
 export interface AnimalFilters extends Record<string, unknown> {
 	priority?: boolean;
@@ -28,17 +29,6 @@ interface AnimalFiltersProps {
 	/** When set, these statuses are excluded from the status filter dropdown (e.g. for group animal selection) */
 	excludeStatuses?: AnimalStatus[];
 }
-
-// Status options (includes deceased/euthanized for coordinator filtering on Animals List)
-const statusOptions: { value: AnimalStatus; label: string }[] = [
-	{ value: "in_foster", label: "In Foster" },
-	{ value: "adopted", label: "Adopted" },
-	{ value: "medical_hold", label: "Medical Hold" },
-	{ value: "in_shelter", label: "In Shelter" },
-	{ value: "transferring", label: "Transferring" },
-	{ value: "deceased", label: "Deceased" },
-	{ value: "euthanized", label: "Euthanized" },
-];
 
 // Sex/Spay Neuter options
 const sexOptions: { value: SexSpayNeuterStatus; label: string }[] = [
@@ -92,10 +82,7 @@ export default function AnimalFilters({
 	onFiltersChange,
 	excludeStatuses,
 }: AnimalFiltersProps) {
-	const statusOptionsFiltered =
-		excludeStatuses && excludeStatuses.length > 0
-			? statusOptions.filter((opt) => !excludeStatuses.includes(opt.value))
-			: statusOptions;
+	const statusOptionsFiltered = animalStatusFilterOptions(excludeStatuses);
 
 	const activeFilterCount = countActiveFilters(filters);
 	const hasActiveFilters = activeFilterCount > 0;

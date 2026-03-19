@@ -18,11 +18,11 @@ import { uploadAnimalPhoto } from "../../lib/photoUtils";
 import { animalToFormState } from "../../lib/animalFormUtils";
 import type {
 	Animal,
-	AnimalStatus,
 	SexSpayNeuterStatus,
 	LifeStage,
 	PhotoMetadata,
 } from "../../types";
+import { animalStatusDropdownOptionsStandard } from "../../lib/animalStatusOptions";
 
 export default function NewAnimal() {
 	const navigate = useNavigate();
@@ -88,13 +88,7 @@ export default function NewAnimal() {
 		enabled: !!profile.organization_id,
 	});
 
-	const statusOptions: { value: AnimalStatus; label: string }[] = [
-		{ value: "in_foster", label: "In Foster" },
-		{ value: "adopted", label: "Adopted" },
-		{ value: "medical_hold", label: "Medical Hold" },
-		{ value: "in_shelter", label: "In Shelter" },
-		{ value: "transferring", label: "Transferring" },
-	];
+	const statusOptions = animalStatusDropdownOptionsStandard();
 
 	const sexSpayNeuterOptions: {
 		value: SexSpayNeuterStatus | "";
