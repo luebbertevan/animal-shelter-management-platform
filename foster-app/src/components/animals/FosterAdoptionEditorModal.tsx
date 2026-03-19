@@ -183,7 +183,7 @@ export default function FosterAdoptionEditorModal({
 
 			if (failedUploads > 0) {
 				setPhotoUploadError(
-					`Saved adoption materials, but ${failedUploads} photo${
+					`Saved adoption bio, but ${failedUploads} photo${
 						failedUploads !== 1 ? "s" : ""
 					} failed to upload.`
 				);
