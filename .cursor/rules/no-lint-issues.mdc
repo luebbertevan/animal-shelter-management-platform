@@ -1,0 +1,12 @@
+---
+alwaysApply: true
+---
+
+Before considering a task complete:
+
+No TypeScript errors — Avoid using any or type assertions to paper over errors.
+No ESLint errors or warnings — Avoid adding suppressions.
+No Prettier violations — All code must be consistently formatted.
+No React console warnings — Including missing keys and invalid prop types.
+
+If any are introduced as a side effect of your changes, fix them before finishing. Do not suppress or ignore issues — resolve the underlying cause.
