@@ -78,7 +78,7 @@ export default function GroupsList() {
 					],
 					orderBy: "created_at",
 					orderDirection:
-						filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
+						filters.sortByCreatedAt === "newest" ? "desc" : "asc",
 					checkOffline: true,
 					// Don't pass limit/offset to fetch all groups
 				});
@@ -95,7 +95,7 @@ export default function GroupsList() {
 					],
 					orderBy: "created_at",
 					orderDirection:
-						filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
+						filters.sortByCreatedAt === "newest" ? "desc" : "asc",
 					checkOffline: true,
 					limit: pageSize,
 					offset,

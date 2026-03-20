@@ -80,7 +80,7 @@ export default function AnimalSelector({
 					"bio",
 				],
 				orderBy: "created_at",
-				orderDirection: filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
+				orderDirection: filters.sortByCreatedAt === "newest" ? "desc" : "asc",
 				checkOffline: true,
 				limit: PAGE_SIZE,
 				offset,

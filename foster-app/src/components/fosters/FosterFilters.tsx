@@ -22,8 +22,8 @@ interface FosterFiltersContentProps {
 
 // Sort options
 const sortOptions: { value: "newest" | "oldest"; label: string }[] = [
-	{ value: "newest", label: "Newest First" },
 	{ value: "oldest", label: "Oldest First" },
+	{ value: "newest", label: "Newest First" },
 ];
 
 // Helper function to count active filters
@@ -120,7 +120,7 @@ export default function FosterFilters({
 				<div className="space-y-2.5 w-fit">
 					{/* Sort Filter */}
 					<SortFilter
-						value={filters.sortByCreatedAt ?? "newest"}
+						value={filters.sortByCreatedAt ?? "oldest"}
 						onChange={(value) =>
 							handleFilterChange(
 								"sortByCreatedAt",
@@ -209,7 +209,7 @@ export function FosterFiltersContent({
 			)}
 			{showSort && (
 				<SortFilter
-					value={filters.sortByCreatedAt ?? "newest"}
+					value={filters.sortByCreatedAt ?? "oldest"}
 					onChange={(value) =>
 						handleFilterChange(
 							"sortByCreatedAt",
