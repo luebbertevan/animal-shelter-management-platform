@@ -12,6 +12,7 @@ import {
 	getLifeStageCounts,
 } from "../../lib/groupCardUtils";
 import { getThumbnailUrl } from "../../lib/photoUtils";
+import { getFosterVisibilityBadge } from "../../lib/fosterVisibilityBadge";
 
 interface GroupCardProps {
 	group: Partial<
@@ -49,35 +50,6 @@ interface GroupCardProps {
 	requestedByFosterId?: string;
 }
 
-// Helper function to get visibility badge text and styling (same as AnimalCard)
-function getVisibilityBadge(
-	visibility: FosterVisibility | undefined
-): { text: string; className: string } | null {
-	if (!visibility || visibility === "not_visible") {
-		return null;
-	}
-
-	switch (visibility) {
-		case "available_now":
-			return {
-				text: "Available Now",
-				className: "bg-green-100 text-green-800",
-			};
-		case "available_future":
-			return {
-				text: "Available Future",
-				className: "bg-blue-100 text-blue-800",
-			};
-		case "foster_pending":
-			return {
-				text: "Foster Pending",
-				className: "bg-yellow-100 text-yellow-800",
-			};
-		default:
-			return null;
-	}
-}
-
 /**
  * Reusable card component for displaying a group in a list
  * Matches AnimalCard size and styling
@@ -99,7 +71,7 @@ export default function GroupCard({
 	// If user has a pending request, show "Requested" badge instead of visibility badge
 	const visibilityBadge = hasPendingRequest
 		? null
-		: getVisibilityBadge(foster_visibility);
+		: getFosterVisibilityBadge(foster_visibility);
 
 	const handleRequestedByClick = (e: React.MouseEvent) => {
 		e.preventDefault();
