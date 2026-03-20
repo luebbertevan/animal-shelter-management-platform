@@ -554,14 +554,16 @@ export default function MessageList({
 	if (!messages || messages.length === 0) {
 		const organizationDisplayName =
 			profile.organization_name?.trim() || "your rescue staff";
+		const emptyStateMessage =
+			profile.role === "foster"
+				? `Start your conversation with ${organizationDisplayName}!`
+				: "Start the conversation!";
 
 		return (
 			<div className="p-4 flex items-center justify-center min-h-[200px]">
 				<div className="text-center text-gray-500">
 					<p className="text-lg mb-2">No messages yet</p>
-					<p className="text-sm">
-						Start your conversation with {organizationDisplayName}!
-					</p>
+					<p className="text-sm">{emptyStateMessage}</p>
 				</div>
 			</div>
 		);
