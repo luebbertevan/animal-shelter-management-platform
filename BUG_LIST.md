@@ -60,6 +60,22 @@
 
 - We should put badges like in foster to the right of the animal name instead of underneath it
 - It would be nice to be able to reorder the pictures easier or to choose which one displays on the card
+- We need a search and filter in the chat list 
+- the filter dropdown for oldest first/newest first should be set to oldest first by default but is set to newest first by
+- The empty chat for fosters says 
+No messages yet
+Start the conversation!
+Add something to indicate the chat is for the rescue staff at CKC
+- if an animal is in a group and the foster has requested that group all animals in that group should have a badge that shows requested (currently shows nothing)
+- copy animal button is vague
+- requests should have a indicator of the pending requests
+
+---
+
+## Questions For CKC 
+
+- Should multiple people be able to request an animal at the same time? Currently if there is one request no one else has the option to rquest that animals (marked as foster pending). If so we will need handling for the fostered needed page and for the 
+
 ---
 
 ## MVP next features

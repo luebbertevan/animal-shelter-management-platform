@@ -44,11 +44,11 @@ import { supabase } from "../../lib/supabase";
 import { getThumbnailUrl } from "../../lib/photoUtils";
 import {
 	formatDateForDisplay,
-	formatFosterVisibility,
 	hasMeaningfulUpdate,
 } from "../../lib/metadataUtils";
 import FosterAdoptionEditorModal from "../../components/animals/FosterAdoptionEditorModal";
 import { animalStatusLabel } from "../../lib/animalStatusOptions";
+import { getFosterVisibilityBadge } from "../../lib/fosterVisibilityBadge";
 
 // Helper function to format sex/spay-neuter status for display
 function formatSexSpayNeuterStatus(status: SexSpayNeuterStatus): string {
@@ -378,8 +378,15 @@ export default function AnimalDetail() {
 	const ageDisplay = formatAgeForDisplay(animal.date_of_birth);
 	const isAssignedToCurrentUser = animal.current_foster_id === user.id;
 	const showAssignedTag = isAssignedToCurrentUser;
-	const shouldReplaceInFosterStatusWithAssignedTag =
-		!isCoordinator && isAssignedToCurrentUser && animal.status === "in_foster";
+	const visibilityBadge = getFosterVisibilityBadge(animal.foster_visibility);
+	const showVisibilityBadge = Boolean(
+		visibilityBadge &&
+			!(
+				!isCoordinator &&
+				pendingRequest &&
+				animal.foster_visibility === "foster_pending"
+			)
+	);
 
 	// Handle foster selection
 	const handleFosterSelect = (fosterId: string, fosterName: string) => {
@@ -672,8 +679,7 @@ export default function AnimalDetail() {
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
 							{/* Status Badge */}
-							{animal.status &&
-								!shouldReplaceInFosterStatusWithAssignedTag && (
+							{isCoordinator && animal.status && (
 								<span
 									className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${getStatusBadgeColor(
 										animal.status
@@ -699,6 +705,14 @@ export default function AnimalDetail() {
 							{animal.priority && (
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
 									High Priority
+								</span>
+							)}
+							{/* Visibility on Fosters Needed Badge */}
+							{showVisibilityBadge && visibilityBadge && (
+								<span
+									className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${visibilityBadge.className}`}
+								>
+									{visibilityBadge.text}
 								</span>
 							)}
 							{/* Requested Badge - for foster who has pending request */}
@@ -985,18 +999,6 @@ export default function AnimalDetail() {
 								}
 							/>
 						</div>
-
-						{/* Visibility on Fosters Needed page (label: first word capital) */}
-						<FieldDisplay
-							label="Visibility on Fosters Needed page"
-							value={
-								animal.foster_visibility
-									? formatFosterVisibility(
-											animal.foster_visibility
-									  )
-									: null
-							}
-						/>
 
 						{/* Photos */}
 						<div>

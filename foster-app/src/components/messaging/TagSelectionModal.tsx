@@ -86,7 +86,8 @@ export default function TagSelectionModal({
 					"group_id",
 				],
 				orderBy: "created_at",
-				orderDirection: "desc",
+				orderDirection:
+					animalFilters.sortByCreatedAt === "newest" ? "desc" : "asc",
 				checkOffline: true,
 				limit: PAGE_SIZE,
 				offset: animalOffset,
@@ -135,7 +136,8 @@ export default function TagSelectionModal({
 					"group_photos",
 				],
 				orderBy: "created_at",
-				orderDirection: "desc",
+				orderDirection:
+					groupFilters.sortByCreatedAt === "newest" ? "desc" : "asc",
 				checkOffline: true,
 				limit: PAGE_SIZE,
 				offset: groupOffset,
