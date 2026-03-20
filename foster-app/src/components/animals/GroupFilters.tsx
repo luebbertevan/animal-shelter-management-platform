@@ -28,8 +28,8 @@ const fosterVisibilityOptions: { value: FosterVisibility; label: string }[] = [
 
 // Sort options
 const sortOptions: { value: "newest" | "oldest"; label: string }[] = [
-	{ value: "newest", label: "Newest First" },
 	{ value: "oldest", label: "Oldest First" },
+	{ value: "newest", label: "Newest First" },
 ];
 
 // Helper function to count active filters
@@ -116,7 +116,7 @@ export default function GroupFilters({
 
 					{/* Sort by Created At */}
 					<SortFilter
-						value={filters.sortByCreatedAt ?? "newest"}
+						value={filters.sortByCreatedAt ?? "oldest"}
 						onChange={(value) =>
 							handleFilterChange(
 								"sortByCreatedAt",

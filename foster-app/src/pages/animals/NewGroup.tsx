@@ -162,7 +162,8 @@ export default function NewGroup() {
 					"life_stage",
 				],
 				orderBy: "created_at",
-				orderDirection: "desc",
+				orderDirection:
+					animalFilters.sortByCreatedAt === "newest" ? "desc" : "asc",
 				limit: animalLimit,
 				offset: animalOffset,
 				filters: animalFilters,

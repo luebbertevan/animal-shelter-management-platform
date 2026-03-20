@@ -66,7 +66,7 @@ export default function AnimalsList() {
 				],
 				orderBy: "created_at",
 				orderDirection:
-					filters.sortByCreatedAt === "oldest" ? "asc" : "desc",
+					filters.sortByCreatedAt === "newest" ? "desc" : "asc",
 				checkOffline: true,
 				limit: pageSize,
 				offset,

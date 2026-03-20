@@ -121,7 +121,8 @@ export default function EditGroup() {
 					"current_foster_id",
 				],
 				orderBy: "created_at",
-				orderDirection: "desc",
+				orderDirection:
+					animalFilters.sortByCreatedAt === "newest" ? "desc" : "asc",
 				limit: animalLimit,
 				offset: animalOffset,
 				filters: animalFilters,

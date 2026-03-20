@@ -58,6 +58,15 @@
 - on small screens some modal are not scrollable so if there is content that does not fit on the screen They cannot scroll to it, and sometimes the scroll is set to the page behind it and not to the model. Confirm assignment and confirm unassignment modals are an example.
 - We have no working filter for status for groups, which might be relevant on the fosters needed page and we might wanna put it on the groups page. We would have to choose whether we want to match status if all members of group match that status or if one member of the group match that status
 
+- We need a search and filter in the chat list 
+- the filter dropdown for oldest first/newest first should be set to oldest first by default but is set to newest first by
+- The empty chat for fosters says 
+No messages yet
+Start the conversation!
+Add something to indicate the chat is for the rescue staff at CKC
+- if an animal is in a group and the foster has requested that group all animals in that group should have a badge that shows requested (currently shows nothing)
+- copy animal button is vague
+- requests should have a indicator of the pending requests
 
 ---
 
