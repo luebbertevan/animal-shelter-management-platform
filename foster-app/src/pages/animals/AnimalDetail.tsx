@@ -688,6 +688,13 @@ export default function AnimalDetail() {
 									{animalStatusLabel(animal.status)}
 								</span>
 								)}
+							{/* Visibility Badge (coordinator only) */}
+							{isCoordinator &&
+								animal.foster_visibility === "not_visible" && (
+									<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-300 text-gray-800">
+										Not Visible
+									</span>
+								)}
 							{/* Assigned to You Badge */}
 							{showAssignedTag && (
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">

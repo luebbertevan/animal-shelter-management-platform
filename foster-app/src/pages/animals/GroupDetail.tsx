@@ -625,6 +625,13 @@ export default function GroupDetail() {
 							)}
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
+							{/* Visibility Badge (coordinator only) */}
+							{isCoordinator &&
+								groupFosterVisibility === "not_visible" && (
+									<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-300 text-gray-800">
+										Not Visible
+									</span>
+								)}
 							{/* Priority Badge */}
 							{group.priority && (
 								<span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800">
