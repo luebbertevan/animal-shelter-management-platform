@@ -59,6 +59,7 @@
 - We have no working filter for status for groups, which might be relevant on the fosters needed page and we might wanna put it on the groups page. We would have to choose whether we want to match status if all members of group match that status or if one member of the group match that status
 
 - We should put badges like in foster to the right of the animal name instead of underneath it
+- It would be nice to be able to reorder the pictures easier or to choose which one displays on the card
 ---
 
 ## MVP next features
