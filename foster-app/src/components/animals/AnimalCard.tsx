@@ -6,6 +6,7 @@ import type {
 } from "../../types";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 import { getThumbnailUrl } from "../../lib/photoUtils";
+import { getFosterVisibilityBadge } from "../../lib/fosterVisibilityBadge";
 
 // Helper function to create a URL-friendly slug from a name
 function createSlug(name: string | undefined | null): string {
@@ -99,35 +100,6 @@ interface AnimalCardProps {
 	requestedByFosterId?: string;
 }
 
-// Helper function to get visibility badge text and styling
-function getVisibilityBadge(
-	visibility: FosterVisibility | undefined
-): { text: string; className: string } | null {
-	if (!visibility || visibility === "not_visible") {
-		return null;
-	}
-
-	switch (visibility) {
-		case "available_now":
-			return {
-				text: "Available Now",
-				className: "bg-green-100 text-green-800",
-			};
-		case "available_future":
-			return {
-				text: "Available Future",
-				className: "bg-blue-100 text-blue-800",
-			};
-		case "foster_pending":
-			return {
-				text: "Foster Pending",
-				className: "bg-yellow-100 text-yellow-800",
-			};
-		default:
-			return null;
-	}
-}
-
 /**
  * Reusable card component for displaying an animal in a list
  * Links to the animal detail page when clicked
@@ -152,7 +124,7 @@ export default function AnimalCard({
 	// If user has a pending request, show "Requested" badge instead of visibility badge
 	const visibilityBadge = hasPendingRequest
 		? null
-		: getVisibilityBadge(foster_visibility);
+		: getFosterVisibilityBadge(foster_visibility);
 
 	// Build compact info string: "12 week old male" or just "male" if no age
 	const infoParts: string[] = [];
