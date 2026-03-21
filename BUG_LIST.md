@@ -74,6 +74,28 @@ Add something to indicate the chat is for the rescue staff at CKC
 -the foster perspective does not see current group: group name on the animals details page 
 - call to actions (primary, seconday, etc.) should all go in the same place (same line, etc.)
 
+
+## Hackathon 
+- change the request cancel flow. not x on tag like for animals. group cancel is better
+- Fonts
+- logos should be clickable to return to homepage
+- fill the dashboard. Fosters get a fosters needed preview
+- 
+- standerdize button patterns and styles. Call to action buttons should go in the same places. primary, secondary etc.
+- spacing on messages is confusing (especially the grouped request tags. when the message is not clear it looks like )
+- messageing auto scroll to recent messageing
+- chat ux improvments, emoji reactions (maybe read recents, deliverd)
+- add the badges to the animals and groups list pages for coordinators to see information clearly
+- drop down arrow (on the create forms for stuff like lifestage) is too far too the right and looks cramped. needs moved to the left (the month imput is a good padding example)
+- entering the create or edit pages should nav to the details page. (animals create does not, check the others)
+- when you assing to yourself you don't really need to go through the assignment dialog to send a message to yourself
+-modal scrolling on mobile is a problem
+-placeholder image can be cuter, like a generic cat icon or something
+- the bulk add name input is vertically spaced awkwardly (touching eachother)
+
+## Ask skye again.
+- Request placeholder text seems to encourage typing a message which is probably good, reasoning: we want them to actually be commited and spend time on the request. Auto fill makes the defualt message behavior more intuiative but we might actualy want the friction in the flow to encoure commitment. 
+
 ---
 
 ## Questions For CKC 

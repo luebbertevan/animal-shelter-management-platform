@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { useProtectedAuth } from "../hooks/useProtectedAuth";
+import FosterUsPreview from "../components/dashboard/FosterUsPreview";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import AnimalCard from "../components/animals/AnimalCard";
 import GroupCard from "../components/animals/GroupCard";
@@ -295,12 +296,14 @@ export default function Dashboard() {
 
 	return (
 		<div className="min-h-screen p-4 bg-gray-50">
-			<div className="max-w-4xl mx-auto">
+			<div className="max-w-5xl mx-auto">
 				{profile.organization_name && (
 					<h1 className="text-3xl font-semibold text-pink-600 mb-4">
 						{profile.organization_name}
 					</h1>
 				)}
+
+				<FosterUsPreview />
 
 				{/* Coordinator Pending Foster Requests Section */}
 				{showOrgPendingSection && (

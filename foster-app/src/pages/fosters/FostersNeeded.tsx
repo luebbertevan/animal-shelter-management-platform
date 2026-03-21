@@ -3,14 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
-import type {
-	Animal,
-	AnimalGroup,
-	LifeStage,
-	PhotoMetadata,
-	FosterVisibility,
-	FosterRequest,
-} from "../../types";
+import type { FosterRequest } from "../../types";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import AnimalCard from "../../components/animals/AnimalCard";
 import GroupCard from "../../components/animals/GroupCard";
@@ -26,22 +19,17 @@ import { fetchGroups } from "../../lib/groupQueries";
 import { fetchPendingRequestsForItems } from "../../lib/fosterRequestQueries";
 import { cancelFosterRequest } from "../../lib/fosterRequestUtils";
 import { isOffline } from "../../lib/errorUtils";
-import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import {
 	queryParamsToFilters,
 	filtersToQueryParams,
 } from "../../lib/filterUtils";
-
-// Type for combined items (animals and groups) for sorting
-type CombinedItem =
-	| { type: "animal"; data: Animal; priority: boolean; created_at: string }
-	| {
-			type: "group";
-			data: AnimalGroup;
-			priority: boolean;
-			created_at: string;
-			foster_visibility: FosterVisibility;
-	  };
+import {
+	buildAnimalMapByGroupMembership,
+	buildFostersNeededAnimalDataMap,
+	buildGroupsWithFosterVisibility,
+	combineAndSortFostersNeededItems,
+	filterAnimalsForFostersNeededList,
+} from "../../lib/fostersNeededList";
 
 export default function FostersNeeded() {
 	const { user, profile, isCoordinator } = useProtectedAuth();
@@ -135,13 +123,10 @@ export default function FostersNeeded() {
 		},
 	});
 
-	// Filter animals not in groups for direct display
-	const animalsData = useMemo(() => {
-		return allAnimals.filter(
-			(animal) =>
-				animal.foster_visibility !== "not_visible" && !animal.group_id
-		);
-	}, [allAnimals]);
+	const animalsData = useMemo(
+		() => filterAnimalsForFostersNeededList(allAnimals),
+		[allAnimals]
+	);
 
 	// Collect all animal IDs and group IDs for pending request check
 	const allItemIds = useMemo(() => {
@@ -173,189 +158,32 @@ export default function FostersNeeded() {
 			enabled: !isCoordinator,
 		});
 
-	// Create a map of animal ID to animal for quick lookup (only for animals in groups)
-	const animalMapById = useMemo(() => {
-		const map = new Map<string, Animal>();
-		allAnimals.forEach((animal) => {
-			if (animal.id && animal.group_id) {
-				// Only map animals that are in groups
-				map.set(animal.id, animal);
-			}
-		});
-		return map;
-	}, [allAnimals]);
+	const animalMapById = useMemo(
+		() => buildAnimalMapByGroupMembership(allAnimals),
+		[allAnimals]
+	);
 
-	// Compute group foster visibility using the utility function (reusing existing logic)
-	// Filter groups: only show groups where all animals have foster_visibility != 'not_visible'
-	const groupsWithVisibility = useMemo(() => {
-		return groupsData
-			.map((group) => {
-				if (!group.animal_ids || group.animal_ids.length === 0) {
-					return { group, foster_visibility: null };
-				}
+	const groupsWithVisibility = useMemo(
+		() => buildGroupsWithFosterVisibility(groupsData, animalMapById),
+		[groupsData, animalMapById]
+	);
 
-				// Get animals in this group
-				const groupAnimals: Animal[] =
-					group.animal_ids
-						?.map((id) => animalMapById.get(id))
-						.filter((animal): animal is Animal => !!animal) || [];
+	const animalDataMap = useMemo(
+		() => buildFostersNeededAnimalDataMap(allAnimals),
+		[allAnimals]
+	);
 
-				// Compute foster visibility using the utility function
-				const { sharedValue: fosterVisibility } =
-					getGroupFosterVisibility(groupAnimals);
-
-				return {
-					group,
-					foster_visibility: fosterVisibility,
-				};
-			})
-			.filter(({ foster_visibility }) => {
-				// Only show groups where visibility is not 'not_visible'
-				return foster_visibility && foster_visibility !== "not_visible";
-			});
-	}, [groupsData, animalMapById]);
-
-	// Create a map of animal data for GroupCard (only for animals in groups)
-	const animalDataMap = useMemo(() => {
-		const map = new Map<
-			string,
-			{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
-		>();
-		allAnimals.forEach((animal) => {
-			if (animal.id && animal.group_id) {
-				// Only map animals that are in groups
-				map.set(animal.id, {
-					photos: animal.photos,
-					life_stage: animal.life_stage,
-				});
-			}
-		});
-		return map;
-	}, [allAnimals]);
-
-	// Combine animals and groups into a single list for sorting and filtering
-	const combinedItems = useMemo<CombinedItem[]>(() => {
-		const items: CombinedItem[] = [];
-
-		// If sex filter is active, hide groups (sex filter doesn't apply to groups)
-		// life_stage filter will show groups where at least one animal matches
-		const shouldHideGroups = !!filters.sex;
-
-		// Determine type filter, but override to hide groups if sex filter is active
-		// undefined means "both", "groups" means groups only, "singles" means singles only
-		let typeFilter = filters.type; // undefined = both
-		if (shouldHideGroups) {
-			typeFilter = "singles"; // Force to singles only when groups should be hidden
-		}
-
-		// Add animals (singles only - not in groups)
-		if (typeFilter === undefined || typeFilter === "singles") {
-			animalsData.forEach((animal) => {
-				// Apply filters to animals
-				if (filters.priority === true && !animal.priority) return;
-				if (
-					filters.sex &&
-					animal.sex_spay_neuter_status !== filters.sex
-				)
-					return;
-				if (
-					filters.life_stage &&
-					animal.life_stage !== filters.life_stage
-				)
-					return;
-				// Status filter (only for coordinators)
-				if (filters.status && animal.status !== filters.status) return;
-				// Map availability filter to foster_visibility
-				if (
-					filters.availability &&
-					animal.foster_visibility !== filters.availability
-				)
-					return;
-
-				// Apply search to animals
-				if (searchTerm) {
-					const searchLower = searchTerm.toLowerCase();
-					const animalName = animal.name?.toLowerCase() || "";
-					if (!animalName.includes(searchLower)) return;
-				}
-
-				items.push({
-					type: "animal",
-					data: animal,
-					priority: animal.priority || false,
-					created_at: animal.created_at,
-				});
-			});
-		}
-
-		// Add groups (only if not hidden by sex filter)
-		if (
-			!shouldHideGroups &&
-			(typeFilter === undefined || typeFilter === "groups")
-		) {
-			groupsWithVisibility.forEach(({ group, foster_visibility }) => {
-				if (!foster_visibility) return;
-
-				// Apply priority filter to groups
-				if (filters.priority === true && !group.priority) return;
-
-				// Apply life_stage filter: show group if at least one animal matches
-				if (filters.life_stage) {
-					const groupAnimals: Animal[] =
-						group.animal_ids
-							?.map((id) => animalMapById.get(id))
-							.filter((animal): animal is Animal => !!animal) ||
-						[];
-
-					// Check if at least one animal matches the life_stage filter
-					const hasMatchingLifeStage = groupAnimals.some(
-						(animal) => animal.life_stage === filters.life_stage
-					);
-
-					if (!hasMatchingLifeStage) return;
-				}
-
-				// Apply search to groups
-				if (searchTerm) {
-					const searchLower = searchTerm.toLowerCase();
-					const groupName = group.name?.toLowerCase() || "";
-					if (!groupName.includes(searchLower)) return;
-				}
-
-				// Map availability filter to foster_visibility (groups inherit from animals)
-				if (
-					filters.availability &&
-					foster_visibility !== filters.availability
-				)
-					return;
-
-				items.push({
-					type: "group",
-					data: group,
-					priority: group.priority || false,
-					created_at: group.created_at,
-					foster_visibility,
-				});
-			});
-		}
-
-		// Sort: priority DESC, then created_at ASC (oldest first) or DESC (newest first) based on filter
-		items.sort((a, b) => {
-			// First sort by priority (high priority first)
-			if (a.priority !== b.priority) {
-				return a.priority ? -1 : 1;
-			}
-			// Then sort by created_at
-			const aTime = new Date(a.created_at).getTime();
-			const bTime = new Date(b.created_at).getTime();
-			if (filters.sortByCreatedAt === "newest") {
-				return bTime - aTime; // Newest first
-			}
-			return aTime - bTime; // Oldest first (default)
-		});
-
-		return items;
-	}, [animalsData, groupsWithVisibility, filters, searchTerm, animalMapById]);
+	const combinedItems = useMemo(
+		() =>
+			combineAndSortFostersNeededItems(
+				animalsData,
+				groupsWithVisibility,
+				animalMapById,
+				filters,
+				searchTerm
+			),
+		[animalsData, groupsWithVisibility, animalMapById, filters, searchTerm]
+	);
 
 	// Paginate the combined items
 	const paginatedItems = useMemo(() => {
