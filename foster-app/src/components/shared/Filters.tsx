@@ -243,7 +243,7 @@ export function FilterButton({
 			<button
 				type="button"
 				onClick={toggleOpen}
-				className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base font-medium border border-pink-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 transition-colors ${
+				className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base font-medium border border-pink-300 rounded-[36px] bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 transition-colors ${
 					activeCount > 0
 						? "text-pink-700 bg-pink-50"
 						: "text-gray-700"
@@ -266,8 +266,8 @@ export function FilterButton({
 
 			{/* Dropdown content */}
 			{isOpen && (
-				<div className="absolute top-full right-0 mt-1 w-fit max-w-[90vw] border border-pink-300 rounded-md bg-white shadow-lg z-50">
-					<div className="px-3 pb-3 pt-2">{children}</div>
+				<div className="absolute top-full right-0 mt-3 w-fit max-w-[90vw] border border-pink-300 rounded-[36px] bg-white shadow-lg z-50">
+					<div className="px-5 py-4 sm:px-6 sm:py-5">{children}</div>
 				</div>
 			)}
 		</div>

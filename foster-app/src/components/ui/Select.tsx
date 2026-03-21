@@ -1,4 +1,5 @@
 import type { SelectHTMLAttributes } from "react";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 	label?: string; // Optional label - can be omitted for compact filter use
@@ -29,21 +30,27 @@ export default function Select({
 						{label}:
 					</label>
 				)}
-				<select
-					id={selectId}
-					className={`w-[140px] flex-shrink-0 px-2.5 py-1.5 text-sm border text-gray-900 ${
-						error
-							? "border-red-300 focus:border-red-500 focus:ring-red-500"
-							: "border-pink-300 focus:border-pink-500 focus:ring-pink-500"
-					} rounded-md shadow-sm focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white ${className}`}
-					{...props}
-				>
-					{options.map((option) => (
-						<option key={option.value} value={option.value}>
-							{option.label}
-						</option>
-					))}
-				</select>
+				<div className="relative w-[168px] flex-shrink-0">
+					<select
+						id={selectId}
+						className={`w-full cursor-pointer appearance-none pl-3 pr-12 py-1.5 text-sm border text-gray-900 ${
+							error
+								? "border-red-300 focus:border-red-500 focus:ring-red-500"
+								: "border-pink-300 focus:border-pink-500 focus:ring-pink-500"
+						} rounded-[36px] shadow-sm focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white ${className}`}
+						{...props}
+					>
+						{options.map((option) => (
+							<option key={option.value} value={option.value}>
+								{option.label}
+							</option>
+						))}
+					</select>
+					<ChevronDownIcon
+						className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-700"
+						aria-hidden
+					/>
+				</div>
 				{error && <p className="mt-1 text-sm text-red-600">{error}</p>}
 			</div>
 		);

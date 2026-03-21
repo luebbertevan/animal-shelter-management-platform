@@ -147,7 +147,10 @@ export default function NavigationBar() {
 							alt="Co Kitty Coalition"
 							className="h-8 sm:h-12 md:h-full md:max-h-full w-auto object-contain"
 						/>
-						<span className="hidden sm:block text-pink-600 font-semibold text-lg sm:text-xl md:text-2xl lg:text-3xl">
+						<span
+							className="shrink-0 font-logo font-black text-pink-600 text-base sm:text-lg md:text-2xl lg:text-3xl"
+							translate="no"
+						>
 							Fosty
 						</span>
 					</div>

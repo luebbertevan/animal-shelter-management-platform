@@ -1,6 +1,6 @@
 {
-  "name": "Foster Platform",
-  "short_name": "Foster",
+  "name": "Fosty",
+  "short_name": "Fosty",
   "description": "Foster coordination platform for animal rescue management",
   "start_url": "/",
   "display": "standalone",
@@ -8,16 +8,10 @@
   "theme_color": "#ec4899",
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
+      "src": "/favicon.png",
+      "sizes": "500x500",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
