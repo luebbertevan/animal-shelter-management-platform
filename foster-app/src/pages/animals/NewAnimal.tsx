@@ -375,13 +375,13 @@ export default function NewAnimal() {
 						<h1 className="text-2xl font-bold text-gray-900">
 							Create New Animal
 						</h1>
-						<div className="flex items-center gap-2">
+						<div className="flex items-center gap-4">
 							<Button
 								type="button"
 								variant="primary"
 								onClick={() => setIsAnimalSelectorOpen(true)}
 								disabled={loading || uploadingPhotos}
-								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+								className="w-auto py-3 px-6 text-sm whitespace-nowrap"
 							>
 								Copy animal
 							</Button>
@@ -389,7 +389,7 @@ export default function NewAnimal() {
 								type="button"
 								variant="outline"
 								onClick={() => navigate("/animals")}
-								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+								className="w-auto py-3 px-6 text-sm whitespace-nowrap border-0 bg-transparent shadow-none disabled:border-transparent"
 							>
 								Cancel
 							</Button>

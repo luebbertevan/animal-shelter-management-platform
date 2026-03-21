@@ -313,12 +313,12 @@ export function FilterSection({
 	};
 
 	return (
-		<div className="border border-pink-300 rounded-md bg-white shadow-sm">
+		<div className="border border-pink-300 rounded-[36px] bg-white shadow-sm overflow-hidden">
 			{/* Header with toggle button */}
 			<button
 				type="button"
 				onClick={toggleOpen}
-				className="w-full flex items-center justify-between px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 rounded-t-md hover:bg-gray-50 transition-colors"
+				className="w-full flex items-center justify-between px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 hover:bg-gray-50 transition-colors"
 				aria-expanded={isOpen}
 				aria-controls={`filter-section-${title
 					.toLowerCase()

@@ -756,13 +756,13 @@ export default function EditAnimal() {
 						<h1 className="text-2xl font-bold text-gray-900">
 							Edit Animal
 						</h1>
-						<div className="flex items-center gap-2">
+						<div className="flex items-center gap-4">
 							<Button
 								type="button"
 								variant="primary"
 								onClick={() => setIsAnimalSelectorOpen(true)}
 								disabled={loading || uploadingPhotos}
-								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+								className="w-auto py-3 px-6 text-sm whitespace-nowrap"
 							>
 								Copy animal
 							</Button>
@@ -772,7 +772,7 @@ export default function EditAnimal() {
 								onClick={() =>
 									navigate(id ? `/animals/${id}` : "/animals")
 								}
-								className="w-auto py-1 px-2 text-sm whitespace-nowrap"
+								className="w-auto py-3 px-6 text-sm whitespace-nowrap border-0 bg-transparent shadow-none disabled:border-transparent"
 							>
 								Cancel
 							</Button>
