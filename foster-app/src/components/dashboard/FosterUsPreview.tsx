@@ -282,7 +282,7 @@ export default function FosterUsPreview() {
 	}
 
 	return (
-		<div className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+		<div className="mb-6">
 			<div className="flex items-center justify-between gap-3 mb-4">
 				<h2 className="text-2xl sm:text-3xl font-semibold text-gray-900">
 					Foster us!
@@ -356,7 +356,7 @@ export default function FosterUsPreview() {
 					</div>
 					{canScrollRight && (
 						<div
-							className="pointer-events-none absolute inset-y-0 -right-px z-[1] w-[calc(6rem+2px)] bg-[linear-gradient(to_left,white_0%,white_32%,rgba(255,255,255,0.82)_58%,rgba(255,255,255,0.35)_82%,transparent_100%)] [transform:translateZ(0)]"
+							className="pointer-events-none absolute inset-y-0 -right-px z-[1] w-[calc(3rem+1px)] bg-[linear-gradient(to_left,rgb(249_250_251)_0%,rgb(249_250_251)_28%,rgba(249,250,251,0.75)_55%,rgba(249,250,251,0.28)_78%,transparent_100%)] [transform:translateZ(0)]"
 							aria-hidden={true}
 						/>
 					)}
