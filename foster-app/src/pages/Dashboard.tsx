@@ -298,7 +298,7 @@ export default function Dashboard() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-5xl mx-auto">
 				{profile.organization_name && (
-					<h1 className="text-3xl font-semibold text-pink-600 mb-4">
+					<h1 className="text-center text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight text-pink-600 mb-6">
 						{profile.organization_name}
 					</h1>
 				)}

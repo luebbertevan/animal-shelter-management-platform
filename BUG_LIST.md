@@ -92,6 +92,7 @@ Add something to indicate the chat is for the rescue staff at CKC
 -modal scrolling on mobile is a problem
 -placeholder image can be cuter, like a generic cat icon or something
 - the bulk add name input is vertically spaced awkwardly (touching eachother)
+- the chat conversation side bar currently has buttonish look to it and it should not (check chat gpt to see a better design)
 
 ## Ask skye again.
 - Request placeholder text seems to encourage typing a message which is probably good, reasoning: we want them to actually be commited and spend time on the request. Auto fill makes the defualt message behavior more intuiative but we might actualy want the friction in the flow to encoure commitment. 
