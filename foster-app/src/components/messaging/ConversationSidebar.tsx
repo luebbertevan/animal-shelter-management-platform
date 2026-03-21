@@ -157,6 +157,8 @@ export default function ConversationSidebar({
 								: conversation.foster_name || "Foster Chat";
 
 						const isSelected = conversation.id === selectedConversationId;
+						const isCoordinatorChat =
+							conversation.type === "coordinator_group";
 
 						return (
 							<li
@@ -172,7 +174,9 @@ export default function ConversationSidebar({
 									className={`w-full pl-6 pr-4 py-3 text-left text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pink-500 ${
 										isSelected
 											? "bg-pink-100 text-gray-900 hover:bg-pink-200"
-											: "text-gray-900 hover:bg-gray-50"
+											: isCoordinatorChat
+												? "bg-pink-50 text-pink-900 hover:bg-pink-100"
+												: "text-gray-900 hover:bg-gray-50"
 									}`}
 								>
 									<span className="block truncate">
