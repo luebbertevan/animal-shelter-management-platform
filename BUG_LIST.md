@@ -67,8 +67,12 @@ No messages yet
 Start the conversation!
 Add something to indicate the chat is for the rescue staff at CKC
 - if an animal is in a group and the foster has requested that group all animals in that group should have a badge that shows requested (currently shows nothing)
-- copy animal button is vague
+- copy animal button is vague and confusing
 - requests should have a indicator of the pending requests
+-on mobile(madrid) editing an animal the primary breed drowpdown was auto focused which is a bug itseld but also it prevented scrolling which the real issue. scrolling on mobile is buggy on modals also
+-multiple people cannot request a foster at the same time. 
+-the foster perspective does not see current group: group name on the animals details page 
+- call to actions (primary, seconday, etc.) should all go in the same place (same line, etc.)
 
 ---
 
