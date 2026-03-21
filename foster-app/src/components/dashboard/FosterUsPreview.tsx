@@ -347,7 +347,7 @@ export default function FosterUsPreview() {
 								<Link
 									to="/fosters-needed"
 									aria-label={`View ${moreBeyondCarousel} more foster opportunities on Fosters Needed`}
-									className={`${CAROUSEL_CARD_WIDTH_CLASSES} flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-pink-200 bg-pink-50/60 text-center text-lg font-semibold text-pink-700 hover:bg-pink-50 transition-colors`}
+									className="shrink-0 snap-start self-center whitespace-nowrap py-2 text-sm font-semibold text-pink-600 hover:text-pink-700 hover:underline"
 								>
 									+ {moreBeyondCarousel} more
 								</Link>
