@@ -10,9 +10,9 @@ export default defineConfig({
 			registerType: "autoUpdate",
 			includeAssets: [
 				"favicon.ico",
+				"favicon.png",
 				"vite.svg",
-				"icon-192.png",
-				"icon-512.png",
+				"cat-paw-pink.png",
 			],
 			// Manifest is read from public/manifest.json automatically
 			workbox: {

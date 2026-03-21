@@ -58,7 +58,7 @@ export default function SearchInput({
 				onKeyDown={handleKeyDown}
 				placeholder={placeholder}
 				disabled={disabled}
-				className="w-full pl-10 pr-10 py-2 sm:py-2.5 text-base border border-pink-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400"
+				className="w-full pl-10 pr-10 py-2 sm:py-2.5 text-base border border-pink-300 rounded-[36px] shadow-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder:text-gray-400"
 			/>
 
 				{/* Clear Button */}
@@ -80,7 +80,7 @@ export default function SearchInput({
 			type="button"
 			onClick={handleSearch}
 			disabled={disabled}
-			className="hidden sm:block px-4 py-2.5 text-base font-medium bg-pink-500 text-white rounded-md hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:bg-pink-300 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+			className="hidden sm:block px-4 py-2.5 text-base font-medium bg-pink-500 text-white rounded-[36px] hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:bg-pink-300 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
 			aria-label="Search"
 		>
 			Search

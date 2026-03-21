@@ -11,7 +11,7 @@ export default function Button({
 	...props
 }: ButtonProps) {
 	const baseClasses =
-		"w-full py-2 px-4 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed transition-colors";
+		"paw-hover-overlay paw-hover-overlay--btn relative overflow-hidden w-full py-2 px-4 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed transition-colors";
 
 	const variantClasses = {
 		primary:
@@ -28,7 +28,7 @@ export default function Button({
 			className={`${baseClasses} ${variantClasses[variant]} ${className}`}
 			{...props}
 		>
-			{children}
+			<span className="relative z-[2]">{children}</span>
 		</button>
 	);
 }

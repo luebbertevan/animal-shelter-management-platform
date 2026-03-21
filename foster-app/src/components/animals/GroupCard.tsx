@@ -136,10 +136,10 @@ export default function GroupCard({
 	return (
 		<Link
 			to={`/groups/${group.id}`}
-			className="bg-white rounded-lg shadow-sm border border-pink-100 hover:shadow-md transition-shadow cursor-pointer block overflow-hidden relative"
+			className="paw-hover-overlay bg-white rounded-lg shadow-sm border border-pink-100 hover:shadow-md transition-shadow cursor-pointer block overflow-hidden relative"
 		>
 			{/* Photo area - matches AnimalCard aspect ratio */}
-			<div className="w-full aspect-[4/5] bg-gray-100 flex items-center justify-center relative">
+			<div className="relative z-0 w-full aspect-[4/5] bg-gray-100 flex items-center justify-center">
 				{photoCount > 0 ? (
 					<div className={`w-full h-full ${gridClasses}`}>
 						{displayPhotos.map((photoUrl, index) => (
