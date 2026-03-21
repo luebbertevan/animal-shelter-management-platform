@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@theme {
+	--font-sans:
+		"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+		"Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+	/* Wordmark in nav — Rubik Black (900): https://fonts.google.com/specimen/Rubik */
+	--font-logo: "Rubik", ui-sans-serif, system-ui, sans-serif;
+}
+
 /* Global text color so app text is readable in embedded previews with dark shells */
 body {
 	color: #111827; /* Tailwind gray-900 */
