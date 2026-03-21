@@ -355,10 +355,10 @@ export default function GroupsList() {
 							{isCoordinator && (
 								<Link to="/groups/new">
 									<Button
-										className="w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-2 flex items-center justify-center gap-2 whitespace-nowrap"
+										className="h-10 w-10 px-0 py-0 sm:h-auto sm:w-auto sm:px-5 sm:py-2.5 whitespace-nowrap text-sm"
 										aria-label="Add group"
 									>
-										<PlusIcon className="h-5 w-5" />
+										<PlusIcon className="h-5 w-5 shrink-0" />
 										<span className="hidden sm:inline">
 											Add Group
 										</span>
@@ -369,11 +369,11 @@ export default function GroupsList() {
 								type="button"
 								onClick={() => refetch()}
 								disabled={isLoading || isRefetching}
-								className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto px-0 py-0 sm:px-4 sm:py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
+								className="inline-flex items-center justify-center gap-2 h-10 w-10 px-0 py-0 sm:h-auto sm:w-auto sm:px-5 sm:py-2.5 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-[36px] hover:bg-pink-100 hover:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
 								aria-label="Refresh groups"
 							>
 								<ArrowPathIcon
-									className={`h-4 w-4 sm:h-5 sm:w-5 ${
+									className={`h-5 w-5 shrink-0 ${
 										isRefetching ? "animate-spin" : ""
 									}`}
 								/>

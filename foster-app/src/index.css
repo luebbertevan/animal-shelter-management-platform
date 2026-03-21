@@ -73,12 +73,3 @@ body {
 .paw-hover-overlay:focus-visible::after {
 	opacity: 1;
 }
-
-/* Buttons: pattern sits *under* the label (between fill and text), not on top of it */
-.paw-hover-overlay--btn::after {
-	z-index: 1;
-	inset: 0;
-	border-radius: inherit;
-	background-position: center;
-	background-size: min(246%, 12rem);
-}
