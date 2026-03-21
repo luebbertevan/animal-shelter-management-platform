@@ -108,7 +108,7 @@ export default function MessageBubble({
 		<div
 			className={`flex flex-col ${
 				isOwnMessage ? "items-end" : "items-start"
-			} ${isFirstInGroup ? "mt-3" : "mt-0.5"} w-full`}
+			} ${isFirstInGroup ? "mt-3" : "mt-2"} w-full`}
 		>
 			{/* Sender name - only shown on first message in group, not for own messages */}
 			{isFirstInGroup && !isOwnMessage && (
@@ -138,7 +138,7 @@ export default function MessageBubble({
 			{/* Photos - outside message bubble to avoid width constraints */}
 			{hasPhotos && (
 				<div
-					className={`w-full mt-1 ${
+					className={`w-full mt-2 ${
 						isOwnMessage ? "flex justify-end" : "flex justify-start"
 					}`}
 				>
@@ -233,7 +233,7 @@ export default function MessageBubble({
 			{/* Tags - outside message bubble to avoid width constraints */}
 			{hasTags && (
 				<div
-					className={`w-full mt-1.5 ${
+					className={`w-full mt-2 ${
 						isOwnMessage ? "flex justify-end" : "flex justify-start"
 					}`}
 				>
