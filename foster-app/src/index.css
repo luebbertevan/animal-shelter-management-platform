@@ -32,3 +32,53 @@ body {
 		height: -webkit-fill-available;
 	}
 }
+
+/* Paw overlay on hover / focus-visible (asset: /public/cat-paw-pink.png) */
+.paw-hover-overlay {
+	position: relative;
+	isolation: isolate;
+}
+
+.paw-hover-overlay::after {
+	content: "";
+	position: absolute;
+	/*
+	 * Limit the overlay to the upper band of the card so the paw is laid out *only*
+	 * above the title strip — tiny background-position % changes were invisible when
+	 * background-size is huge (the image barely moved on screen).
+	 */
+	top: 0;
+	left: 0;
+	right: 0;
+	/* Smaller bottom gap = taller overlay = paw sits lower (still clears the name strip) */
+	bottom: 16%;
+	z-index: 3;
+	border-radius: 0.5rem 0.5rem 0 0;
+	pointer-events: none;
+	opacity: 0;
+	background-image: url("/cat-paw-pink.png");
+	background-repeat: no-repeat;
+	background-position: center center;
+	background-size: min(132%, 31.5rem);
+	transition: opacity 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.paw-hover-overlay::after {
+		transition: none;
+	}
+}
+
+.paw-hover-overlay:hover::after,
+.paw-hover-overlay:focus-visible::after {
+	opacity: 1;
+}
+
+/* Buttons: pattern sits *under* the label (between fill and text), not on top of it */
+.paw-hover-overlay--btn::after {
+	z-index: 1;
+	inset: 0;
+	border-radius: inherit;
+	background-position: center;
+	background-size: min(246%, 12rem);
+}
