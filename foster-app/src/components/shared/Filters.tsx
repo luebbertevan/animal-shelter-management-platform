@@ -266,8 +266,8 @@ export function FilterButton({
 
 			{/* Dropdown content */}
 			{isOpen && (
-				<div className="absolute top-full right-0 mt-1 w-fit max-w-[90vw] border border-pink-300 rounded-md bg-white shadow-lg z-50">
-					<div className="px-3 pb-3 pt-2">{children}</div>
+				<div className="absolute top-full right-0 mt-3 w-fit max-w-[90vw] border border-pink-300 rounded-[36px] bg-white shadow-lg z-50">
+					<div className="px-5 py-4 sm:px-6 sm:py-5">{children}</div>
 				</div>
 			)}
 		</div>
