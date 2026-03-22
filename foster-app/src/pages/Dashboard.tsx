@@ -295,14 +295,21 @@ export default function Dashboard() {
 	};
 
 	return (
-		<div className="min-h-screen p-4 bg-gray-50">
-			<div className="max-w-5xl mx-auto">
-				{profile.organization_name && (
-					<h1 className="text-3xl font-semibold text-pink-600 mb-4">
-						{profile.organization_name}
-					</h1>
-				)}
+		<div className="min-h-screen bg-gray-50">
+			{profile.organization_name && (
+				<div className="w-full bg-gradient-to-b from-pink-50 via-pink-50/70 to-transparent pb-4 pt-5 sm:pb-5 sm:pt-6">
+					<header className="mx-auto max-w-5xl px-4 text-center sm:px-6">
+						<h1 className="dashboard-org-title-entrance pb-0.5 text-3xl font-semibold tracking-tight text-pink-600 min-[400px]:text-4xl sm:text-5xl md:text-6xl lg:text-7xl">
+							{profile.organization_name}
+						</h1>
+						<div className="dashboard-org-title-divider" aria-hidden="true" />
+					</header>
+				</div>
+			)}
 
+			<div
+				className={`mx-auto max-w-5xl px-4 pb-4 ${profile.organization_name ? "pt-2" : "pt-4"}`}
+			>
 				<FosterUsPreview />
 
 				{/* Coordinator Pending Foster Requests Section */}
