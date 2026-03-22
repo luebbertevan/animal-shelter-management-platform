@@ -149,7 +149,7 @@ export default function ConversationSidebar({
 				<h2 className="text-lg font-semibold text-gray-900">Chats</h2>
 			</div>
 			<div className="flex-1 overflow-y-auto">
-				<div className="p-3 space-y-2">
+				<ul className="list-none flex flex-col">
 					{conversations.map((conversation) => {
 						const displayName =
 							conversation.type === "coordinator_group"
@@ -161,24 +161,32 @@ export default function ConversationSidebar({
 							conversation.type === "coordinator_group";
 
 						return (
-							<button
+							<li
 								key={conversation.id}
-								onClick={() => onSelectConversation(conversation.id)}
-								className={`block w-full p-3 text-left transition-colors border rounded-lg ${
-									isSelected
-										? "border-pink-500 bg-pink-100 ring-1 ring-pink-500"
-										: isCoordinatorChat
-											? "border-pink-300 bg-pink-50 hover:bg-pink-100"
-											: "border-gray-200 bg-white hover:bg-gray-50"
-								}`}
+								className="border-b border-gray-100 last:border-b-0"
 							>
-								<h3 className="text-sm font-semibold text-gray-900 truncate">
-									{displayName}
-								</h3>
-							</button>
+								<button
+									type="button"
+									aria-current={isSelected ? true : undefined}
+									onClick={() =>
+										onSelectConversation(conversation.id)
+									}
+									className={`w-full pl-6 pr-4 py-3 text-left text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pink-500 ${
+										isSelected
+											? "bg-pink-100 text-gray-900 hover:bg-pink-200"
+											: isCoordinatorChat
+												? "bg-pink-50 text-pink-900 hover:bg-pink-100"
+												: "text-gray-900 hover:bg-gray-50"
+									}`}
+								>
+									<span className="block truncate">
+										{displayName}
+									</span>
+								</button>
+							</li>
 						);
 					})}
-				</div>
+				</ul>
 			</div>
 		</div>
 	);
