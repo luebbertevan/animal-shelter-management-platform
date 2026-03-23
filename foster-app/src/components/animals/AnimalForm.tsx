@@ -57,6 +57,7 @@ interface AnimalFormProps {
 
 	// When true, visibility dropdown is locked to Not Visible (e.g. when status is deceased/euthanized)
 	visibilityDropdownDisabled?: boolean;
+	fosterVisibilityLabel?: string;
 
 	// Form submission
 	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
@@ -113,6 +114,7 @@ export default function AnimalForm({
 	successMessage,
 	submitButtonText,
 	visibilityDropdownDisabled = false,
+	fosterVisibilityLabel = "Set visibility on Fosters Needed page",
 	showDeleteButton = false,
 	deleteError,
 	showDeleteConfirm = false,
@@ -151,7 +153,7 @@ export default function AnimalForm({
 			/>
 
 			<Select
-				label="Set visibility on Fosters Needed page"
+				label={fosterVisibilityLabel}
 				value={formState.fosterVisibility}
 				onChange={(e) =>
 					setFosterVisibility(e.target.value as FosterVisibility)
