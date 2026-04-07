@@ -508,6 +508,7 @@ export default function FostersNeeded() {
 												<AnimalCard
 													key={`animal-${item.data.id}`}
 													animal={item.data}
+													organizationId={profile.organization_id}
 													foster_visibility={
 														item.data
 															.foster_visibility
@@ -540,6 +541,7 @@ export default function FostersNeeded() {
 													key={`group-${item.data.id}`}
 													group={item.data}
 													animalData={animalDataMap}
+													organizationId={profile.organization_id}
 													foster_visibility={
 														item.foster_visibility
 													}

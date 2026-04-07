@@ -28,6 +28,8 @@ interface MessageBubbleProps {
 		string,
 		{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
 	>;
+	/** Organization ID (used to normalize legacy animal photo values in tag cards). */
+	organizationId?: string;
 }
 
 /**
@@ -71,6 +73,7 @@ export default function MessageBubble({
 	isFirstInGroup = true,
 	isLastInGroup = true,
 	animalDataMap,
+	organizationId,
 }: MessageBubbleProps) {
 	const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 	const [imageLoadStates, setImageLoadStates] = useState<
@@ -254,6 +257,7 @@ export default function MessageBubble({
 										<AnimalCard
 											animal={tag.animal}
 											hideGroupIndicator={true}
+											organizationId={organizationId}
 										/>
 									</div>
 								);
@@ -269,6 +273,7 @@ export default function MessageBubble({
 										<GroupCard
 											group={tag.group}
 											animalData={animalDataMap}
+											organizationId={organizationId}
 										/>
 									</div>
 								);

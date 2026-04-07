@@ -24,6 +24,119 @@ const ALLOWED_MIME_TYPES = [
 export const PHOTO_MAX_FILE_SIZE = MAX_FILE_SIZE;
 export const ALLOWED_PHOTO_MIME_TYPES: readonly string[] = ALLOWED_MIME_TYPES;
 
+function isNonHttpUrlScheme(url: string): boolean {
+	return (
+		url.startsWith("data:") ||
+		url.startsWith("blob:") ||
+		url.startsWith("file:")
+	);
+}
+
+function isAbsoluteUrl(url: string): boolean {
+	if (!url) return false;
+	if (isNonHttpUrlScheme(url)) return true;
+	try {
+		const parsed = new URL(url);
+		return parsed.protocol === "http:" || parsed.protocol === "https:";
+	} catch {
+		return false;
+	}
+}
+
+function stripQueryAndHash(value: string): string {
+	// Supabase public URLs may include transforms or cache-busting query params.
+	// For path inference, we only want the base path.
+	return value.split("#")[0].split("?")[0];
+}
+
+function getStoragePathFromPublicUrl(photoUrl: string): string | null {
+	// Expected format:
+	// - https://<project>.supabase.co/storage/v1/object/public/photos/<path>
+	// - https://<project>.supabase.co/storage/v1/render/image/public/photos/<path>
+	const base = stripQueryAndHash(photoUrl);
+	const parts = base.split("/photos/");
+	if (parts.length !== 2) return null;
+	const maybePath = parts[1];
+	if (!maybePath) return null;
+	try {
+		return decodeURIComponent(maybePath);
+	} catch {
+		return maybePath;
+	}
+}
+
+/**
+ * Normalizes an animal photo URL.
+ *
+ * Some older records may store only a filename (e.g. `1773...jpg`) or a storage path
+ * instead of a full public URL. This function converts those values into a public URL
+ * so `<img src>` never becomes a broken relative request.
+ */
+export function getAnimalPhotoPublicUrl(
+	organizationId: string,
+	animalId: string,
+	photoUrlOrPathOrFilename: string
+): string {
+	if (!photoUrlOrPathOrFilename) return photoUrlOrPathOrFilename;
+	if (isAbsoluteUrl(photoUrlOrPathOrFilename)) {
+		return photoUrlOrPathOrFilename;
+	}
+
+	const fromPublicUrl = getStoragePathFromPublicUrl(photoUrlOrPathOrFilename);
+	if (fromPublicUrl) {
+		return (
+			supabase.storage.from("photos").getPublicUrl(fromPublicUrl).data
+				.publicUrl || photoUrlOrPathOrFilename
+		);
+	}
+
+	const raw = stripQueryAndHash(photoUrlOrPathOrFilename).trim();
+	if (!raw) return photoUrlOrPathOrFilename;
+
+	// If value already looks like a storage path (contains at least one slash),
+	// prefer it as-is.
+	const storagePath = raw.includes("/")
+		? raw
+		: `${organizationId}/animals/${animalId}/${raw}`;
+
+	return (
+		supabase.storage.from("photos").getPublicUrl(storagePath).data.publicUrl ||
+		photoUrlOrPathOrFilename
+	);
+}
+
+/**
+ * Normalizes a group photo URL (group-level photos live under `{org}/groups/{groupId}/...`).
+ */
+export function getGroupPhotoPublicUrl(
+	organizationId: string,
+	groupId: string,
+	photoUrlOrPathOrFilename: string
+): string {
+	if (!photoUrlOrPathOrFilename) return photoUrlOrPathOrFilename;
+	if (isAbsoluteUrl(photoUrlOrPathOrFilename)) return photoUrlOrPathOrFilename;
+
+	const fromPublicUrl = getStoragePathFromPublicUrl(photoUrlOrPathOrFilename);
+	if (fromPublicUrl) {
+		return (
+			supabase.storage.from("photos").getPublicUrl(fromPublicUrl).data
+				.publicUrl || photoUrlOrPathOrFilename
+		);
+	}
+
+	const raw = stripQueryAndHash(photoUrlOrPathOrFilename).trim();
+	if (!raw) return photoUrlOrPathOrFilename;
+
+	const storagePath = raw.includes("/")
+		? raw
+		: `${organizationId}/groups/${groupId}/${raw}`;
+
+	return (
+		supabase.storage.from("photos").getPublicUrl(storagePath).data.publicUrl ||
+		photoUrlOrPathOrFilename
+	);
+}
+
 /**
  * Validates a photo file for UI (returns error message or null). Use before adding to selection.
  * Compress first when file is over PHOTO_MAX_FILE_SIZE, then call this on the compressed file.
@@ -39,71 +152,65 @@ export function validatePhotoFile(file: File): string | null {
 	return null;
 }
 
+function getOptimizedPublicPhotoUrl(
+	photoUrlOrPathOrFilename: string,
+	transform: { width?: number; quality?: number; resize?: "cover" | "contain" | "fill" }
+): string {
+	if (!photoUrlOrPathOrFilename) return photoUrlOrPathOrFilename;
+
+	const storagePath = isAbsoluteUrl(photoUrlOrPathOrFilename)
+		? getStoragePathFromPublicUrl(photoUrlOrPathOrFilename)
+		: stripQueryAndHash(photoUrlOrPathOrFilename).trim();
+
+	// If we can't infer a storage path, fall back to the original URL.
+	if (!storagePath) return photoUrlOrPathOrFilename;
+
+	const { data } = supabase.storage.from("photos").getPublicUrl(storagePath, {
+		transform,
+	});
+	return data.publicUrl || photoUrlOrPathOrFilename;
+}
+
 // ============================================================================
 // IMAGE OPTIMIZATION UTILITIES
 // ============================================================================
 
 /**
  * Generates an optimized image URL with Supabase Storage transformations
- * Uses Supabase's built-in image transformation to resize and convert formats
+ * Uses Supabase's built-in image transformation (render endpoint) to resize.
  * @param originalUrl - The original public URL from Supabase Storage
  * @param width - Optional width to resize to (maintains aspect ratio)
  * @param quality - Image quality (1-100), default 80
- * @param format - Output format (webp recommended for best compression)
  * @returns Optimized URL with transformation parameters
  */
 export function getOptimizedImageUrl(
 	originalUrl: string,
 	width?: number,
-	quality: number = 80,
-	format: "webp" | "origin" = "webp"
+	quality: number = 80
 ): string {
-	if (!originalUrl) return originalUrl;
-
-	try {
-		const url = new URL(originalUrl);
-
-		// Add transformation parameters
-		if (width) {
-			url.searchParams.set("width", width.toString());
-		}
-		url.searchParams.set("quality", quality.toString());
-		if (format !== "origin") {
-			url.searchParams.set("format", format);
-		}
-
-		return url.toString();
-	} catch {
-		// If URL parsing fails, return original
-		return originalUrl;
-	}
+	return getOptimizedPublicPhotoUrl(originalUrl, {
+		width,
+		quality,
+		// Avoid unexpected cropping defaults (e.g. square crops) by always preserving aspect ratio.
+		// CSS `object-cover` / `object-contain` in the UI should remain the single source of truth
+		// for any cropping behavior.
+		resize: "contain",
+	});
 }
 
-/**
- * Generates a thumbnail URL for card/list displays
- * @param originalUrl - The original public URL
- * @returns Optimized URL for thumbnail display (400px width, 75 quality, webp)
- */
+/** Card/list thumbnails (optimized). */
 export function getThumbnailUrl(originalUrl: string): string {
-	return getOptimizedImageUrl(originalUrl, 400, 75, "webp");
+	return getOptimizedImageUrl(originalUrl, 400, 75);
 }
 
-/**
- * Generates a medium-sized URL for detail views
- * @param originalUrl - The original public URL
- * @returns Optimized URL for medium display (800px width, 80 quality, webp)
- */
+/** Detail / lightbox (optimized). */
 export function getMediumImageUrl(originalUrl: string): string {
-	return getOptimizedImageUrl(originalUrl, 800, 80, "webp");
+	return getOptimizedImageUrl(originalUrl, 800, 80);
 }
 
-/**
- * Generates a full-size optimized URL for lightbox/full display
- * @param originalUrl - The original public URL
- * @returns Optimized URL for full display (1600px width, 85 quality, webp)
- */
+/** Full-size lightbox (optimized). */
 export function getFullImageUrl(originalUrl: string): string {
-	return getOptimizedImageUrl(originalUrl, 1600, 85, "webp");
+	return getOptimizedImageUrl(originalUrl, 1600, 85);
 }
 
 // ============================================================================

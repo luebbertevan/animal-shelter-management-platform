@@ -40,7 +40,7 @@ import {
 } from "../../lib/metadataUtils";
 import { getGroupFosterVisibility } from "../../lib/groupUtils";
 import { fetchFosterById } from "../../lib/fosterQueries";
-import { getThumbnailUrl } from "../../lib/photoUtils";
+import { getGroupPhotoPublicUrl, getThumbnailUrl } from "../../lib/photoUtils";
 
 // Defensive label helper: sometimes cached data can be unexpectedly a profile object
 // rather than a string. Rendering that object directly inside a <Link> crashes React.
@@ -231,7 +231,10 @@ export default function GroupDetail() {
 		enabled: !!id && isCoordinator,
 	});
 
-	const photoUrls = group?.group_photos?.map((photo) => photo.url) || [];
+	const photoUrls =
+		group?.group_photos?.map((photo) =>
+			getGroupPhotoPublicUrl(profile.organization_id, group.id, photo.url)
+		) || [];
 
 	// Compute group foster_visibility (should be same for all animals)
 	const { sharedValue: groupFosterVisibility, hasConflict } = useMemo(
@@ -921,6 +924,7 @@ export default function GroupDetail() {
 												group_name: group.name,
 											}}
 											hideGroupIndicator={true}
+											organizationId={profile.organization_id}
 										/>
 									))}
 								</div>

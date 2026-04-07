@@ -74,7 +74,8 @@ Add something to indicate the chat is for the rescue staff at CKC
 -the foster perspective does not see current group: group name on the animals details page 
 - call to actions (primary, seconday, etc.) should all go in the same place (same line, etc.)
 - A global UI component is applying full-width styling by default, which causes layout bugs and forces teams to sprinkle one-off CSS overrides across the app instead of controlling width intentionally per usage
-
+- we should improve photo loading optimization. In light boxes we should preload related photos in background on nav to the animals details page or more conservativly on click into the lightbox other photos should load. Or Use a progressive approach: in the lightbox, render the already-loaded thumbnail immediately, then swap to the full-size when it arrives.
+-pasted photos are bugged in the lightbox. the dimensions are wrong, too small and does not fill the lightbox.
 
 ## Hackathon 
 - change the request cancel flow. not x on tag like for animals. group cancel is better

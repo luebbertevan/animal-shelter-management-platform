@@ -41,7 +41,7 @@ import { isOffline } from "../../lib/errorUtils";
 import { DETAIL_HEADER_BOTTOM } from "../../constants/detailPageLayout";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
 import { supabase } from "../../lib/supabase";
-import { getThumbnailUrl } from "../../lib/photoUtils";
+import { getAnimalPhotoPublicUrl, getThumbnailUrl } from "../../lib/photoUtils";
 import {
 	formatDateForDisplay,
 	hasMeaningfulUpdate,
@@ -364,8 +364,15 @@ export default function AnimalDetail() {
 		);
 	}
 
-	// Extract photo URLs for lightbox
-	const photoUrls = animal.photos?.map((photo) => photo.url) || [];
+	// Extract photo URLs for lightbox (normalize legacy filename/path values)
+	const photoUrls =
+		animal.photos?.map((photo) =>
+			getAnimalPhotoPublicUrl(
+				profile.organization_id,
+				animal.id,
+				photo.url
+			)
+		) || [];
 
 	// Handle photo click
 	const handlePhotoClick = (index: number) => {
