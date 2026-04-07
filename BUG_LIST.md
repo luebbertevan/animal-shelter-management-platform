@@ -73,6 +73,7 @@ Add something to indicate the chat is for the rescue staff at CKC
 -multiple people cannot request a foster at the same time. 
 -the foster perspective does not see current group: group name on the animals details page 
 - call to actions (primary, seconday, etc.) should all go in the same place (same line, etc.)
+- A global UI component is applying full-width styling by default, which causes layout bugs and forces teams to sprinkle one-off CSS overrides across the app instead of controlling width intentionally per usage
 
 
 ## Hackathon 
