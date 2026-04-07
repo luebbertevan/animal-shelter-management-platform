@@ -549,12 +549,14 @@ export default function FosterDetail() {
 										key={group.id}
 										group={group}
 										animalData={animalDataMap}
+										organizationId={profile.organization_id}
 									/>
 								))}
 								{pendingAnimals.map((animal) => (
 									<AnimalCard
 										key={animal.id}
 										animal={animal}
+										organizationId={profile.organization_id}
 									/>
 								))}
 							</div>
@@ -574,10 +576,15 @@ export default function FosterDetail() {
 									key={group.id}
 									group={group}
 									animalData={animalDataMap}
+									organizationId={profile.organization_id}
 								/>
 							))}
 							{filteredAnimals.map((animal) => (
-								<AnimalCard key={animal.id} animal={animal} />
+								<AnimalCard
+									key={animal.id}
+									animal={animal}
+									organizationId={profile.organization_id}
+								/>
 							))}
 						</div>
 					</div>

@@ -41,13 +41,15 @@ function renderCarouselCard(
 	item: FostersNeededCombinedItem,
 	pendingRequestsMap: Map<string, FosterRequest> | undefined,
 	animalDataMap: ReturnType<typeof buildFostersNeededAnimalDataMap>,
-	handleCancelRequest: (requestId: string, name: string) => void
+	handleCancelRequest: (requestId: string, name: string) => void,
+	organizationId: string
 ) {
 	if (item.type === "animal") {
 		const pendingRequest = pendingRequestsMap?.get(item.data.id);
 		return (
 			<AnimalCard
 				animal={item.data}
+				organizationId={organizationId}
 				foster_visibility={item.data.foster_visibility}
 				hasPendingRequest={!!pendingRequest}
 				requestId={pendingRequest?.id}
@@ -69,6 +71,7 @@ function renderCarouselCard(
 		<GroupCard
 			group={item.data}
 			animalData={animalDataMap}
+			organizationId={organizationId}
 			foster_visibility={item.foster_visibility}
 			hideEmptyGroupLabel
 			hasPendingRequest={!!pendingRequest}
@@ -339,7 +342,8 @@ export default function FosterUsPreview() {
 										item,
 										pendingRequestsMap,
 										animalDataMap,
-										handleCancelRequest
+										handleCancelRequest,
+										profile.organization_id
 									)}
 								</div>
 							))}

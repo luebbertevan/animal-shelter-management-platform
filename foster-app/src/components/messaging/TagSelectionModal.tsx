@@ -528,6 +528,9 @@ export default function TagSelectionModal({
 															hideGroupIndicator={
 																true
 															}
+															organizationId={
+																profile.organization_id
+															}
 														/>
 													</div>
 												))}
@@ -615,6 +618,9 @@ export default function TagSelectionModal({
 																group={group}
 																animalData={
 																	animalDataMap
+																}
+																organizationId={
+																	profile.organization_id
 																}
 															/>
 														</div>

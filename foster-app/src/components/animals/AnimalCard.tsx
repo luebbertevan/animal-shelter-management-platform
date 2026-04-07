@@ -5,7 +5,7 @@ import type {
 	FosterVisibility,
 } from "../../types";
 import { calculateAgeFromDOB } from "../../lib/ageUtils";
-import { getThumbnailUrl } from "../../lib/photoUtils";
+import { getAnimalPhotoPublicUrl, getThumbnailUrl } from "../../lib/photoUtils";
 import { getFosterVisibilityBadge } from "../../lib/fosterVisibilityBadge";
 
 // Helper function to create a URL-friendly slug from a name
@@ -98,6 +98,11 @@ interface AnimalCardProps {
 	requestedByLabel?: string;
 	/** If provided, clicking the requestedBy badge navigates to the foster profile */
 	requestedByFosterId?: string;
+	/**
+	 * Organization ID used to normalize legacy photo values (filename/storage path → public URL).
+	 * If omitted, photos are used as-is.
+	 */
+	organizationId?: string;
 }
 
 /**
@@ -112,11 +117,20 @@ export default function AnimalCard({
 	onCancelRequest,
 	requestedByLabel,
 	requestedByFosterId,
+	organizationId,
 }: AnimalCardProps) {
 	const navigate = useNavigate();
 	const slug = createSlug(animal.name);
 	const firstPhoto =
 		animal.photos && animal.photos.length > 0 ? animal.photos[0] : null;
+	const firstPhotoUrl =
+		firstPhoto && organizationId
+			? getAnimalPhotoPublicUrl(
+					organizationId,
+					animal.id,
+					firstPhoto.url
+			  )
+			: firstPhoto?.url;
 	const ageDisplay = formatAgeForDisplay(animal.date_of_birth);
 	const sexDisplay = animal.sex_spay_neuter_status
 		? formatSexSpayNeuterStatus(animal.sex_spay_neuter_status)
@@ -163,7 +177,7 @@ export default function AnimalCard({
 			<div className="relative z-0 w-full aspect-[4/5] bg-gray-100 flex items-center justify-center">
 				{firstPhoto ? (
 					<img
-						src={getThumbnailUrl(firstPhoto.url)}
+						src={getThumbnailUrl(firstPhotoUrl || "")}
 						alt={animal.name || "Animal photo"}
 						loading="lazy"
 						className="w-full h-full object-cover"

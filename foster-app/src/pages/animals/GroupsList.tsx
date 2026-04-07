@@ -491,6 +491,7 @@ export default function GroupsList() {
 											key={group.id}
 											group={group}
 											animalData={animalDataMap}
+											organizationId={profile.organization_id}
 										/>
 									))}
 								</div>

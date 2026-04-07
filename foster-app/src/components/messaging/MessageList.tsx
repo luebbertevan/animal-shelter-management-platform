@@ -638,6 +638,7 @@ export default function MessageList({
 						isFirstInGroup={isFirstInGroup}
 						isLastInGroup={isLastInGroup}
 						animalDataMap={animalDataMap}
+						organizationId={profile.organization_id}
 					/>
 				);
 			})}

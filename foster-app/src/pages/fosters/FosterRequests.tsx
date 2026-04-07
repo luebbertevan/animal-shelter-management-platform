@@ -361,7 +361,11 @@ export default function FosterRequests() {
 								{/* Grid of cards */}
 								<div className="grid gap-1.5 grid-cols-1 min-[375px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
 									{paginatedItems.map((item) =>
-										renderRequestCardItem(item, animalDataMap)
+										renderRequestCardItem(
+											item,
+											animalDataMap,
+											profile.organization_id
+										)
 									)}
 								</div>
 
@@ -394,7 +398,8 @@ function renderRequestCardItem(
 	animalDataMap: Map<
 		string,
 		{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
-	>
+	>,
+	organizationId: string
 ) {
 	if (item.type === "animal") {
 		const singleRequest = item.requestCount === 1 ? item.requests[0] : null;
@@ -417,6 +422,7 @@ function renderRequestCardItem(
 					}}
 					requestedByLabel={item.requestedByLabel}
 					requestedByFosterId={singleRequest?.foster_profile_id}
+					organizationId={organizationId}
 				/>
 			</div>
 		);
@@ -437,6 +443,7 @@ function renderRequestCardItem(
 					animalData={animalDataMap}
 					requestedByLabel={item.requestedByLabel}
 					requestedByFosterId={singleRequest?.foster_profile_id}
+					organizationId={organizationId}
 				/>
 			</div>
 		);
