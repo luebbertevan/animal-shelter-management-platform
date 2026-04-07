@@ -51,7 +51,8 @@ function stripQueryAndHash(value: string): string {
 
 function getStoragePathFromPublicUrl(photoUrl: string): string | null {
 	// Expected format:
-	// https://<project>.supabase.co/storage/v1/object/public/photos/<path>
+	// - https://<project>.supabase.co/storage/v1/object/public/photos/<path>
+	// - https://<project>.supabase.co/storage/v1/render/image/public/photos/<path>
 	const base = stripQueryAndHash(photoUrl);
 	const parts = base.split("/photos/");
 	if (parts.length !== 2) return null;
@@ -151,60 +152,65 @@ export function validatePhotoFile(file: File): string | null {
 	return null;
 }
 
+function getOptimizedPublicPhotoUrl(
+	photoUrlOrPathOrFilename: string,
+	transform: { width?: number; quality?: number; resize?: "cover" | "contain" | "fill" }
+): string {
+	if (!photoUrlOrPathOrFilename) return photoUrlOrPathOrFilename;
+
+	const storagePath = isAbsoluteUrl(photoUrlOrPathOrFilename)
+		? getStoragePathFromPublicUrl(photoUrlOrPathOrFilename)
+		: stripQueryAndHash(photoUrlOrPathOrFilename).trim();
+
+	// If we can't infer a storage path, fall back to the original URL.
+	if (!storagePath) return photoUrlOrPathOrFilename;
+
+	const { data } = supabase.storage.from("photos").getPublicUrl(storagePath, {
+		transform,
+	});
+	return data.publicUrl || photoUrlOrPathOrFilename;
+}
+
 // ============================================================================
 // IMAGE OPTIMIZATION UTILITIES
 // ============================================================================
 
 /**
  * Generates an optimized image URL with Supabase Storage transformations
- * Uses Supabase's built-in image transformation to resize and convert formats
+ * Uses Supabase's built-in image transformation (render endpoint) to resize.
  * @param originalUrl - The original public URL from Supabase Storage
  * @param width - Optional width to resize to (maintains aspect ratio)
  * @param quality - Image quality (1-100), default 80
- * @param format - Output format (webp recommended for best compression)
  * @returns Optimized URL with transformation parameters
  */
 export function getOptimizedImageUrl(
 	originalUrl: string,
 	width?: number,
-	quality: number = 80,
-	format: "webp" | "origin" = "webp"
+	quality: number = 80
 ): string {
-	if (!originalUrl) return originalUrl;
-
-	try {
-		const url = new URL(originalUrl);
-
-		// Add transformation parameters
-		if (width) {
-			url.searchParams.set("width", width.toString());
-		}
-		url.searchParams.set("quality", quality.toString());
-		if (format !== "origin") {
-			url.searchParams.set("format", format);
-		}
-
-		const out = url.toString();
-		return out;
-	} catch {
-		// If URL parsing fails, return original
-		return originalUrl;
-	}
+	return getOptimizedPublicPhotoUrl(originalUrl, {
+		width,
+		quality,
+		// Avoid unexpected cropping defaults (e.g. square crops) by always preserving aspect ratio.
+		// CSS `object-cover` / `object-contain` in the UI should remain the single source of truth
+		// for any cropping behavior.
+		resize: "contain",
+	});
 }
 
-/** Card/list thumbnails: return URL as-is (Supabase transform query params returned 400 here). */
+/** Card/list thumbnails (optimized). */
 export function getThumbnailUrl(originalUrl: string): string {
-	return originalUrl;
+	return getOptimizedImageUrl(originalUrl, 400, 75);
 }
 
-/** Detail / lightbox: same as {@link getThumbnailUrl}. */
+/** Detail / lightbox (optimized). */
 export function getMediumImageUrl(originalUrl: string): string {
-	return originalUrl;
+	return getOptimizedImageUrl(originalUrl, 800, 80);
 }
 
-/** @see getThumbnailUrl */
+/** Full-size lightbox (optimized). */
 export function getFullImageUrl(originalUrl: string): string {
-	return originalUrl;
+	return getOptimizedImageUrl(originalUrl, 1600, 85);
 }
 
 // ============================================================================

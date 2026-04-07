@@ -73,7 +73,7 @@ Add something to indicate the chat is for the rescue staff at CKC
 -multiple people cannot request a foster at the same time. 
 -the foster perspective does not see current group: group name on the animals details page 
 - call to actions (primary, seconday, etc.) should all go in the same place (same line, etc.)
-
+- we should improve photo loading optimization. In light boxes we should preload related photos in background on nav to the animals details page or more conservativly on click into the lightbox other photos should load. Or Use a progressive approach: in the lightbox, render the already-loaded thumbnail immediately, then swap to the full-size when it arrives.
 
 ## Hackathon 
 - change the request cancel flow. not x on tag like for animals. group cancel is better

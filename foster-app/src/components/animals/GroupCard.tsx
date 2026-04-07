@@ -182,6 +182,7 @@ export default function GroupCard({
 									src={getThumbnailUrl(resolvedUrl)}
 									alt={`Group photo ${index + 1}`}
 									loading="lazy"
+									decoding="async"
 									className="w-full h-full object-cover"
 								/>
 								{/* "+X more" overlay on last cell if there are more photos */}

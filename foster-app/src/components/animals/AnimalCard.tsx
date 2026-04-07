@@ -180,6 +180,7 @@ export default function AnimalCard({
 						src={getThumbnailUrl(firstPhotoUrl || "")}
 						alt={animal.name || "Animal photo"}
 						loading="lazy"
+						decoding="async"
 						className="w-full h-full object-cover"
 					/>
 				) : (
