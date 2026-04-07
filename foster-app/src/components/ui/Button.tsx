@@ -2,16 +2,19 @@ import type { ButtonHTMLAttributes } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 	variant?: "primary" | "secondary" | "outline" | "danger";
+	fullWidth?: boolean;
 }
 
 export default function Button({
 	children,
 	variant = "primary",
+	fullWidth = true,
 	className = "",
 	...props
 }: ButtonProps) {
 	const baseClasses =
-		"relative flex items-center justify-center overflow-hidden w-full py-2 px-4 rounded-[36px] font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed transition-colors";
+		"relative flex items-center justify-center overflow-hidden py-2 px-4 rounded-[36px] font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed transition-colors";
+	const widthClass = fullWidth ? "w-full" : "w-auto";
 
 	const variantClasses = {
 		primary:
@@ -25,7 +28,7 @@ export default function Button({
 
 	return (
 		<button
-			className={`${baseClasses} ${variantClasses[variant]} ${className}`}
+			className={`${baseClasses} ${widthClass} ${variantClasses[variant]} ${className}`}
 			{...props}
 		>
 			<span className="inline-flex flex-nowrap items-center gap-2">

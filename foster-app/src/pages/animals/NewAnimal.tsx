@@ -371,25 +371,27 @@ export default function NewAnimal() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-md p-6">
-					<div className="flex items-center justify-between mb-6">
+					<div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<h1 className="text-2xl font-bold text-gray-900">
 							Create New Animal
 						</h1>
-						<div className="flex items-center gap-4">
+						<div className="flex flex-wrap items-center gap-2">
 							<Button
 								type="button"
-								variant="primary"
+								variant="outline"
+								fullWidth={false}
 								onClick={() => setIsAnimalSelectorOpen(true)}
 								disabled={loading || uploadingPhotos}
-								className="w-auto py-3 px-6 text-sm whitespace-nowrap"
+								className="justify-center rounded-full !border-pink-500 px-2 py-0.5 !text-sm !font-medium !leading-normal !text-gray-700 hover:!border-pink-600 hover:!bg-pink-50 hover:!text-gray-700 focus:!ring-pink-500 whitespace-normal sm:whitespace-nowrap"
 							>
-								Copy animal
+								Fill from existing animal
 							</Button>
 							<Button
 								type="button"
 								variant="outline"
+								fullWidth={false}
 								onClick={() => navigate("/animals")}
-								className="w-auto py-3 px-6 text-sm whitespace-nowrap border-0 bg-transparent shadow-none disabled:border-transparent"
+								className="py-1 px-2 text-sm whitespace-nowrap"
 							>
 								Cancel
 							</Button>
@@ -455,6 +457,7 @@ export default function NewAnimal() {
 						submitError={submitError}
 						successMessage={successMessage}
 						submitButtonText="Create Animal"
+						fosterVisibilityLabel="Visibility on Fosters Needed Page"
 					/>
 				</div>
 			</div>
