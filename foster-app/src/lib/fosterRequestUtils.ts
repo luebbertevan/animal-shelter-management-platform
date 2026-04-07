@@ -398,50 +398,6 @@ export async function approveFosterRequest(
 	coordinatorId: string,
 	customMessage?: string
 ): Promise<ApproveRequestResult> {
-	// #region agent log
-	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "pre-fix",
-			hypothesisId: "A",
-			location: "fosterRequestUtils.ts:approveFosterRequest:entry",
-			message: "Approve request clicked",
-			data: {
-				requestId_last6: requestId?.slice(-6),
-				orgId_last6: organizationId?.slice(-6),
-				coordinatorId_last6: coordinatorId?.slice(-6),
-				hasCustomMessage: !!customMessage?.trim(),
-			},
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {});
-	// #endregion agent log
-
-	// #region agent log
-	const {
-		data: { user: authUser },
-	} = await supabase.auth.getUser();
-	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "pre-fix",
-			hypothesisId: "B",
-			location: "fosterRequestUtils.ts:approveFosterRequest:auth",
-			message: "Auth/coordinator sanity check",
-			data: {
-				authUser_present: !!authUser,
-				authUserId_last6: authUser?.id?.slice(-6) || null,
-				coordinatorMatchesAuth: authUser ? authUser.id === coordinatorId : null,
-			},
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {});
-	// #endregion agent log
-
 	// Call RPC to approve request
 	const { data, error } = await supabase.rpc("approve_foster_request", {
 		p_organization_id: organizationId,
@@ -451,57 +407,12 @@ export async function approveFosterRequest(
 	});
 
 	if (error) {
-		// #region agent log
-		fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				sessionId: "debug-session",
-				runId: "pre-fix",
-				hypothesisId: "D",
-				location: "fosterRequestUtils.ts:approveFosterRequest:rpc_error",
-				message: "Supabase RPC approve_foster_request failed",
-				data: {
-					requestId_last6: requestId?.slice(-6),
-					orgId_last6: organizationId?.slice(-6),
-					code: (error as { code?: string }).code || null,
-					message: error.message || null,
-					details: (error as { details?: string }).details || null,
-					hint: (error as { hint?: string }).hint || null,
-					status: (error as { status?: number }).status || null,
-				},
-				timestamp: Date.now(),
-			}),
-		}).catch(() => {});
-		// #endregion agent log
-
 		throw new Error(
 			getErrorMessage(error, "Failed to approve request. Please try again.")
 		);
 	}
 
 	const result = data as ApproveRequestResult;
-
-	// #region agent log
-	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "pre-fix",
-			hypothesisId: "E",
-			location: "fosterRequestUtils.ts:approveFosterRequest:rpc_success",
-			message: "Supabase RPC approve_foster_request succeeded",
-			data: {
-				requestId_last6: requestId?.slice(-6),
-				hasAnimal: !!result?.animal,
-				hasGroup: !!result?.group,
-				autoDeniedCount: result?.auto_denied_request_ids?.length ?? null,
-			},
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {});
-	// #endregion agent log
 
 	// Send assignment message to foster
 	const entityName = result.animal?.name || result.group?.name || "animal";
@@ -550,50 +461,6 @@ export async function denyFosterRequest(
 	coordinatorId: string,
 	customMessage?: string
 ): Promise<DenyRequestResult> {
-	// #region agent log
-	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "pre-fix",
-			hypothesisId: "A",
-			location: "fosterRequestUtils.ts:denyFosterRequest:entry",
-			message: "Deny request clicked",
-			data: {
-				requestId_last6: requestId?.slice(-6),
-				orgId_last6: organizationId?.slice(-6),
-				coordinatorId_last6: coordinatorId?.slice(-6),
-				hasCustomMessage: !!customMessage?.trim(),
-			},
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {});
-	// #endregion agent log
-
-	// #region agent log
-	const {
-		data: { user: authUser },
-	} = await supabase.auth.getUser();
-	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "pre-fix",
-			hypothesisId: "B",
-			location: "fosterRequestUtils.ts:denyFosterRequest:auth",
-			message: "Auth/coordinator sanity check",
-			data: {
-				authUser_present: !!authUser,
-				authUserId_last6: authUser?.id?.slice(-6) || null,
-				coordinatorMatchesAuth: authUser ? authUser.id === coordinatorId : null,
-			},
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {});
-	// #endregion agent log
-
 	// Call RPC to deny request
 	const { data, error } = await supabase.rpc("deny_foster_request", {
 		p_organization_id: organizationId,
@@ -603,56 +470,12 @@ export async function denyFosterRequest(
 	});
 
 	if (error) {
-		// #region agent log
-		fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				sessionId: "debug-session",
-				runId: "pre-fix",
-				hypothesisId: "D",
-				location: "fosterRequestUtils.ts:denyFosterRequest:rpc_error",
-				message: "Supabase RPC deny_foster_request failed",
-				data: {
-					requestId_last6: requestId?.slice(-6),
-					orgId_last6: organizationId?.slice(-6),
-					code: (error as { code?: string }).code || null,
-					message: error.message || null,
-					details: (error as { details?: string }).details || null,
-					hint: (error as { hint?: string }).hint || null,
-					status: (error as { status?: number }).status || null,
-				},
-				timestamp: Date.now(),
-			}),
-		}).catch(() => {});
-		// #endregion agent log
-
 		throw new Error(
 			getErrorMessage(error, "Failed to deny request. Please try again.")
 		);
 	}
 
 	const result = data as DenyRequestResult;
-
-	// #region agent log
-	fetch("http://127.0.0.1:7242/ingest/7f9c082d-0380-4364-871b-35ddf29857de", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			sessionId: "debug-session",
-			runId: "pre-fix",
-			hypothesisId: "E",
-			location: "fosterRequestUtils.ts:denyFosterRequest:rpc_success",
-			message: "Supabase RPC deny_foster_request succeeded",
-			data: {
-				requestId_last6: requestId?.slice(-6),
-				hasAnimal: !!result?.animal,
-				hasGroup: !!result?.group,
-			},
-			timestamp: Date.now(),
-		}),
-	}).catch(() => {});
-	// #endregion agent log
 
 	// Send denial message to foster
 	const entityName = result.animal?.name || result.group?.name || "animal";

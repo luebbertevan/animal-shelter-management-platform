@@ -360,6 +360,7 @@ export default function AnimalSelector({
 													<AnimalCard
 														animal={animal}
 														hideGroupIndicator={false}
+														organizationId={profile.organization_id}
 													/>
 												</div>
 											</div>

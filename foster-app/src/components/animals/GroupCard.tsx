@@ -11,7 +11,11 @@ import {
 	getAnimalPhotosForGroup,
 	getLifeStageCounts,
 } from "../../lib/groupCardUtils";
-import { getThumbnailUrl } from "../../lib/photoUtils";
+import {
+	getAnimalPhotoPublicUrl,
+	getGroupPhotoPublicUrl,
+	getThumbnailUrl,
+} from "../../lib/photoUtils";
 import { getFosterVisibilityBadge } from "../../lib/fosterVisibilityBadge";
 
 interface GroupCardProps {
@@ -48,6 +52,11 @@ interface GroupCardProps {
 	requestedByLabel?: string;
 	/** If provided, clicking the requestedBy badge navigates to the foster profile */
 	requestedByFosterId?: string;
+	/**
+	 * Organization ID used to normalize legacy photo values (filename/storage path → public URL).
+	 * If omitted, photos are used as-is.
+	 */
+	organizationId?: string;
 }
 
 /**
@@ -64,6 +73,7 @@ export default function GroupCard({
 	onCancelRequest,
 	requestedByLabel,
 	requestedByFosterId,
+	organizationId,
 }: GroupCardProps) {
 	const navigate = useNavigate();
 	const animalCount = group.animal_ids?.length || 0;
@@ -82,16 +92,21 @@ export default function GroupCard({
 	};
 
 	// Determine photo to display
-	let displayPhotos: string[] = [];
+	let displayPhotos: Array<
+		| { kind: "group"; url: string }
+		| { kind: "animal"; animalId: string; url: string }
+	> = [];
 	let hasGroupPhoto = false;
 
 	if (group.group_photos && group.group_photos.length > 0) {
 		// Priority 1: Group photos (show first one, full card)
-		displayPhotos = [group.group_photos[0].url];
+		displayPhotos = [{ kind: "group", url: group.group_photos[0].url }];
 		hasGroupPhoto = true;
 	} else if (animalData && group.animal_ids && group.animal_ids.length > 0) {
 		// Priority 2: Animal photos (grid)
-		displayPhotos = getAnimalPhotosForGroup(group.animal_ids, animalData);
+		displayPhotos = getAnimalPhotosForGroup(group.animal_ids, animalData).map(
+			(p) => ({ kind: "animal", animalId: p.animalId, url: p.url })
+		);
 	}
 
 	const photoCount = displayPhotos.length;
@@ -142,15 +157,32 @@ export default function GroupCard({
 			<div className="relative z-0 w-full aspect-[4/5] bg-gray-100 flex items-center justify-center">
 				{photoCount > 0 ? (
 					<div className={`w-full h-full ${gridClasses}`}>
-						{displayPhotos.map((photoUrl, index) => (
+						{displayPhotos.map((photo, index) => {
+							const resolvedUrl =
+								organizationId && photo.kind === "group"
+									? getGroupPhotoPublicUrl(
+											organizationId,
+											group.id,
+											photo.url
+									  )
+									: organizationId && photo.kind === "animal"
+									? getAnimalPhotoPublicUrl(
+											organizationId,
+											photo.animalId,
+											photo.url
+									  )
+									: photo.url;
+
+							return (
 							<div
 								key={index}
 								className="relative w-full h-full overflow-hidden"
 							>
 								<img
-									src={getThumbnailUrl(photoUrl)}
+									src={getThumbnailUrl(resolvedUrl)}
 									alt={`Group photo ${index + 1}`}
 									loading="lazy"
+									decoding="async"
 									className="w-full h-full object-cover"
 								/>
 								{/* "+X more" overlay on last cell if there are more photos */}
@@ -163,7 +195,8 @@ export default function GroupCard({
 										</div>
 									)}
 							</div>
-						))}
+							);
+						})}
 					</div>
 				) : (
 					// Placeholder icon (same as AnimalCard)

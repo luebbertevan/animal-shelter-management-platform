@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import type { FormEvent } from "react";
+import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import type {
 	Animal,
 	TimestampedPhoto,
@@ -188,6 +189,8 @@ export default function GroupForm({
 	bulkCanAddMore = true,
 	bulkMaxRows = 30,
 }: GroupFormProps) {
+	const { profile } = useProtectedAuth();
+
 	// Generate active filter chips
 	const activeFilterChips = useMemo(() => {
 		if (!animalFilters || !onAnimalFiltersChange) return [];
@@ -607,7 +610,12 @@ export default function GroupForm({
 													pointerEvents: "none",
 												}}
 											>
-												<AnimalCard animal={animal} />
+													<AnimalCard
+														animal={animal}
+														organizationId={
+															profile.organization_id
+														}
+													/>
 											</div>
 										</div>
 									);

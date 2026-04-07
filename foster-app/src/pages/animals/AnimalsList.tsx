@@ -420,6 +420,7 @@ export default function AnimalsList() {
 										<AnimalCard
 											key={animal.id}
 											animal={animal}
+											organizationId={profile.organization_id}
 										/>
 									))}
 								</div>

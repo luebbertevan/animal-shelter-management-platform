@@ -16,7 +16,11 @@ import {
 } from "../lib/fosterRequestQueries";
 import { formatDateForDisplay } from "../lib/metadataUtils";
 import { Link } from "react-router-dom";
-import { getThumbnailUrl } from "../lib/photoUtils";
+import {
+	getAnimalPhotoPublicUrl,
+	getGroupPhotoPublicUrl,
+	getThumbnailUrl,
+} from "../lib/photoUtils";
 import type {
 	Animal,
 	AnimalGroup,
@@ -348,15 +352,30 @@ export default function Dashboard() {
 									let photo: string | undefined;
 
 									if (request.animal?.photos?.length) {
-										photo = request.animal.photos[0]?.url || undefined;
+										const raw =
+											request.animal.photos[0]?.url || undefined;
+										photo =
+											raw &&
+											getAnimalPhotoPublicUrl(
+												profile.organization_id,
+												request.animal.id,
+												raw
+											);
 									} else if (request.group) {
 										if (
 											request.group.group_photos &&
 											request.group.group_photos.length > 0
 										) {
-											photo =
+											const raw =
 												request.group.group_photos[0]
 													?.url || undefined;
+											photo =
+												raw &&
+												getGroupPhotoPublicUrl(
+													profile.organization_id,
+													request.group.id,
+													raw
+												);
 										} else if (
 											request.group.animal_ids &&
 											request.group.animal_ids.length > 0
@@ -372,7 +391,11 @@ export default function Dashboard() {
 																.url
 														: undefined;
 												if (animalPhotoUrl) {
-													photo = animalPhotoUrl;
+													photo = getAnimalPhotoPublicUrl(
+														profile.organization_id,
+														animalId,
+														animalPhotoUrl
+													);
 													break;
 												}
 											}
@@ -456,12 +479,14 @@ export default function Dashboard() {
 										key={group.id}
 										group={group}
 										animalData={animalDataMap}
+										organizationId={profile.organization_id}
 									/>
 								))}
 								{pendingAnimals.map((animal) => (
 									<AnimalCard
 										key={animal.id}
 										animal={animal}
+										organizationId={profile.organization_id}
 									/>
 								))}
 							</div>
@@ -483,12 +508,14 @@ export default function Dashboard() {
 										key={group.id}
 										group={group}
 										animalData={animalDataMap}
+										organizationId={profile.organization_id}
 									/>
 								))}
 								{filteredAnimals.map((animal) => (
 									<AnimalCard
 										key={animal.id}
 										animal={animal}
+										organizationId={profile.organization_id}
 									/>
 								))}
 							</div>

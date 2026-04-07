@@ -72,12 +72,13 @@ export function getAnimalPhotosForGroup(
 		string,
 		{ photos?: PhotoMetadata[]; life_stage?: LifeStage }
 	>
-): string[] {
-	const photos: string[] = [];
+): Array<{ animalId: string; url: string }> {
+	const photos: Array<{ animalId: string; url: string }> = [];
 	for (const animalId of animalIds) {
 		const animal = animalData.get(animalId);
 		if (animal?.photos && animal.photos.length > 0) {
-			photos.push(animal.photos[0].url);
+			const url = animal.photos[0].url;
+			photos.push({ animalId, url });
 			// Limit to 9 photos for display
 			if (photos.length >= 9) {
 				break;
