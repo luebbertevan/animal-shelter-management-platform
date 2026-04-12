@@ -5,19 +5,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { useAnimalForm } from "../../hooks/useAnimalForm";
+import { useAnimalFormSuggestionQueries } from "../../hooks/useAnimalFormSuggestionQueries";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import ErrorMessage from "../../components/ui/ErrorMessage";
 import AnimalForm from "../../components/animals/AnimalForm";
+import AnimalFormPageHeader from "../../components/animals/AnimalFormPageHeader";
 import AnimalSelector from "../../components/animals/AnimalSelector";
 import Button from "../../components/ui/Button";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
-import {
-	fetchBreedSuggestions,
-	fetchPhysicalCharacteristicsSuggestions,
-	fetchAnimalById,
-	fetchAnimalsByIds,
-} from "../../lib/animalQueries";
+import { fetchAnimalById, fetchAnimalsByIds } from "../../lib/animalQueries";
 import { fetchGroupById } from "../../lib/groupQueries";
 import { fetchFosterById } from "../../lib/fosterQueries";
 import {
@@ -30,12 +27,11 @@ import { uploadAnimalPhoto, deleteAnimalPhoto } from "../../lib/photoUtils";
 import { deleteAnimal } from "../../lib/animalUtils";
 import { animalToFormState } from "../../lib/animalFormUtils";
 import { animalStatusDropdownOptionsWithTerminal } from "../../lib/animalStatusOptions";
-import type {
-	SexSpayNeuterStatus,
-	LifeStage,
-	PhotoMetadata,
-	Animal,
-} from "../../types";
+import type { PhotoMetadata, Animal } from "../../types";
+import {
+	ANIMAL_FORM_LIFE_STAGE_OPTIONS,
+	ANIMAL_FORM_SEX_SPAY_NEUTER_OPTIONS,
+} from "../../lib/animalFormOptions";
 
 export default function EditAnimal() {
 	const { id } = useParams<{ id: string }>();
@@ -113,35 +109,20 @@ export default function EditAnimal() {
 
 	// Copy from Animal state
 	const [isAnimalSelectorOpen, setIsAnimalSelectorOpen] = useState(false);
-	const [copiedFromAnimalName, setCopiedFromAnimalName] = useState<string | null>(null);
+	const [copiedFromAnimalName, setCopiedFromAnimalName] = useState<
+		string | null
+	>(null);
 
 	// Confirmation when saving as deceased/euthanized (removal from group and/or unassignment)
 	const [showDeceasedEuthanizedConfirm, setShowDeceasedEuthanizedConfirm] =
 		useState(false);
 
-	// Fetch breed suggestions (must be before early return)
-	const { data: breedSuggestions = [], isLoading: isLoadingBreeds } =
-		useQuery<string[]>({
-			queryKey: ["breedSuggestions", profile.organization_id],
-			queryFn: () => fetchBreedSuggestions(profile.organization_id),
-			staleTime: 5 * 60 * 1000,
-			enabled: !!profile.organization_id,
-		});
-
-	// Fetch physical characteristics suggestions (must be before early return)
 	const {
-		data: physicalCharacteristicsSuggestions = [],
-		isLoading: isLoadingPhysicalCharacteristics,
-	} = useQuery<string[]>({
-		queryKey: [
-			"physicalCharacteristicsSuggestions",
-			profile.organization_id,
-		],
-		queryFn: () =>
-			fetchPhysicalCharacteristicsSuggestions(profile.organization_id),
-		staleTime: 5 * 60 * 1000,
-		enabled: !!profile.organization_id,
-	});
+		breedSuggestions,
+		isLoadingBreeds,
+		physicalCharacteristicsSuggestions,
+		isLoadingPhysicalCharacteristics,
+	} = useAnimalFormSuggestionQueries(profile.organization_id);
 
 	// Fetch group info if animal is in a group
 	const { data: group } = useQuery({
@@ -200,25 +181,6 @@ export default function EditAnimal() {
 	// Edit Animal is the only place where deceased/euthanized can be selected
 	const statusOptions = animalStatusDropdownOptionsWithTerminal();
 
-	const sexSpayNeuterOptions: {
-		value: SexSpayNeuterStatus | "";
-		label: string;
-	}[] = [
-		{ value: "", label: "Select..." },
-		{ value: "male", label: "Male" },
-		{ value: "female", label: "Female" },
-		{ value: "spayed_female", label: "Spayed Female" },
-		{ value: "neutered_male", label: "Neutered Male" },
-	];
-
-	const lifeStageOptions: { value: LifeStage | ""; label: string }[] = [
-		{ value: "", label: "Select..." },
-		{ value: "kitten", label: "Kitten" },
-		{ value: "adult", label: "Adult" },
-		{ value: "senior", label: "Senior" },
-		{ value: "unknown", label: "Unknown" },
-	];
-
 	// Handle copying data from selected animal
 	const handleCopyFromAnimal = (sourceAnimal: Animal) => {
 		// Use animalToFormState with exclusions for name, bio, and photos
@@ -232,9 +194,9 @@ export default function EditAnimal() {
 		setSexSpayNeuterStatus(copiedState.sexSpayNeuterStatus);
 		setLifeStage(copiedState.lifeStage);
 		setPrimaryBreed(copiedState.primaryBreed);
-				setPhysicalCharacteristics(copiedState.physicalCharacteristics);
-				setMedicalNeeds(copiedState.medicalNeeds);
-				setBehavioralNeeds(copiedState.behavioralNeeds);
+		setPhysicalCharacteristics(copiedState.physicalCharacteristics);
+		setMedicalNeeds(copiedState.medicalNeeds);
+		setBehavioralNeeds(copiedState.behavioralNeeds);
 		setPriority(copiedState.priority);
 
 		// Handle date of birth - use handleDOBChange to properly calculate age
@@ -752,32 +714,14 @@ export default function EditAnimal() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-md p-6">
-					<div className="flex items-center justify-between mb-6">
-						<h1 className="text-2xl font-bold text-gray-900">
-							Edit Animal
-						</h1>
-						<div className="flex items-center gap-4">
-							<Button
-								type="button"
-								variant="primary"
-								onClick={() => setIsAnimalSelectorOpen(true)}
-								disabled={loading || uploadingPhotos}
-								className="w-auto py-3 px-6 text-sm whitespace-nowrap"
-							>
-								Copy animal
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() =>
-									navigate(id ? `/animals/${id}` : "/animals")
-								}
-								className="w-auto py-3 px-6 text-sm whitespace-nowrap border-0 bg-transparent shadow-none disabled:border-transparent"
-							>
-								Cancel
-							</Button>
-						</div>
-					</div>
+					<AnimalFormPageHeader
+						title="Edit Animal"
+						onCancel={() =>
+							navigate(id ? `/animals/${id}` : "/animals")
+						}
+						onFillClick={() => setIsAnimalSelectorOpen(true)}
+						fillDisabled={loading || uploadingPhotos}
+					/>
 
 					{/* Success message when data is copied */}
 					{copiedFromAnimalName && (
@@ -820,8 +764,8 @@ export default function EditAnimal() {
 						getTodayDateString={getTodayDateString}
 						errors={errors}
 						statusOptions={statusOptions}
-						sexSpayNeuterOptions={sexSpayNeuterOptions}
-						lifeStageOptions={lifeStageOptions}
+						sexSpayNeuterOptions={ANIMAL_FORM_SEX_SPAY_NEUTER_OPTIONS}
+						lifeStageOptions={ANIMAL_FORM_LIFE_STAGE_OPTIONS}
 						breedSuggestions={breedSuggestions}
 						isLoadingBreeds={isLoadingBreeds}
 						physicalCharacteristicsSuggestions={
@@ -842,6 +786,7 @@ export default function EditAnimal() {
 						submitError={submitError}
 						successMessage={successMessage}
 						submitButtonText="Update Animal"
+						fosterVisibilityLabel="Visibility on Fosters Needed Page"
 						visibilityDropdownDisabled={isDeceasedOrEuthanized(
 							formState.status
 						)}

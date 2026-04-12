@@ -76,6 +76,16 @@ Add something to indicate the chat is for the rescue staff at CKC
 - A global UI component is applying full-width styling by default, which causes layout bugs and forces teams to sprinkle one-off CSS overrides across the app instead of controlling width intentionally per usage
 - we should improve photo loading optimization. In light boxes we should preload related photos in background on nav to the animals details page or more conservativly on click into the lightbox other photos should load. Or Use a progressive approach: in the lightbox, render the already-loaded thumbnail immediately, then swap to the full-size when it arrives.
 -pasted photos are bugged in the lightbox. the dimensions are wrong, too small and does not fill the lightbox.
+- The search in fill from existing animal adds a filter tag for a text search which is strange and does not match the behavior of other searchs. We should check other searchs to see if this behavior is there.
+
+## Refactors
+- Fill-from-animal: Deduplicate applying a selected animal into the form (animalToFormState + setters) between NewAnimal and EditAnimal with a small shared helper or hook so copy behavior can’t drift.
+
+- Group create/edit pages: Audit NewGroup and EditGroup for repeated animal-selection query/pagination/filter (and similar page chrome) and extract shared hooks or components without merging their different submit paths.
+
+- Suggestion query keys (optional): If we ever need invalidation or prefetch from outside the form, export stable React Query key builders for breed / physical-characteristics suggestions next to useAnimalFormSuggestionQueries.
+
+- Architecture guardrail: Avoid folding new-animal and edit-animal submit into one mega-hook unless those flows genuinely converge—keep shared UI/data in small modules and leave divergent submit logic explicit per page.
 
 ## Hackathon 
 - change the request cancel flow. not x on tag like for animals. group cancel is better
@@ -95,6 +105,7 @@ Add something to indicate the chat is for the rescue staff at CKC
 -placeholder image can be cuter, like a generic cat icon or something
 - the bulk add name input is vertically spaced awkwardly (touching eachother)
 - the chat conversation side bar currently has buttonish look to it and it should not (check chat gpt to see a better design)
+
 
 ## Ask skye again.
 - Request placeholder text seems to encourage typing a message which is probably good, reasoning: we want them to actually be commited and spend time on the request. Auto fill makes the defualt message behavior more intuiative but we might actualy want the friction in the flow to encoure commitment. 

@@ -1,28 +1,23 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../lib/supabase";
 import { useProtectedAuth } from "../../hooks/useProtectedAuth";
 import { useAnimalForm } from "../../hooks/useAnimalForm";
+import { useAnimalFormSuggestionQueries } from "../../hooks/useAnimalFormSuggestionQueries";
 import AnimalForm from "../../components/animals/AnimalForm";
+import AnimalFormPageHeader from "../../components/animals/AnimalFormPageHeader";
 import AnimalSelector from "../../components/animals/AnimalSelector";
-import Button from "../../components/ui/Button";
 import { getErrorMessage, checkOfflineAndThrow } from "../../lib/errorUtils";
-import {
-	fetchBreedSuggestions,
-	fetchPhysicalCharacteristicsSuggestions,
-} from "../../lib/animalQueries";
 import { calculateDOBFromAge } from "../../lib/ageUtils";
 import { uploadAnimalPhoto } from "../../lib/photoUtils";
 import { animalToFormState } from "../../lib/animalFormUtils";
-import type {
-	Animal,
-	SexSpayNeuterStatus,
-	LifeStage,
-	PhotoMetadata,
-} from "../../types";
+import type { Animal, PhotoMetadata } from "../../types";
 import { animalStatusDropdownOptionsStandard } from "../../lib/animalStatusOptions";
+import {
+	ANIMAL_FORM_LIFE_STAGE_OPTIONS,
+	ANIMAL_FORM_SEX_SPAY_NEUTER_OPTIONS,
+} from "../../lib/animalFormOptions";
 
 export default function NewAnimal() {
 	const navigate = useNavigate();
@@ -64,50 +59,14 @@ export default function NewAnimal() {
 	const [isAnimalSelectorOpen, setIsAnimalSelectorOpen] = useState(false);
 	const [copiedFromAnimalName, setCopiedFromAnimalName] = useState<string | null>(null);
 
-	// Fetch breed suggestions with React Query (5-minute cache)
-	const { data: breedSuggestions = [], isLoading: isLoadingBreeds } =
-		useQuery<string[]>({
-			queryKey: ["breedSuggestions", profile.organization_id],
-			queryFn: () => fetchBreedSuggestions(profile.organization_id),
-			staleTime: 5 * 60 * 1000, // 5 minutes
-			enabled: !!profile.organization_id,
-		});
-
-	// Fetch physical characteristics suggestions with React Query (5-minute cache)
 	const {
-		data: physicalCharacteristicsSuggestions = [],
-		isLoading: isLoadingPhysicalCharacteristics,
-	} = useQuery<string[]>({
-		queryKey: [
-			"physicalCharacteristicsSuggestions",
-			profile.organization_id,
-		],
-		queryFn: () =>
-			fetchPhysicalCharacteristicsSuggestions(profile.organization_id),
-		staleTime: 5 * 60 * 1000, // 5 minutes
-		enabled: !!profile.organization_id,
-	});
+		breedSuggestions,
+		isLoadingBreeds,
+		physicalCharacteristicsSuggestions,
+		isLoadingPhysicalCharacteristics,
+	} = useAnimalFormSuggestionQueries(profile.organization_id);
 
 	const statusOptions = animalStatusDropdownOptionsStandard();
-
-	const sexSpayNeuterOptions: {
-		value: SexSpayNeuterStatus | "";
-		label: string;
-	}[] = [
-		{ value: "", label: "Select..." },
-		{ value: "male", label: "Male" },
-		{ value: "female", label: "Female" },
-		{ value: "spayed_female", label: "Spayed Female" },
-		{ value: "neutered_male", label: "Neutered Male" },
-	];
-
-	const lifeStageOptions: { value: LifeStage | ""; label: string }[] = [
-		{ value: "", label: "Select..." },
-		{ value: "kitten", label: "Kitten" },
-		{ value: "adult", label: "Adult" },
-		{ value: "senior", label: "Senior" },
-		{ value: "unknown", label: "Unknown" },
-	];
 
 	// Handle copying data from selected animal
 	const handleCopyFromAnimal = (animal: Animal) => {
@@ -345,10 +304,9 @@ export default function NewAnimal() {
 				// Success - data exists and no error
 				setSuccessMessage("Animal created successfully!");
 
-				// Redirect to dashboard after a brief delay to show success message
-				// (Will redirect to /animals list page once M2.2 is complete)
+				// Redirect to animals list after a brief delay to show success message
 				setTimeout(() => {
-					navigate("/dashboard", { replace: true });
+					navigate("/animals", { replace: true });
 				}, 1500);
 			}
 		} catch (err) {
@@ -371,32 +329,12 @@ export default function NewAnimal() {
 		<div className="min-h-screen p-4 bg-gray-50">
 			<div className="max-w-4xl mx-auto">
 				<div className="bg-white rounded-lg shadow-md p-6">
-					<div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-						<h1 className="text-2xl font-bold text-gray-900">
-							Create New Animal
-						</h1>
-						<div className="flex flex-wrap items-center gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								fullWidth={false}
-								onClick={() => setIsAnimalSelectorOpen(true)}
-								disabled={loading || uploadingPhotos}
-								className="justify-center rounded-full !border-pink-500 px-2 py-0.5 !text-sm !font-medium !leading-normal !text-gray-700 hover:!border-pink-600 hover:!bg-pink-50 hover:!text-gray-700 focus:!ring-pink-500 whitespace-normal sm:whitespace-nowrap"
-							>
-								Fill from existing animal
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								fullWidth={false}
-								onClick={() => navigate("/animals")}
-								className="py-1 px-2 text-sm whitespace-nowrap"
-							>
-								Cancel
-							</Button>
-						</div>
-					</div>
+					<AnimalFormPageHeader
+						title="Create New Animal"
+						onCancel={() => navigate("/animals")}
+						onFillClick={() => setIsAnimalSelectorOpen(true)}
+						fillDisabled={loading || uploadingPhotos}
+					/>
 
 					{/* Success message when data is copied */}
 					{copiedFromAnimalName && (
@@ -439,8 +377,8 @@ export default function NewAnimal() {
 						getTodayDateString={getTodayDateString}
 						errors={errors}
 						statusOptions={statusOptions}
-						sexSpayNeuterOptions={sexSpayNeuterOptions}
-						lifeStageOptions={lifeStageOptions}
+						sexSpayNeuterOptions={ANIMAL_FORM_SEX_SPAY_NEUTER_OPTIONS}
+						lifeStageOptions={ANIMAL_FORM_LIFE_STAGE_OPTIONS}
 						breedSuggestions={breedSuggestions}
 						isLoadingBreeds={isLoadingBreeds}
 						physicalCharacteristicsSuggestions={
